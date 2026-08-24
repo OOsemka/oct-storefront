@@ -1,0 +1,69 @@
+{
+  "apiVersion": "communitytools.io/v1alpha1",
+  "kind": "CommunityCatalog",
+  "generatedAt": "2026-08-24T00:00:00Z",
+  "extensions": [
+    {
+      "id": "oct-baremetal",
+      "displayName": "Bare Metal Hosts",
+      "description": "Inventory Metal3 BareMetalHost nodes, register from BMC Redfish, and deploy golden images.",
+      "category": "compute",
+      "source": "community",
+      "git": "https://github.com/cjanisze/oct-baremetal",
+      "consolePlugin": "oct-baremetal",
+      "href": "/baremetal/nodes",
+      "defaultChannel": "stable",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "channel": "stable",
+          "openshift": ["4.21", "4.22"],
+          "image": "quay.io/cjanisze/oct-baremetal:1.0.0",
+          "gitRef": "v1.0.0"
+        },
+        {
+          "version": "1.1.0",
+          "channel": "stable",
+          "openshift": ["4.22"],
+          "image": "quay.io/cjanisze/oct-baremetal:1.1.0",
+          "gitRef": "v1.1.0"
+        }
+      ],
+      "validatedOn": ["4.21", "4.22"],
+      "minOpenShift": "4.21",
+      "downloads": 0,
+      "rating": { "average": 0, "count": 0 }
+    },
+    {
+      "id": "oct-network-bond",
+      "displayName": "Network Bond",
+      "description": "Bond physical NICs by MachineConfigPool. Creates NodeNetworkConfigurationPolicy resources.",
+      "category": "network",
+      "source": "community",
+      "git": "https://github.com/cjanisze/oct-network-bond",
+      "consolePlugin": "oct-network-bond",
+      "href": "/community-tools/network/bond",
+      "defaultChannel": "stable",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "channel": "stable",
+          "openshift": ["4.21", "4.22"],
+          "image": "quay.io/cjanisze/oct-network-bond:1.0.0",
+          "gitRef": "v1.0.0"
+        },
+        {
+          "version": "1.1.0",
+          "channel": "stable",
+          "openshift": ["4.22"],
+          "image": "quay.io/cjanisze/oct-network-bond:1.1.0",
+          "gitRef": "v1.1.0"
+        }
+      ],
+      "validatedOn": ["4.21", "4.22"],
+      "minOpenShift": "4.21",
+      "downloads": 0,
+      "rating": { "average": 0, "count": 0 }
+    }
+  ]
+}

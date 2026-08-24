@@ -1,0 +1,428 @@
+# OpenShift Community Tools storefront — one-file install.
+#   oc apply -f https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+# Images are public on quay.io/cjanisze. No namespace pull secret is required.
+# This does not install oct-baremetal or oct-network-bond.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: catalog-service
+  namespace: oct-storefront
+  labels:
+    app: catalog-service
+    app.kubernetes.io/part-of: oct-storefront
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oct-storefront-enable-plugin
+  namespace: oct-storefront
+  labels:
+    app: oct-storefront-enable-plugin
+    app.kubernetes.io/part-of: oct-storefront
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: oct-storefront-enable-plugin
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+rules:
+  - apiGroups:
+      - operator.openshift.io
+    resources:
+      - consoles
+    resourceNames:
+      - cluster
+    verbs:
+      - get
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oct-storefront-enable-plugin
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: oct-storefront-enable-plugin
+subjects:
+  - kind: ServiceAccount
+    name: oct-storefront-enable-plugin
+    namespace: oct-storefront
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-tools-cache
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+data:
+  community.yaml: |
+    apiVersion: communitytools.io/v1alpha1
+    kind: CommunityTool
+    metadata:
+      name: oct-baremetal
+    spec:
+      displayName: Bare Metal Hosts
+      description: >-
+        Inventory Metal3 BareMetalHost nodes, register hosts from BMC Redfish, and
+        deploy golden images. Register and Deploy open from the inventory.
+      category: compute
+      source: community
+      git: https://github.com/cjanisze/oct-baremetal
+      consolePlugin: oct-baremetal
+      href: /baremetal/nodes
+      defaultChannel: stable
+      channels:
+        stable: {}
+        candidate: {}
+      validatedOn:
+        - "4.21"
+        - "4.22"
+      minOpenShift: "4.21"
+      versions:
+        - version: "1.0.0"
+          channel: stable
+          openshift: ["4.21", "4.22"]
+          image: quay.io/cjanisze/oct-baremetal:1.0.0
+          gitRef: v1.0.0
+        - version: "1.1.0"
+          channel: stable
+          openshift: ["4.22"]
+          image: quay.io/cjanisze/oct-baremetal:1.1.0
+          gitRef: v1.1.0
+    ---
+    apiVersion: communitytools.io/v1alpha1
+    kind: CommunityTool
+    metadata:
+      name: oct-network-bond
+    spec:
+      displayName: Network Bond
+      description: >-
+        Bond physical NICs by MachineConfigPool. Pools that share the same NIC names
+        can be selected together. Creates NodeNetworkConfigurationPolicy resources.
+      category: network
+      source: community
+      git: https://github.com/cjanisze/oct-network-bond
+      consolePlugin: oct-network-bond
+      href: /community-tools/network/bond
+      defaultChannel: stable
+      channels:
+        stable: {}
+        candidate: {}
+      validatedOn:
+        - "4.21"
+        - "4.22"
+      minOpenShift: "4.21"
+      versions:
+        - version: "1.0.0"
+          channel: stable
+          openshift: ["4.21", "4.22"]
+          image: quay.io/cjanisze/oct-network-bond:1.0.0
+          gitRef: v1.0.0
+        - version: "1.1.0"
+          channel: stable
+          openshift: ["4.22"]
+          image: quay.io/cjanisze/oct-network-bond:1.1.0
+          gitRef: v1.1.0
+  sync.json: |
+    {"ok":true,"source":"bundled","message":"Catalog bundled in deploy/install.yaml."}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-tools-external
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+data:
+  tools.yaml: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oct-storefront
+  namespace: oct-storefront
+  labels:
+    app: oct-storefront
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oct-storefront
+  template:
+    metadata:
+      labels:
+        app: oct-storefront
+    spec:
+      containers:
+        - name: plugin
+          image: quay.io/cjanisze/oct-storefront:4.22
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - name: plugin-serving-cert
+              readOnly: true
+              mountPath: /var/serving-cert
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: plugin-serving-cert
+          secret:
+            secretName: plugin-serving-cert
+            defaultMode: 420
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oct-storefront
+  namespace: oct-storefront
+  labels:
+    app: oct-storefront
+    app.kubernetes.io/part-of: oct-storefront
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: plugin-serving-cert
+spec:
+  ports:
+    - name: 9443-tcp
+      protocol: TCP
+      port: 9443
+      targetPort: 9443
+  selector:
+    app: oct-storefront
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-service
+  namespace: oct-storefront
+  labels:
+    app: catalog-service
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog-service
+  template:
+    metadata:
+      labels:
+        app: catalog-service
+    spec:
+      serviceAccountName: catalog-service
+      containers:
+        - name: catalog-service
+          image: quay.io/cjanisze/oct-storefront-catalog:4.22
+          env:
+            - name: COMMUNITY_TOOLS_CATALOG_URL
+              value: ""
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8443
+              name: https
+          volumeMounts:
+            - name: tls
+              mountPath: /var/run/secrets/tls
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: tls
+          secret:
+            secretName: catalog-service-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+  namespace: oct-storefront
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: catalog-service-tls
+  labels:
+    app: catalog-service
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  selector:
+    app: catalog-service
+  ports:
+    - name: https
+      port: 8443
+      targetPort: 8443
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: oct-storefront
+spec:
+  displayName: OpenShift Community Tools
+  backend:
+    type: Service
+    service:
+      name: oct-storefront
+      namespace: oct-storefront
+      port: 9443
+      basePath: /
+  proxy:
+    - alias: catalog-service
+      authorization: UserToken
+      endpoint:
+        type: Service
+        service:
+          name: catalog-service
+          namespace: oct-storefront
+          port: 8443
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oct-storefront-enable-plugin
+  namespace: oct-storefront
+  labels:
+    app: oct-storefront-enable-plugin
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: oct-storefront-enable-plugin
+    spec:
+      serviceAccountName: oct-storefront-enable-plugin
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: enable-plugin
+          image: registry.access.redhat.com/ubi9/python-311:latest
+          env:
+            - name: PLUGIN_ID
+              value: oct-storefront
+          command:
+            - python3
+            - -c
+            - |
+              import json
+              import os
+              import ssl
+              import time
+              import urllib.error
+              import urllib.request
+
+              PLUGIN = os.environ.get("PLUGIN_ID", "oct-storefront")
+              TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+              CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              URL = "https://kubernetes.default.svc/apis/operator.openshift.io/v1/consoles/cluster"
+
+
+              def call(method, body=None, content_type=None):
+                  token = open(TOKEN_PATH).read().strip()
+                  ctx = ssl.create_default_context(cafile=CA_PATH)
+                  headers = {
+                      "Authorization": "Bearer " + token,
+                      "Accept": "application/json",
+                  }
+                  data = None
+                  if body is not None:
+                      data = body if isinstance(body, bytes) else body.encode("utf-8")
+                      headers["Content-Type"] = content_type or "application/json"
+                  req = urllib.request.Request(URL, data=data, method=method, headers=headers)
+                  with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+                      raw = resp.read()
+                      return json.loads(raw.decode("utf-8") or "{}")
+
+
+              last_err = None
+              for attempt in range(1, 13):
+                  try:
+                      obj = call("GET")
+                      spec = obj.get("spec") or {}
+                      plugins = spec.get("plugins")
+                      if isinstance(plugins, list) and PLUGIN in plugins:
+                          print(PLUGIN + " already in spec.plugins; nothing to do")
+                          raise SystemExit(0)
+                      if plugins is None:
+                          patch = [{"op": "add", "path": "/spec/plugins", "value": [PLUGIN]}]
+                      else:
+                          patch = [{"op": "add", "path": "/spec/plugins/-", "value": PLUGIN}]
+                      call("PATCH", json.dumps(patch), "application/json-patch+json")
+                      print("added " + PLUGIN + " to spec.plugins")
+                      raise SystemExit(0)
+                  except SystemExit:
+                      raise
+                  except urllib.error.HTTPError as e:
+                      detail = e.read().decode("utf-8", "replace")[:500]
+                      last_err = "HTTP %s: %s" % (e.code, detail)
+                      print("attempt %s failed: %s" % (attempt, last_err))
+                      if e.code in (400, 401, 403):
+                          raise SystemExit(last_err)
+                      time.sleep(2)
+                  except Exception as e:
+                      last_err = str(e)
+                      print("attempt %s failed: %s" % (attempt, last_err))
+                      time.sleep(2)
+              raise SystemExit("failed to enable plugin: " + str(last_err))
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]

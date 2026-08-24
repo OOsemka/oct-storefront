@@ -1,0 +1,67 @@
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-baremetal
+spec:
+  displayName: Bare Metal Hosts
+  description: >-
+    Inventory Metal3 BareMetalHost nodes, register hosts from BMC Redfish, and
+    deploy golden images. Register and Deploy open from the inventory.
+  category: compute
+  source: community
+  git: https://github.com/cjanisze/oct-baremetal
+  consolePlugin: oct-baremetal
+  href: /baremetal/nodes
+  defaultChannel: stable
+  channels:
+    stable: {}
+    candidate: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.21", "4.22"]
+      image: quay.io/cjanisze/oct-baremetal:1.0.0
+      gitRef: v1.0.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-baremetal:1.1.0
+      gitRef: v1.1.0
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-network-bond
+spec:
+  displayName: Network Bond
+  description: >-
+    Bond physical NICs by MachineConfigPool. Pools that share the same NIC names
+    can be selected together. Creates NodeNetworkConfigurationPolicy resources.
+  category: network
+  source: community
+  git: https://github.com/cjanisze/oct-network-bond
+  consolePlugin: oct-network-bond
+  href: /community-tools/network/bond
+  defaultChannel: stable
+  channels:
+    stable: {}
+    candidate: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.21", "4.22"]
+      image: quay.io/cjanisze/oct-network-bond:1.0.0
+      gitRef: v1.0.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bond:1.1.0
+      gitRef: v1.1.0

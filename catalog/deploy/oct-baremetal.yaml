@@ -1,0 +1,340 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oct-baremetal
+  labels:
+    app.kubernetes.io/part-of: oct-baremetal
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: oct-baremetal
+  labels:
+    app.kubernetes.io/part-of: oct-baremetal
+rules:
+  - apiGroups:
+      - metal3.io
+    resources:
+      - baremetalhosts
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - patch
+      - update
+      - delete
+  - apiGroups:
+      - cdi.kubevirt.io
+    resources:
+      - datasources
+      - dataimportcrons
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oct-baremetal
+  labels:
+    app.kubernetes.io/part-of: oct-baremetal
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: oct-baremetal
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: oct-baremetal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oct-baremetal
+  namespace: oct-baremetal
+  labels:
+    app: oct-baremetal
+    app.kubernetes.io/part-of: oct-baremetal
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: plugin-serving-cert
+spec:
+  ports:
+    - name: 9443-tcp
+      protocol: TCP
+      port: 9443
+      targetPort: 9443
+  selector:
+    app: oct-baremetal
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oct-baremetal
+  namespace: oct-baremetal
+  labels:
+    app: oct-baremetal
+    app.kubernetes.io/part-of: oct-baremetal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oct-baremetal
+  template:
+    metadata:
+      labels:
+        app: oct-baremetal
+    spec:
+      containers:
+        - name: plugin
+          image: quay.io/cjanisze/oct-baremetal:4.22
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - name: plugin-serving-cert
+              readOnly: true
+              mountPath: /var/serving-cert
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: plugin-serving-cert
+          secret:
+            secretName: plugin-serving-cert
+            defaultMode: 420
+      restartPolicy: Always
+---
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: oct-baremetal
+spec:
+  displayName: Toolbox
+  backend:
+    type: Service
+    service:
+      name: oct-baremetal
+      namespace: oct-baremetal
+      port: 9443
+      basePath: /
+  proxy:
+    - alias: bmh-proxy
+      endpoint:
+        type: Service
+        service:
+          name: oct-baremetal
+          namespace: oct-baremetal
+          port: 9443
+    - alias: discovery-service
+      endpoint:
+        type: Service
+        service:
+          name: discovery-service
+          namespace: oct-baremetal
+          port: 8443
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: discovery-service
+  namespace: oct-baremetal
+  labels:
+    app: discovery-service
+---
+# ClusterRole: the image-cache pipeline needs cross-namespace access to
+# DataSources, PVCs, VolumeSnapshots, VMExports, and Secrets in the
+# openshift-virtualization-os-images namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: discovery-service-image-cache
+  labels:
+    app: discovery-service
+    app.kubernetes.io/part-of: oct-baremetal
+rules:
+  # Read DataSources to resolve backing PVCs/snapshots
+  - apiGroups:
+      - cdi.kubevirt.io
+    resources:
+      - datasources
+    verbs:
+      - get
+      - list
+  # Read VolumeSnapshots (to determine restore size for temp PVCs)
+  - apiGroups:
+      - snapshot.storage.k8s.io
+    resources:
+      - volumesnapshots
+    verbs:
+      - get
+      - list
+  # Create/delete VirtualMachineExports (temporary, for data extraction)
+  - apiGroups:
+      - export.kubevirt.io
+    resources:
+      - virtualmachineexports
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+  # Read export token secrets
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+  # Create/delete temporary PVCs (for snapshot-backed DataSources)
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+  # Read Routes to determine the external URL for the image cache
+  - apiGroups:
+      - route.openshift.io
+    resources:
+      - routes
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: discovery-service-image-cache
+  labels:
+    app: discovery-service
+    app.kubernetes.io/part-of: oct-baremetal
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: discovery-service-image-cache
+subjects:
+  - kind: ServiceAccount
+    name: discovery-service
+    namespace: oct-baremetal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-service
+  namespace: oct-baremetal
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: discovery-service-tls
+  labels:
+    app: discovery-service
+spec:
+  type: ClusterIP
+  selector:
+    app: discovery-service
+  ports:
+    - name: https
+      port: 8443
+      targetPort: 8443
+      protocol: TCP
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-service
+  namespace: oct-baremetal
+  labels:
+    app: discovery-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-service
+  template:
+    metadata:
+      labels:
+        app: discovery-service
+    spec:
+      containers:
+        - name: discovery-service
+          image: quay.io/cjanisze/oct-baremetal-discovery:4.22
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8443
+              name: https
+          volumeMounts:
+            - name: tls
+              mountPath: /var/run/secrets/tls
+              readOnly: true
+            - name: image-cache
+              mountPath: /data/image-cache
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: tls
+          secret:
+            secretName: discovery-service-tls
+        - name: image-cache
+          persistentVolumeClaim:
+            claimName: image-cache
+      serviceAccountName: discovery-service

@@ -1,0 +1,88 @@
+[
+  {
+    "type": "console.navigation/section",
+    "properties": {
+      "id": "community-tools",
+      "perspective": "admin",
+      "name": "%plugin__oct-storefront~Community Tools%",
+      "insertBefore": "usermanagement"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "community-tools-compute",
+      "name": "%plugin__oct-storefront~Compute%",
+      "href": "/community-tools/compute",
+      "perspective": "admin",
+      "section": "community-tools",
+      "startsWith": ["/baremetal/nodes"]
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "community-tools-storage",
+      "name": "%plugin__oct-storefront~Storage%",
+      "href": "/community-tools/storage",
+      "perspective": "admin",
+      "section": "community-tools",
+      "insertAfter": "community-tools-compute"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "community-tools-network",
+      "name": "%plugin__oct-storefront~Network%",
+      "href": "/community-tools/network",
+      "perspective": "admin",
+      "section": "community-tools",
+      "insertAfter": "community-tools-storage",
+      "startsWith": ["/community-tools/network/"]
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "community-tools-management",
+      "name": "%plugin__oct-storefront~Management%",
+      "href": "/community-tools/management",
+      "perspective": "admin",
+      "section": "community-tools",
+      "insertAfter": "community-tools-network"
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/community-tools/compute",
+      "component": { "$codeRef": "ComputePage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/community-tools/storage",
+      "component": { "$codeRef": "StoragePage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/community-tools/network",
+      "component": { "$codeRef": "NetworkPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/community-tools/management",
+      "component": { "$codeRef": "ManagementPage" }
+    }
+  }
+]

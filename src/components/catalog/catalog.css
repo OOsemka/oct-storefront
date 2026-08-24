@@ -1,0 +1,100 @@
+/* Community Tools catalog. Prefix: ct- */
+
+.ct-lead {
+  max-width: 48rem;
+  color: var(--pf-t--global--text--color--subtle, #6a6e73);
+}
+
+.ct-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--pf-t--global--spacer--md, 16px);
+}
+
+.ct-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--sm, 8px);
+  height: 100%;
+  padding: var(--pf-t--global--spacer--md, 16px);
+  border: var(--pf-t--global--border--width--100, 1px) solid
+    var(--pf-t--global--border--color--default, #d2d2d2);
+  border-radius: var(--pf-t--global--border--radius--medium, 8px);
+  background: var(--pf-t--global--background--color--primary--default, #fff);
+}
+
+.ct-tile__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pf-t--global--spacer--sm, 8px);
+}
+
+.ct-tile__title {
+  margin: 0;
+  font-size: var(--pf-t--global--font--size--md, 1rem);
+}
+
+.ct-tile__desc {
+  margin: 0;
+  flex: 1;
+  color: var(--pf-t--global--text--color--subtle, #6a6e73);
+}
+
+.ct-tile__meta,
+.ct-tile__stat-text {
+  margin: 0;
+  font-size: var(--pf-t--global--font--size--sm, 0.875rem);
+  color: var(--pf-t--global--text--color--subtle, #6a6e73);
+}
+
+.ct-tile__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pf-t--global--spacer--sm, 8px);
+}
+
+.ct-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ct-star {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--pf-t--global--icon--color--subtle, #6a6e73);
+}
+
+.ct-star--on {
+  color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
+}
+
+.ct-star:disabled {
+  cursor: default;
+}
+
+.ct-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-t--global--spacer--sm, 8px);
+}
+
+.ct-tile__update {
+  margin: 0;
+  font-size: var(--pf-t--global--font--size--sm, 0.875rem);
+  font-weight: 600;
+  color: var(--pf-t--global--text--color--status--info--default, #0066cc);
+}
+
+.ct-yaml textarea,
+.ct-yaml {
+  font-family: var(--pf-t--global--font--family--mono, monospace);
+  font-size: var(--pf-t--global--font--size--sm, 0.875rem);
+}
