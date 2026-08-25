@@ -4,6 +4,10 @@ OCT extensions use **`oct-<name>`** for directories, plugin IDs, images, and cat
 
 Versioning has **two axes**: extension **semver** and **OpenShift minor**. Do not ship only `:4.22` if you also need independent extension releases.
 
+## Public images (required)
+
+Every `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository). Private images break `oc apply` and tile **Add** on other clusters. Do not publish a catalog tile that points at a private repo.
+
 ## Git / images
 
 | Axis | Git | Image |
@@ -66,7 +70,7 @@ Never auto-update. Never auto-migrate running clusters.
 | --- | --- | --- |
 | `metadata.name` | yes | `oct-<name>` stats key |
 | `spec.consolePlugin` | yes | ConsolePlugin CR name (`oct-<name>`) |
-| `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift` (string or list), `image` |
+| `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift` (string or list), `image` (**public**) |
 | `spec.defaultChannel` | no | Default `stable` |
 | `spec.pinVersion` | no | Pin Add to this semver |
 | `spec.category` | yes | compute, storage, network, management |
@@ -79,5 +83,5 @@ Never auto-update. Never auto-migrate running clusters.
 2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`.
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
-5. PR a tile with `spec.versions[]` (semver + openshift) into the storefront `catalog/community.yaml`.
+5. PR a tile with `spec.versions[]` (semver + openshift) into the storefront `catalog/community.yaml`. Images must be **public**.
 6. `yarn build` in the extension and the storefront. Do not `oc apply` unless asked.

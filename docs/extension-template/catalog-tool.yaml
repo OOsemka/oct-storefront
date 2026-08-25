@@ -13,6 +13,8 @@ spec:
   defaultChannel: stable
   channels:
     stable: {}
+  # Every versions[].image must be a public registry repo (e.g. public Quay).
+  # Private images break tile Add on other clusters.
   versions:
     - version: "1.0.0"
       channel: stable

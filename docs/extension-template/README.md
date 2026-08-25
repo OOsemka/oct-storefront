@@ -9,10 +9,14 @@ This is OpenShift Community Tools (OCT), a **community project**, not officially
 - Directory / git repo: `oct-<name>`
 - `package.json` `consolePlugin.name`: `oct-<name>`
 - ConsolePlugin CR and namespace: `oct-<name>`
-- Image: `quay.io/<org>/oct-<name>:1.2.0` (semver; optional `:1.2.0-ocp4.22`)
+- Image: `quay.io/<org>/oct-<name>:1.2.0` (semver; optional `:1.2.0-ocp4.22`) — **must be public**
 - i18n: `locales/en/plugin__oct-<name>.json`
 
 Copy `.cursor/rules/` from this template (or from `oct-storefront`) unchanged.
+
+## Public images (required)
+
+Catalog `spec.versions[].image` and any discovery/sidecar images must be **public** (for example a public Quay repository). Private images break `oc apply` and tile **Add** on other clusters.
 
 ## Versioning
 

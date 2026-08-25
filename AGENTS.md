@@ -10,12 +10,10 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 | Directory | Plugin ID | Image tags |
 | --- | --- | --- |
 | **oct-storefront** (this) | `oct-storefront` | `:1.x.x` (semver); optional `:1.x.x-ocp4.22` if rebuilt per OCP |
-| oct-baremetal (tree may still be `openshift-baremetal-dashboard`) | `oct-baremetal` | same |
+| oct-baremetal | `oct-baremetal` | same |
 | oct-network-bond | `oct-network-bond` | same |
 
-This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin.
-
-**Migration:** old IDs `openshift-community-tools`, `openshift-baremetal-dashboard`, `community-network-bond` need a cluster reinstall. Do not `oc apply` unless asked.
+This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
 ## Navigation (two levels)
 
@@ -62,6 +60,8 @@ spec:
       image: quay.io/example/oct-my-tool:1.2.0
       gitRef: v1.2.0
 ```
+
+Every `versions[].image` (and any discovery/sidecar image the extension pulls) must be **public**. Private images break tile Add on other clusters.
 
 Legacy rows (`openshift: "4.22"` without `version`) still parse.
 
