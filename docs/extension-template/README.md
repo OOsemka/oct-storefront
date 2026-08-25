@@ -23,7 +23,7 @@ Requirements (canonical: `../../docs/extension-standard.md`):
 
 - Catalog `versions[].image` tag **exists**, is **public** (no pull secret), and is the **combined** tag `<semver>-ocp<major.minor>`.
 - Never list a (version, OpenShift minor) row unless that exact tag is public. Do not catalog `:1.2.0` if only `:4.22` exists.
-- If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, ship a complete bundle in storefront `catalog/deploy/oct-<name>.yaml` (every PVC, volume, RBAC, Service) and register it in `BUNDLED_DEPLOY`.
+- If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, ship a complete bundle in storefront `catalog/deploy/oct-<name>.yaml` (every PVC, volume, RBAC, Service) and register it in `BUNDLED_DEPLOY`. Required PVCs must be in that YAML so Add precreates them. Omit `storageClassName` for the cluster default; Add can override.
 - Confirm the plugin Deployment is Running before calling Add done.
 
 ## Public images (required)

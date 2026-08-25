@@ -148,6 +148,17 @@ export const PersistentVolumeClaimModel: K8sModel = {
   namespaced: true,
 };
 
+export const RouteModel: K8sModel = {
+  apiGroup: 'route.openshift.io',
+  apiVersion: 'v1',
+  kind: 'Route',
+  abbr: 'RT',
+  label: 'Route',
+  labelPlural: 'Routes',
+  plural: 'routes',
+  namespaced: true,
+};
+
 export const KIND_MODELS: Record<string, K8sModel> = {
   ConfigMap: ConfigMapModel,
   Namespace: NamespaceModel,
@@ -162,6 +173,7 @@ export const KIND_MODELS: Record<string, K8sModel> = {
   Role: RoleModel,
   RoleBinding: RoleBindingModel,
   PersistentVolumeClaim: PersistentVolumeClaimModel,
+  Route: RouteModel,
 };
 
 export function modelForKind(kind: string): K8sModel | undefined {

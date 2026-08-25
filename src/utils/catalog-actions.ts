@@ -326,14 +326,30 @@ export async function resolveDeployYaml(
   return applyVersionImage(yaml, tool.spec.consolePlugin, image);
 }
 
+/** Bundled or spec.deployYAML without fetching deployURL. Used to detect PVCs before Add. */
+export function peekDeployYaml(tool: CommunityTool, version?: ToolVersion): string {
+  const fromVersion = version?.deployYAML?.trim();
+  if (fromVersion) return fromVersion;
+  const fromSpec = tool.spec.deployYAML?.trim();
+  if (fromSpec) return fromSpec;
+  return BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin] || '';
+}
+
+export type AddExtensionOpts = {
+  storageClassName?: string;
+};
+
 export async function addExtension(
   tool: CommunityTool,
   version?: ToolVersion,
   clusterMinor?: string,
+  opts: AddExtensionOpts = {},
 ): Promise<string[]> {
   const image = imageForRow(version, clusterMinor, tool.spec.image);
   const yaml = await resolveDeployYaml(tool, version, clusterMinor);
-  const log = await applyYaml(yaml);
+  const storageClassName =
+    opts.storageClassName !== undefined ? opts.storageClassName : tool.spec.storageClassName;
+  const log = await applyYaml(yaml, { storageClassName });
   await setPluginEnabled(tool.spec.consolePlugin, true);
   await incrementDownloads(tool.metadata.name, tool.spec.source);
   await recordInstalled(tool.metadata.name, {

@@ -283,13 +283,35 @@ metadata:
   labels:
     app: discovery-service
     app.kubernetes.io/part-of: oct-baremetal
+  annotations:
+    description: >-
+      Shared cache for bare-metal OS images served over HTTP. Sized for
+      2-3 raw disk images. Omit storageClassName (or leave Add on cluster
+      default) unless you need a specific class. Optional annotation
+      communitytools.io/storage-class selects a class when Add has no UI override.
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: odf-storagecluster-ceph-fast-pool-rbd
   resources:
     requests:
       storage: 100Gi
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: image-cache
+  namespace: oct-baremetal
+  labels:
+    app: discovery-service
+    app.kubernetes.io/part-of: oct-baremetal
+spec:
+  to:
+    kind: Service
+    name: discovery-service
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
 ---
 apiVersion: apps/v1
 kind: Deployment

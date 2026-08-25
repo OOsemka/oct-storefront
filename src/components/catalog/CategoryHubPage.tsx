@@ -8,10 +8,6 @@ import {
   EmptyStateBody,
   FormSelect,
   FormSelectOption,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
   PageSection,
   SearchInput,
   Stack,
@@ -30,9 +26,18 @@ import {
   findToolVersion,
   pickToolVersion,
 } from '../../utils/catalog-types';
+import {
+  peekDeployYaml,
+} from '../../utils/catalog-actions';
+import {
+  pvcSummariesFromYaml,
+  suggestedStorageClassFromYaml,
+  yamlHasPersistentVolumeClaim,
+} from '../../utils/apply-yaml';
 import { useCatalog } from './useCatalog';
 import ExtensionTile from './ExtensionTile';
 import { AddExternalModal } from './AddExternalModal';
+import { AddExtensionModal, AddExtensionModalState } from './AddExtensionModal';
 import './catalog.css';
 
 const I18N = 'plugin__oct-storefront';
@@ -61,39 +66,57 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
   const copy = HUB_COPY[category];
   const catalog = useCatalog(category);
   const [externalOpen, setExternalOpen] = useState(false);
-  const [versionPick, setVersionPick] = useState<{
-    item: CatalogItem;
-    clusterMinor: string;
-    available: string[];
-    unsupported: boolean;
-    selected: string;
-  } | null>(null);
+  const [addConfirm, setAddConfirm] = useState<(AddExtensionModalState & { item: CatalogItem }) | null>(
+    null,
+  );
   const title = t(copy.title);
 
   const requestAdd = (item: CatalogItem) => {
     const picked = pickToolVersion(item.tool.spec, catalog.clusterVersion);
-    if (
+    const yaml = peekDeployYaml(item.tool, picked.version);
+    const hasPvc = yamlHasPersistentVolumeClaim(yaml);
+    const needsVersion =
       picked.status === 'choose' ||
       picked.status === 'unsupported' ||
-      picked.status === 'pinned-incompatible'
-    ) {
-      setVersionPick({
-        item,
-        clusterMinor: picked.clusterMinor,
-        available: picked.available,
-        unsupported: picked.status !== 'choose',
-        selected: picked.available[0] || '',
-      });
+      picked.status === 'pinned-incompatible';
+    if (!needsVersion && !hasPvc) {
+      catalog.add(item, picked.version);
       return;
     }
-    catalog.add(item, picked.version);
+    const suggested =
+      item.tool.spec.storageClassName !== undefined
+        ? item.tool.spec.storageClassName
+        : suggestedStorageClassFromYaml(yaml);
+    setAddConfirm({
+      item,
+      displayName: item.tool.spec.displayName,
+      clusterMinor: picked.clusterMinor,
+      available: picked.available,
+      unsupported: picked.status !== 'choose' && needsVersion,
+      selectedVersion: picked.available[0] || '',
+      needsVersion,
+      needsStorageClass: hasPvc,
+      storageClass: suggested || '',
+      pvcSummaries: pvcSummariesFromYaml(yaml),
+    });
   };
 
-  const confirmVersion = () => {
-    if (!versionPick) return;
-    const version = findToolVersion(versionPick.item.tool.spec, versionPick.selected);
-    catalog.add(versionPick.item, version);
-    setVersionPick(null);
+  const confirmAdd = () => {
+    if (!addConfirm) return;
+    const version = addConfirm.needsVersion
+      ? findToolVersion(addConfirm.item.tool.spec, addConfirm.selectedVersion)
+      : (() => {
+          const picked = pickToolVersion(addConfirm.item.tool.spec, catalog.clusterVersion);
+          return picked.status === 'matched' || picked.status === 'single'
+            ? picked.version
+            : findToolVersion(addConfirm.item.tool.spec, addConfirm.selectedVersion);
+        })();
+    catalog.add(
+      addConfirm.item,
+      version,
+      addConfirm.needsStorageClass ? { storageClassName: addConfirm.storageClass } : undefined,
+    );
+    setAddConfirm(null);
   };
 
   return (
@@ -215,51 +238,14 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
         onClose={() => setExternalOpen(false)}
         onSubmit={catalog.addExternal}
       />
-      <Modal
-        isOpen={Boolean(versionPick)}
-        onClose={() => setVersionPick(null)}
-        variant="small"
-        aria-labelledby="ct-version-pick-title"
-      >
-        <ModalHeader title={t('Select version')} labelId="ct-version-pick-title" />
-        <ModalBody>
-          {versionPick?.unsupported ? (
-            <Alert isInline variant="warning" title={t('No matching plugin image')}>
-              {t(
-                'This cluster is OpenShift {{version}}. No catalog entry matches that minor. Installing another version may break the console. Available: {{available}}.',
-                {
-                  version: versionPick.clusterMinor,
-                  available: versionPick.available.join(', ') || t('none'),
-                },
-              )}
-            </Alert>
-          ) : (
-            <p>
-              {t(
-                'Cluster OpenShift version could not be detected. Choose which extension version to install.',
-              )}
-            </p>
-          )}
-          <FormSelect
-            id="ct-version-pick"
-            value={versionPick?.selected || ''}
-            onChange={(_e, v) => setVersionPick((cur) => (cur ? { ...cur, selected: v } : cur))}
-            aria-label={t('Select version')}
-          >
-            {(versionPick?.available || []).map((v) => (
-              <FormSelectOption key={v} value={v} label={v} />
-            ))}
-          </FormSelect>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="primary" onClick={confirmVersion} isDisabled={!versionPick?.selected}>
-            {t('Install')}
-          </Button>
-          <Button variant="link" onClick={() => setVersionPick(null)}>
-            {t('Cancel')}
-          </Button>
-        </ModalFooter>
-      </Modal>
+      <AddExtensionModal
+        state={addConfirm}
+        onChange={(next) =>
+          setAddConfirm((cur) => (cur ? { ...cur, ...next, item: cur.item } : cur))
+        }
+        onClose={() => setAddConfirm(null)}
+        onConfirm={confirmAdd}
+      />
     </>
   );
 };

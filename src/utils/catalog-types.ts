@@ -32,6 +32,12 @@ export type CommunityToolSpec = {
   maxOpenShift?: string;
   deployURL?: string;
   deployYAML?: string;
+  /**
+   * Optional StorageClass for PVCs in the install bundle (Add UI default).
+   * Empty / omitted uses the cluster default. PVC annotation
+   * `communitytools.io/storage-class` is the YAML-level equivalent.
+   */
+  storageClassName?: string;
   /** Channel used when Add does not pin a semver. Default: stable. */
   defaultChannel?: string;
   /** Optional YAML pin. Add installs this semver if it matches the cluster OCP. */
@@ -111,6 +117,7 @@ export type PublicCatalogExtension = {
   maxOpenShift?: string;
   defaultChannel?: string;
   pinVersion?: string;
+  storageClassName?: string;
   versions?: ToolVersion[];
   downloads?: number;
   rating?: { average?: number; count?: number };

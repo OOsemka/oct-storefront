@@ -2,9 +2,98 @@ import { loadAll, dump } from 'js-yaml';
 import { k8sCreate, k8sGet, k8sPatch, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
 import { DeploymentModel, modelForKind } from './k8s-models';
 
+/** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. */
+export const PVC_STORAGE_CLASS_ANNOTATION = 'communitytools.io/storage-class';
+
+export type PvcSummary = { name: string; size: string };
+
+export type ApplyYamlOpts = {
+  /**
+   * Applied to every PersistentVolumeClaim in the bundle.
+   * `undefined` leaves YAML/annotation as-is.
+   * `''` omits spec.storageClassName so the cluster default StorageClass is used.
+   */
+  storageClassName?: string;
+};
+
+type PvcDoc = K8sResourceCommon & {
+  spec?: {
+    storageClassName?: string;
+    accessModes?: string[];
+    resources?: { requests?: { storage?: string } };
+  };
+};
+
+/** Create PVCs before Deployments so pods that mount them can schedule. */
+const APPLY_KIND_ORDER: Record<string, number> = {
+  Namespace: 0,
+  ServiceAccount: 10,
+  Secret: 20,
+  ConfigMap: 30,
+  ClusterRole: 40,
+  Role: 50,
+  ClusterRoleBinding: 60,
+  RoleBinding: 70,
+  PersistentVolumeClaim: 80,
+  Service: 90,
+  Route: 100,
+  Deployment: 110,
+  ConsolePlugin: 120,
+};
+
 export function splitYamlDocs(raw: string): K8sResourceCommon[] {
   const docs = loadAll(raw || '');
   return docs.filter((d) => d && typeof d === 'object' && (d as K8sResourceCommon).kind) as K8sResourceCommon[];
+}
+
+export function yamlHasPersistentVolumeClaim(raw: string): boolean {
+  return splitYamlDocs(raw).some((d) => d.kind === 'PersistentVolumeClaim');
+}
+
+export function pvcSummariesFromYaml(raw: string): PvcSummary[] {
+  return splitYamlDocs(raw)
+    .filter((d) => d.kind === 'PersistentVolumeClaim')
+    .map((d) => {
+      const spec = (d as PvcDoc).spec;
+      return {
+        name: d.metadata?.name || 'pvc',
+        size: spec?.resources?.requests?.storage || '',
+      };
+    });
+}
+
+/** Suggested StorageClass from a PVC annotation. Empty string means cluster default. */
+export function suggestedStorageClassFromYaml(raw: string): string | undefined {
+  for (const d of splitYamlDocs(raw)) {
+    if (d.kind !== 'PersistentVolumeClaim') continue;
+    const ann = d.metadata?.annotations?.[PVC_STORAGE_CLASS_ANNOTATION];
+    if (ann !== undefined) return ann;
+  }
+  return undefined;
+}
+
+function withPvcStorageClass(doc: K8sResourceCommon, storageClassName: string | undefined): K8sResourceCommon {
+  if (doc.kind !== 'PersistentVolumeClaim') return doc;
+  const pvc = doc as PvcDoc;
+  const spec = { ...(pvc.spec || {}) };
+  const annotated = pvc.metadata?.annotations?.[PVC_STORAGE_CLASS_ANNOTATION];
+  const chosen = storageClassName !== undefined ? storageClassName : annotated;
+  if (chosen === undefined) return doc;
+  if (chosen === '') {
+    delete spec.storageClassName;
+  } else {
+    spec.storageClassName = chosen;
+  }
+  return { ...pvc, spec } as PvcDoc;
+}
+
+function sortDocsForApply(docs: K8sResourceCommon[]): K8sResourceCommon[] {
+  return [...docs].sort((a, b) => {
+    const ao = APPLY_KIND_ORDER[a.kind || ''] ?? 85;
+    const bo = APPLY_KIND_ORDER[b.kind || ''] ?? 85;
+    if (ao !== bo) return ao - bo;
+    return (a.metadata?.name || '').localeCompare(b.metadata?.name || '');
+  });
 }
 
 function alreadyExists(err: unknown): boolean {
@@ -17,11 +106,12 @@ function alreadyExists(err: unknown): boolean {
   );
 }
 
-export async function applyYaml(raw: string): Promise<string[]> {
-  const docs = splitYamlDocs(raw);
+export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<string[]> {
+  let docs = splitYamlDocs(raw);
   if (docs.length === 0) {
     throw new Error('No Kubernetes documents found in YAML.');
   }
+  docs = sortDocsForApply(docs.map((d) => withPvcStorageClass(d, opts.storageClassName)));
   const log: string[] = [];
   for (const doc of docs) {
     const kind = doc.kind || 'Unknown';

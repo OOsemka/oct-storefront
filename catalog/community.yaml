@@ -12,6 +12,8 @@ spec:
   git: https://github.com/cjanisze/oct-baremetal
   consolePlugin: oct-baremetal
   href: /baremetal/nodes
+  # Optional: spec.storageClassName pre-selects Add's StorageClass dropdown
+  # for PVC image-cache (100Gi). Omit to use the cluster default.
   defaultChannel: stable
   channels:
     stable: {}

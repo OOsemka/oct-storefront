@@ -95,9 +95,9 @@ Before shipping a tile, agents MUST:
 
 1. **Catalog image tag exists and is public.** `spec.versions[].image` (and every sidecar the bundle pulls) must pull anonymously. Community Add has **no pull secret**.
 2. **Publish the combined tag the catalog lists.** `<semver>-ocp<major.minor>`. Do not list `:1.1.0` or `:4.22` as the install image. That mismatch is what caused Add-success / Open-404.
-3. **Bundle is complete.** Add applies `catalog/deploy/oct-<name>.yaml` (register in `BUNDLED_DEPLOY`) or generated Namespace/Deployment/Service/ConsolePlugin only. Include every PVC, volume, RBAC, Service, and sidecar the Deployments need.
+3. **Bundle is complete.** Add applies `catalog/deploy/oct-<name>.yaml` (register in `BUNDLED_DEPLOY`) or generated Namespace/Deployment/Service/ConsolePlugin only. Include every PVC, volume, RBAC, Service, and sidecar the Deployments need. **Precreate required PVCs in the bundle** (Add creates them before Deployments). `oct-baremetal` needs PVC `image-cache` (100Gi). Omit `storageClassName` for the cluster default; Add shows a StorageClass dropdown when the YAML has a PVC. Optional PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName`.
 4. **`spec.href` matches `console-extensions.json`.** `oct-baremetal`: `/baremetal/nodes`. `oct-network-bond`: `/community-tools/network/bond` unless those routes changed.
-5. **Add success is not Ready.** Confirm the plugin Deployment is Running before calling the tile done.
+5. **Add success is not Ready.** Confirm the plugin Deployment is Running before calling the tile done. For Bare Metal Hosts, also confirm `discovery-service` is Running and `image-cache` is Bound.
 
 Canonical checklist: `docs/extension-standard.md`. Do not `oc apply` unless asked.
 

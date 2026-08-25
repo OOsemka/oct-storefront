@@ -14,10 +14,11 @@ Before a tile ships, satisfy **all** of:
 
 1. **Image tag exists and is public.** Every `spec.versions[].image` and every sidecar/discovery image the bundle pulls must pull **anonymously**. Community Add and community `oc apply` have **no pull secret**. A missing tag (`manifest unknown`) is a ship-blocker.
 2. **Publish the combined tag the catalog lists.** Tag format is `<semver>-ocp<major.minor>` (not `ocp4.22-1.0.1`, not bare `:1.1.0`, not bare `:4.22`). Never list a catalog row for (version, OpenShift minor) unless that exact tag exists and is public. That is what caused Add-success / Open-404 (`:1.1.0` cataloged, only `:4.22` published). Bare `:4.22` / `:1.1.0` may remain as extra aliases.
-3. **Install bundle is complete.** Add resolves YAML in this order: `versions[].deployYAML` → storefront `catalog/deploy/oct-<name>.yaml` (also register the import in `BUNDLED_DEPLOY` in `src/utils/catalog-actions.ts`) → `deployURL` → generated Namespace + plugin Deployment + Service + ConsolePlugin. Generated YAML does **not** include extra PVCs, RBAC, or sidecars. Put every required volume, PVC, Service, ServiceAccount, and RBAC in the bundled YAML. Not every extension needs a PVC; every volume a Deployment mounts must be in the bundle Add applies.
-4. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin. Other kinds fail Add.
-5. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
-6. **Add success is not done.** Confirm the plugin Deployment is Running (and any sidecars) before calling the extension shippable.
+3. **Install bundle is complete.** Add resolves YAML in this order: `versions[].deployYAML` → storefront `catalog/deploy/oct-<name>.yaml` (also register the import in `BUNDLED_DEPLOY` in `src/utils/catalog-actions.ts`) → `deployURL` → generated Namespace + plugin Deployment + Service + ConsolePlugin. Generated YAML does **not** include extra PVCs, RBAC, or sidecars. Put every required volume, PVC, Service, ServiceAccount, and RBAC in the bundled YAML. **Required PVCs must be in the bundle** so Add creates them **before** Deployments (pods that mount a missing PVC stay Pending). Not every extension needs a PVC; every volume a Deployment mounts must be in the bundle Add applies. `oct-baremetal` precreates `image-cache` (100Gi).
+4. **StorageClass:** Omit `spec.storageClassName` on PVCs to use the **cluster default**. Add shows a StorageClass dropdown when the bundle contains a PVC (default = cluster default). Authors can also set PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName` as the Add default. `storageClassName` is immutable after the PVC is Bound. Do not hardcode a lab StorageClass in the bundle.
+5. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin, Route. Other kinds fail Add. Add sorts PVCs before Deployments.
+6. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
+7. **Add success is not done.** Confirm the plugin Deployment is Running (and any sidecars) before calling the extension shippable. For Bare Metal Hosts, also confirm `discovery-service` is Running and PVC `image-cache` is Bound.
 
 ## Public images (required)
 
@@ -97,6 +98,7 @@ Never auto-update. Never auto-migrate running clusters.
 | `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift`, `image` (`<semver>-ocp<minor>`, **public**, **tag exists**) |
 | `spec.defaultChannel` | no | Default `stable` |
 | `spec.pinVersion` | no | Pin Add to this semver |
+| `spec.storageClassName` | no | Add UI default StorageClass for PVCs in the bundle. Empty/omitted = cluster default. Same effect as PVC annotation `communitytools.io/storage-class`. |
 | `spec.category` | yes | compute, storage, network, management |
 | `spec.source` | yes | `community` in catalog; storefront forces `external` on paste |
 | `spec.image` | fallback | Used only if `versions[]` has no image; must still be a combined tag |
@@ -108,5 +110,5 @@ Never auto-update. Never auto-migrate running clusters.
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
 5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public combined** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route.
-6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services) and register it in `BUNDLED_DEPLOY`.
+6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services **and required PVCs**) and register it in `BUNDLED_DEPLOY`. Omit PVC `storageClassName` for the cluster default; Add can override.
 7. `yarn build` in the extension and the storefront. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.

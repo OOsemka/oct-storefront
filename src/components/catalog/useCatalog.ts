@@ -19,6 +19,7 @@ import {
 } from '../../utils/catalog-types';
 import {
   addExtension,
+  AddExtensionOpts,
   bundledCommunityTools,
   enableExtension,
   ensureCacheSeeded,
@@ -180,10 +181,10 @@ export function useCatalog(category: ToolCategory) {
   }, []);
 
   const add = useCallback(
-    (item: CatalogItem, version?: ToolVersion) =>
+    (item: CatalogItem, version?: ToolVersion, opts?: AddExtensionOpts) =>
       run(
         item.id,
-        () => addExtension(item.tool, version, clusterVersion),
+        () => addExtension(item.tool, version, clusterVersion, opts),
         `Added ${item.tool.spec.displayName}${version?.version ? ` ${version.version}` : ''}. Refresh the console to load the plugin.`,
       ),
     [run, clusterVersion],
@@ -242,7 +243,9 @@ export function useCatalog(category: ToolCategory) {
           );
         }
         await saveExternalTool(tool);
-        await addExtension(tool, picked.version, clusterVersion);
+        await addExtension(tool, picked.version, clusterVersion, {
+          storageClassName: tool.spec.storageClassName,
+        });
         setNotice(`Added external extension ${tool.spec.displayName}.`);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
