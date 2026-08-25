@@ -31,6 +31,12 @@ import {
 } from './parse-tools';
 import { applyYaml, applyVersionImage, generatePluginManifests } from './apply-yaml';
 import { fetchDeployYaml, fetchPublicCatalog, postPublicDownload, postPublicRating } from './public-catalog';
+import {
+  ensureProvisioningWatchAllNamespaces,
+  formatWatchAllNamespacesPatchError,
+  isBareMetalHostsTool,
+  SKIP_WATCH_ALL_NAMESPACES_WARNING,
+} from './metal3-provisioning';
 
 const BUNDLED_DEPLOY: Record<string, string> = {
   'oct-baremetal': bmhDeployYaml,
@@ -337,6 +343,17 @@ export function peekDeployYaml(tool: CommunityTool, version?: ToolVersion): stri
 
 export type AddExtensionOpts = {
   storageClassName?: string;
+  /**
+   * Bare Metal Hosts only. When true (default for that tile), patch
+   * Provisioning spec.watchAllNamespaces with the user's console token.
+   * When false, still install the plugin and return a warning.
+   */
+  enableWatchAllNamespaces?: boolean;
+};
+
+export type AddExtensionResult = {
+  log: string[];
+  warnings: string[];
 };
 
 export async function addExtension(
@@ -344,7 +361,19 @@ export async function addExtension(
   version?: ToolVersion,
   clusterMinor?: string,
   opts: AddExtensionOpts = {},
-): Promise<string[]> {
+): Promise<AddExtensionResult> {
+  const warnings: string[] = [];
+  if (isBareMetalHostsTool(tool)) {
+    if (opts.enableWatchAllNamespaces === false) {
+      warnings.push(SKIP_WATCH_ALL_NAMESPACES_WARNING);
+    } else {
+      try {
+        await ensureProvisioningWatchAllNamespaces();
+      } catch (e) {
+        warnings.push(formatWatchAllNamespacesPatchError(e));
+      }
+    }
+  }
   const image = imageForRow(version, clusterMinor, tool.spec.image);
   const yaml = await resolveDeployYaml(tool, version, clusterMinor);
   const storageClassName =
@@ -357,7 +386,7 @@ export async function addExtension(
     channel: version?.channel || tool.spec.defaultChannel || DEFAULT_CHANNEL,
     image,
   });
-  return log;
+  return { log, warnings };
 }
 
 /** Re-enable without changing the running image (no auto-upgrade). */

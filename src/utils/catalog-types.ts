@@ -48,7 +48,8 @@ export type CommunityToolSpec = {
    * Two axes: extension semver (`version`) and OpenShift minors (`openshift`).
    * Image tags are `<semver>-ocp<major.minor>`. Add defaults to the newest stable
    * semver whose openshift list includes the cluster, then pulls that row's image.
-   * Pinning `version` / `pinVersion` keeps legacy installs off newer releases.
+   * Pinning `version` / `pinVersion` is the Add default, not a lock: the user can
+   * still pick another compatible semver in the tile version menu.
    */
   versions?: ToolVersion[];
 };
@@ -138,6 +139,8 @@ export type CatalogItem = {
   enabled: boolean;
   installedVersion?: string;
   updateAvailable?: ToolVersion;
+  /** Distinct compatible semvers for this cluster, newest first. */
+  compatibleSemvers?: string[];
 };
 
 export const CATEGORIES: ToolCategory[] = ['compute', 'storage', 'network', 'management'];
@@ -314,7 +317,7 @@ export type PickVersionOpts = {
  * Pick a catalog row for Add.
  * Default: newest stable semver whose openshift list includes the cluster minor.
  * Never auto-select an OCP-incompatible row when cluster version is known.
- * pinVersion (or spec.pinVersion) installs that semver instead of the newest.
+ * pinVersion (or spec.pinVersion) is the default selection, not a lock.
  */
 export function pickToolVersion(
   spec: CommunityToolSpec,
@@ -384,8 +387,46 @@ export function pickAvailableUpdate(
   return undefined;
 }
 
+/**
+ * Distinct semvers compatible with this cluster (default channel), newest first.
+ * Used by the tile version picker. Same pool as Add's default pick.
+ */
+export function compatibleSemvers(spec: CommunityToolSpec, clusterMinor: string): string[] {
+  const versions = toolVersions(spec);
+  const cluster = parseVersionFilter(clusterMinor);
+  const channel = spec.defaultChannel || DEFAULT_CHANNEL;
+  const compatible = versions.filter((row) => versionMatchesCluster(row, cluster));
+  const onChannel = compatible.filter((row) => (row.channel || DEFAULT_CHANNEL) === channel);
+  const pool = onChannel.length ? onChannel : compatible;
+  const unique = Array.from(new Set(pool.map((row) => row.version).filter(Boolean))) as string[];
+  unique.sort((a, b) => compareSemver(b, a));
+  return unique;
+}
+
+/** Catalog row for a semver on this cluster (the matching openshift list). */
+export function findVersionForSemver(
+  spec: CommunityToolSpec,
+  semver: string,
+  clusterMinor: string,
+): ToolVersion | undefined {
+  if (!semver) return undefined;
+  const matches = toolVersions(spec).filter((row) => row.version === semver);
+  if (!matches.length) return undefined;
+  const cluster = parseVersionFilter(clusterMinor);
+  if (cluster) {
+    const hit = matches.find((row) => versionMatchesCluster(row, cluster));
+    if (hit) return hit;
+  }
+  return matches[0];
+}
+
 export function findToolVersion(spec: CommunityToolSpec, key: string): ToolVersion | undefined {
-  return toolVersions(spec).find((row) => versionKey(row) === key || versionLabel(row) === key);
+  return toolVersions(spec).find(
+    (row) =>
+      versionKey(row) === key ||
+      versionLabel(row) === key ||
+      row.version === key,
+  );
 }
 
 export function detectWindowOpenShiftVersion(): string {

@@ -1,0 +1,9 @@
+node_modules
+dist
+.yarn
+.pnp.cjs
+.pnp.loader.mjs
+.git
+.cursor
+*.tgz
+catalog-service

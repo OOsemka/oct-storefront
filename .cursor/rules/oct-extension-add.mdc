@@ -15,5 +15,6 @@ Before a catalog tile ships:
 4. **StorageClass.** Omit PVC `storageClassName` to use the cluster default. Add shows a StorageClass dropdown when the bundle has a PVC. Optional PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName`. Do not hardcode a lab StorageClass.
 5. **href matches routes.** Catalog `spec.href` must match `console-extensions.json` (`oct-baremetal`: `/baremetal/nodes`; `oct-network-bond`: `/community-tools/network/bond` unless those routes changed).
 6. **Add success is not Ready.** Confirm the plugin Deployment is Running (and `discovery-service` + Bound `image-cache` for Bare Metal Hosts) before calling the tile done.
+7. **Bare Metal Hosts:** Add must check Metal3 `watchAllNamespaces` and offer to patch it with the user’s console credentials. Do not grant cluster-admin to a plugin ServiceAccount for this.
 
 Canonical checklist: `docs/extension-standard.md`. Do not `oc apply` unless asked.

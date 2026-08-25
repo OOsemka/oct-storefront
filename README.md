@@ -29,7 +29,8 @@ This apply installs **only** the storefront. It does **not** install `oct-bareme
 1. Copy [`docs/extension-template/`](docs/extension-template/) into a new repo named `oct-<name>`.
 2. Publish **public** container images whose tags are `<semver>-ocp<major.minor>` (for example `:1.1.0-ocp4.22`) and list those exact tags on `spec.versions[].image`. Do not catalog `:1.1.0` if only `:4.22` exists. Bare `:4.22` / `:1.1.0` may stay as extra aliases.
 3. Set `spec.href` to a route from the extension `console-extensions.json`. If Add needs more than Namespace/Deployment/Service/ConsolePlugin, put the full YAML in `catalog/deploy/oct-<name>.yaml` — including **every required PVC** (created before Deployments). Omit PVC `storageClassName` to use the cluster default; Add lets the installer pick a StorageClass. Optional CommunityTool `spec.storageClassName` or PVC annotation `communitytools.io/storage-class`.
-4. Open a PR against [`catalog/community.yaml`](catalog/community.yaml) in this repo.
+4. **Bare Metal Hosts:** Add checks Metal3 `watchAllNamespaces` and can enable it with the user’s console credentials (recommended switch). Inventory warns if it is still false and hosts sit outside `openshift-machine-api`.
+5. Open a PR against [`catalog/community.yaml`](catalog/community.yaml) in this repo.
 
 **Add can succeed while the plugin never becomes Ready** (Open then 404s). Confirm the plugin Deployment is Running. Canonical checklist: [docs/extension-standard.md](docs/extension-standard.md).
 

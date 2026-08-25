@@ -98,3 +98,17 @@
   font-family: var(--pf-t--global--font--family--mono, monospace);
   font-size: var(--pf-t--global--font--size--sm, 0.875rem);
 }
+
+.ct-add-watch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--sm, 8px);
+}
+
+.ct-add-oc-cmd {
+  display: block;
+  margin-top: var(--pf-t--global--spacer--xs, 4px);
+  font-family: var(--pf-t--global--font--family--mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: var(--pf-t--global--font--size--sm, 0.875rem);
+  word-break: break-all;
+}

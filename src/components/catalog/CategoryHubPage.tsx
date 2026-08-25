@@ -23,12 +23,15 @@ import {
   CatalogItem,
   CatalogSort,
   ToolCategory,
+  compatibleSemvers,
   findToolVersion,
+  findVersionForSemver,
   pickToolVersion,
 } from '../../utils/catalog-types';
 import {
   peekDeployYaml,
 } from '../../utils/catalog-actions';
+import { isBareMetalHostsTool } from '../../utils/metal3-provisioning';
 import {
   pvcSummariesFromYaml,
   suggestedStorageClassFromYaml,
@@ -71,15 +74,17 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
   );
   const title = t(copy.title);
 
-  const requestAdd = (item: CatalogItem) => {
+  const requestAdd = (item: CatalogItem, opts: { pickVersion?: boolean } = {}) => {
     const picked = pickToolVersion(item.tool.spec, catalog.clusterVersion);
     const yaml = peekDeployYaml(item.tool, picked.version);
     const hasPvc = yamlHasPersistentVolumeClaim(yaml);
+    const semvers = compatibleSemvers(item.tool.spec, catalog.clusterVersion);
+    const needsWatchAllNamespaces = isBareMetalHostsTool(item.tool);
     const needsVersion =
       picked.status === 'choose' ||
       picked.status === 'unsupported' ||
       picked.status === 'pinned-incompatible';
-    if (!needsVersion && !hasPvc) {
+    if (!opts.pickVersion && !needsVersion && !hasPvc && !needsWatchAllNamespaces) {
       catalog.add(item, picked.version);
       return;
     }
@@ -87,35 +92,83 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
       item.tool.spec.storageClassName !== undefined
         ? item.tool.spec.storageClassName
         : suggestedStorageClassFromYaml(yaml);
+    const defaultSemver = picked.version?.version || semvers[0] || picked.available[0] || '';
     setAddConfirm({
       item,
+      mode: 'add',
       displayName: item.tool.spec.displayName,
       clusterMinor: picked.clusterMinor,
       available: picked.available,
+      versionChoices: semvers,
       unsupported: picked.status !== 'choose' && needsVersion,
-      selectedVersion: picked.available[0] || '',
+      selectedVersion: needsVersion ? picked.available[0] || defaultSemver : defaultSemver,
+      installedVersion: item.installedVersion,
       needsVersion,
       needsStorageClass: hasPvc,
       storageClass: suggested || '',
       pvcSummaries: pvcSummariesFromYaml(yaml),
+      needsWatchAllNamespaces,
+      enableWatchAllNamespaces: true,
+    });
+  };
+
+  const requestChangeVersion = (item: CatalogItem) => {
+    if (!item.enabled) {
+      requestAdd(item, { pickVersion: true });
+      return;
+    }
+    const picked = pickToolVersion(item.tool.spec, catalog.clusterVersion);
+    const yaml = peekDeployYaml(item.tool, picked.version);
+    const semvers = compatibleSemvers(item.tool.spec, catalog.clusterVersion);
+    const installed = item.installedVersion || '';
+    const defaultSemver =
+      (installed && semvers.includes(installed) ? installed : null) ||
+      picked.version?.version ||
+      semvers[0] ||
+      '';
+    setAddConfirm({
+      item,
+      mode: 'change',
+      displayName: item.tool.spec.displayName,
+      clusterMinor: picked.clusterMinor,
+      available: picked.available,
+      versionChoices: semvers,
+      unsupported: false,
+      selectedVersion: defaultSemver,
+      installedVersion: installed,
+      needsVersion: false,
+      needsStorageClass: false,
+      storageClass: '',
+      pvcSummaries: pvcSummariesFromYaml(yaml),
+      needsWatchAllNamespaces: false,
+      enableWatchAllNamespaces: true,
     });
   };
 
   const confirmAdd = () => {
     if (!addConfirm) return;
+    const spec = addConfirm.item.tool.spec;
+    const cluster = catalog.clusterVersion;
     const version = addConfirm.needsVersion
-      ? findToolVersion(addConfirm.item.tool.spec, addConfirm.selectedVersion)
-      : (() => {
-          const picked = pickToolVersion(addConfirm.item.tool.spec, catalog.clusterVersion);
+      ? findToolVersion(spec, addConfirm.selectedVersion)
+      : findVersionForSemver(spec, addConfirm.selectedVersion, cluster) ||
+        (() => {
+          const picked = pickToolVersion(spec, cluster);
           return picked.status === 'matched' || picked.status === 'single'
             ? picked.version
-            : findToolVersion(addConfirm.item.tool.spec, addConfirm.selectedVersion);
+            : findToolVersion(spec, addConfirm.selectedVersion);
         })();
-    catalog.add(
-      addConfirm.item,
-      version,
-      addConfirm.needsStorageClass ? { storageClassName: addConfirm.storageClass } : undefined,
-    );
+    const isUpdate = addConfirm.mode === 'change' || Boolean(addConfirm.item.enabled);
+    if (isUpdate) {
+      catalog.update(addConfirm.item, version);
+    } else {
+      catalog.add(addConfirm.item, version, {
+        ...(addConfirm.needsStorageClass ? { storageClassName: addConfirm.storageClass } : {}),
+        ...(addConfirm.needsWatchAllNamespaces
+          ? { enableWatchAllNamespaces: addConfirm.enableWatchAllNamespaces }
+          : {}),
+      });
+    }
     setAddConfirm(null);
   };
 
@@ -150,6 +203,13 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
             <StackItem>
               <Alert isInline variant="success" title={t('Success')}>
                 {catalog.notice}
+              </Alert>
+            </StackItem>
+          ) : null}
+          {catalog.warning ? (
+            <StackItem>
+              <Alert isInline variant="warning" title={t('Warning')}>
+                {catalog.warning}
               </Alert>
             </StackItem>
           ) : null}
@@ -224,6 +284,7 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
                     onAdd={() => requestAdd(item)}
                     onEnable={() => catalog.enable(item)}
                     onUpdate={() => catalog.update(item)}
+                    onChangeVersion={() => requestChangeVersion(item)}
                     onRemove={() => catalog.remove(item)}
                     onRate={(stars) => catalog.rate(item, stars)}
                   />

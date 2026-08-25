@@ -78,10 +78,11 @@ Legacy rows (`openshift: "4.22"` without `version`) still parse.
 
 | Action | Behavior |
 | --- | --- |
-| **Add** (not installed) | Newest **stable** semver whose `openshift` list includes the cluster (`ClusterVersion` / `window.SERVER_FLAGS`). Pull that row's combined `image`. Unknown cluster → user pick. Never pick an OCP-incompatible row when cluster minor is known. |
-| **Pin** | `spec.pinVersion` (or spec `version:`) or an explicit pick. That semver stays; 1.2.0 is not applied automatically. The matching row is the one whose `openshift` includes the cluster. |
+| **Add** (not installed) | Newest **stable** semver whose `openshift` list includes the cluster. One-click Add uses that default. **Choose version** (when more than one compatible semver exists) opens a picker, latest selected. Unknown cluster → user pick. Never pick an OCP-incompatible row when cluster minor is known. |
+| **Pin** | `spec.pinVersion` (or spec `version:`) is the Add **default**, not a lock. The user can still pick another compatible semver. |
 | **Enable** | Re-enables `spec.plugins`. **Does not** change the Deployment image. |
-| **Update** | Explicit click. Same ConsolePlugin name; patches the plugin Deployment image. Never auto. Tile shows installed vs newer compatible (“Update available”). |
+| **Update** | Explicit click to the newest compatible semver. Never auto. Tile shows “Update available (x.y.z)”. |
+| **Change version** | Explicit picker of any compatible semver (including older). Same ConsolePlugin name; one running version. |
 | **Remove** | Disables this plugin only. Leaves Deployment. Does not uninstall other tools or other pinned plugins. |
 | **Same plugin ID** | One ConsolePlugin name = **one running version**. 1.2 does not run beside 1.1 under the same ID. Legacy stays on 1.1 by **not** clicking Update. |
 
@@ -98,6 +99,7 @@ Before shipping a tile, agents MUST:
 3. **Bundle is complete.** Add applies `catalog/deploy/oct-<name>.yaml` (register in `BUNDLED_DEPLOY`) or generated Namespace/Deployment/Service/ConsolePlugin only. Include every PVC, volume, RBAC, Service, and sidecar the Deployments need. **Precreate required PVCs in the bundle** (Add creates them before Deployments). `oct-baremetal` needs PVC `image-cache` (100Gi). Omit `storageClassName` for the cluster default; Add shows a StorageClass dropdown when the YAML has a PVC. Optional PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName`.
 4. **`spec.href` matches `console-extensions.json`.** `oct-baremetal`: `/baremetal/nodes`. `oct-network-bond`: `/community-tools/network/bond` unless those routes changed.
 5. **Add success is not Ready.** Confirm the plugin Deployment is Running before calling the tile done. For Bare Metal Hosts, also confirm `discovery-service` is Running and `image-cache` is Bound.
+6. **Bare Metal Hosts Add** checks Metal3 `Provisioning/provisioning-configuration` `spec.watchAllNamespaces`. If missing/false, the Add dialog warns and can patch `true` with the user’s console token (recommended switch, default on). Do not grant cluster-admin to a plugin ServiceAccount for this.
 
 Canonical checklist: `docs/extension-standard.md`. Do not `oc apply` unless asked.
 

@@ -14,8 +14,18 @@ import {
   ModalBody,
   ModalFooter,
   ModalHeader,
+  Spinner,
+  Switch,
 } from '@patternfly/react-core';
 import { PvcSummary } from '../../utils/apply-yaml';
+import {
+  isNotFoundError,
+  isWatchAllNamespacesEnabled,
+  PROVISIONING_GVK,
+  PROVISIONING_NAME,
+  ProvisioningKind,
+  WATCH_ALL_NAMESPACES_OC_PATCH,
+} from '../../utils/metal3-provisioning';
 
 const I18N = 'plugin__oct-storefront';
 const DEFAULT_SC_ANN = 'storageclass.kubernetes.io/is-default-class';
@@ -38,6 +48,102 @@ export type AddExtensionModalState = {
   needsStorageClass: boolean;
   storageClass: string;
   pvcSummaries: PvcSummary[];
+  mode?: 'add' | 'change';
+  versionChoices?: string[];
+  installedVersion?: string;
+  needsWatchAllNamespaces?: boolean;
+  enableWatchAllNamespaces?: boolean;
+};
+
+const WatchAllNamespacesField: FC<{
+  enabled: boolean;
+  onEnabledChange: (value: boolean) => void;
+}> = ({ enabled, onEnabledChange }) => {
+  const { t } = useTranslation(I18N);
+  const [provisioning, loaded, error] = useK8sWatchResource<ProvisioningKind>({
+    groupVersionKind: {
+      group: PROVISIONING_GVK.group,
+      version: PROVISIONING_GVK.version,
+      kind: PROVISIONING_GVK.kind,
+    },
+    name: PROVISIONING_NAME,
+  });
+
+  if (!loaded) {
+    return (
+      <FormGroup label={t('BareMetal Operator namespace watch')} fieldId="ct-add-watch-all">
+        <Spinner size="md" aria-label={t('Checking whether BareMetal Operator watches all namespaces')} />
+      </FormGroup>
+    );
+  }
+
+  if (error && !isNotFoundError(error)) {
+    return (
+      <FormGroup label={t('BareMetal Operator namespace watch')} fieldId="ct-add-watch-all">
+        <div className="ct-add-watch">
+          <Alert isInline variant="warning" title={t('Could not read Provisioning configuration')}>
+            {t(
+              'Add uses your console credentials to patch spec.watchAllNamespaces. If that fails, you will see this command:',
+            )}
+            <code className="ct-add-oc-cmd">{WATCH_ALL_NAMESPACES_OC_PATCH}</code>
+          </Alert>
+          <Switch
+            id="ct-add-watch-all"
+            isChecked={enabled}
+            onChange={(_e, checked) => onEnabledChange(checked)}
+            label={t('Watch BareMetalHosts in all namespaces (recommended)')}
+          />
+          {!enabled ? (
+            <Alert isInline variant="warning" title={t('Hosts in other namespaces will stay Unknown')}>
+              {t(
+                'BareMetal Operator only reconciles BareMetalHosts in openshift-machine-api. The plugin will still install.',
+              )}
+            </Alert>
+          ) : null}
+        </div>
+      </FormGroup>
+    );
+  }
+
+  if (isWatchAllNamespacesEnabled(provisioning)) {
+    return (
+      <Alert isInline variant="success" title={t('BareMetal Operator already watches all namespaces')} />
+    );
+  }
+
+  return (
+    <FormGroup label={t('BareMetal Operator namespace watch')} fieldId="ct-add-watch-all">
+      <div className="ct-add-watch">
+        <Alert isInline variant="warning" title={t('BareMetal Operator is not watching all namespaces')}>
+          {t(
+            'BareMetal Operator only reconciles BareMetalHosts in openshift-machine-api. Hosts in other namespaces stay Unknown until spec.watchAllNamespaces is true.',
+          )}
+        </Alert>
+        <Switch
+          id="ct-add-watch-all"
+          isChecked={enabled}
+          onChange={(_e, checked) => onEnabledChange(checked)}
+          label={t('Watch BareMetalHosts in all namespaces (recommended)')}
+        />
+        {!enabled ? (
+          <Alert isInline variant="warning" title={t('Hosts in other namespaces will stay Unknown')}>
+            {t(
+              'The plugin will still install. Set spec.watchAllNamespaces: true later, or keep hosts in openshift-machine-api. Command:',
+            )}
+            <code className="ct-add-oc-cmd">{WATCH_ALL_NAMESPACES_OC_PATCH}</code>
+          </Alert>
+        ) : (
+          <HelperText>
+            <HelperTextItem>
+              {t(
+                'Install will patch Provisioning/provisioning-configuration with your console credentials. This does not use a plugin ServiceAccount.',
+              )}
+            </HelperTextItem>
+          </HelperText>
+        )}
+      </div>
+    </FormGroup>
+  );
 };
 
 export const AddExtensionModal: FC<{
@@ -57,15 +163,26 @@ export const AddExtensionModal: FC<{
   const pvcLine = (state?.pvcSummaries || [])
     .map((p) => (p.size ? `${p.name} (${p.size})` : p.name))
     .join(', ');
+  const isChange = state?.mode === 'change';
+  const versionChoices = state?.versionChoices || [];
+  const showSemverPick = Boolean(state) && !state?.needsVersion && (isChange || versionChoices.length > 1);
+  const showWatch = Boolean(state?.needsWatchAllNamespaces) && !isChange;
 
   return (
     <Modal
       isOpen={Boolean(state)}
       onClose={onClose}
-      variant="small"
+      variant={showWatch ? 'medium' : 'small'}
       aria-labelledby="ct-add-extension-title"
     >
-      <ModalHeader title={t('Add {{name}}', { name: state?.displayName || '' })} labelId="ct-add-extension-title" />
+      <ModalHeader
+        title={
+          isChange
+            ? t('Change version of {{name}}', { name: state?.displayName || '' })
+            : t('Add {{name}}', { name: state?.displayName || '' })
+        }
+        labelId="ct-add-extension-title"
+      />
       <ModalBody>
         <Form>
           {state?.unsupported ? (
@@ -98,6 +215,25 @@ export const AddExtensionModal: FC<{
                   <FormSelectOption key={v} value={v} label={v} />
                 ))}
               </FormSelect>
+            </FormGroup>
+          ) : null}
+          {showSemverPick && state ? (
+            <FormGroup label={t('Select version')} fieldId="ct-add-semver">
+              <FormSelect
+                id="ct-add-semver"
+                value={state.selectedVersion}
+                onChange={(_e, v) => onChange({ ...state, selectedVersion: v })}
+                aria-label={t('Select version')}
+              >
+                {versionChoices.map((v) => (
+                  <FormSelectOption key={v} value={v} label={v} />
+                ))}
+              </FormSelect>
+              {state.installedVersion ? (
+                <HelperText>
+                  <HelperTextItem>{t('Installed {{version}}', { version: state.installedVersion })}</HelperTextItem>
+                </HelperText>
+              ) : null}
             </FormGroup>
           ) : null}
           {state?.needsStorageClass ? (
@@ -136,15 +272,21 @@ export const AddExtensionModal: FC<{
               </HelperText>
             </FormGroup>
           ) : null}
+          {showWatch && state ? (
+            <WatchAllNamespacesField
+              enabled={state.enableWatchAllNamespaces !== false}
+              onEnabledChange={(value) => onChange({ ...state, enableWatchAllNamespaces: value })}
+            />
+          ) : null}
         </Form>
       </ModalBody>
       <ModalFooter>
         <Button
           variant="primary"
           onClick={onConfirm}
-          isDisabled={Boolean(state?.needsVersion && !state.selectedVersion)}
+          isDisabled={Boolean(state?.needsVersion && !state.selectedVersion) || Boolean(showSemverPick && !state?.selectedVersion)}
         >
-          {t('Install')}
+          {isChange ? t('Apply') : t('Install')}
         </Button>
         <Button variant="link" onClick={onClose}>
           {t('Cancel')}

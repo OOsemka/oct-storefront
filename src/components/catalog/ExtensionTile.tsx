@@ -32,9 +32,10 @@ export const ExtensionTile: FC<{
   onAdd: () => void;
   onEnable: () => void;
   onUpdate: () => void;
+  onChangeVersion: () => void;
   onRemove: () => void;
   onRate: (stars: number) => void;
-}> = ({ item, preferPublic, busy, onAdd, onEnable, onUpdate, onRemove, onRate }) => {
+}> = ({ item, preferPublic, busy, onAdd, onEnable, onUpdate, onRemove, onChangeVersion, onRate }) => {
   const { t } = useTranslation('plugin__oct-storefront');
   const { tool, stats, enabled, installed } = item;
   const avg = ratingAverage(stats, preferPublic);
@@ -43,6 +44,7 @@ export const ExtensionTile: FC<{
   const versions = openshiftMinors(tool.spec).join(', ') || t('Unknown');
   const badge = tool.spec.source === 'external' ? t('External') : t('Community');
   const updateVer = item.updateAvailable?.version;
+  const canPickVersion = (item.compatibleSemvers || []).length > 1;
 
   return (
     <article className="ct-tile" id={`ct-tile-${item.id}`}>
@@ -82,6 +84,11 @@ export const ExtensionTile: FC<{
                 {t('Update')}
               </Button>
             ) : null}
+            {canPickVersion ? (
+              <Button variant="link" isInline onClick={onChangeVersion} isDisabled={busy}>
+                {t('Change version')}
+              </Button>
+            ) : null}
             <Button variant="link" isInline onClick={onRemove} isDisabled={busy}>
               {t('Remove')}
             </Button>
@@ -91,9 +98,16 @@ export const ExtensionTile: FC<{
             {t('Enable')}
           </Button>
         ) : (
-          <Button variant="link" isInline onClick={onAdd} isDisabled={busy}>
-            {t('Add')}
-          </Button>
+          <>
+            <Button variant="link" isInline onClick={onAdd} isDisabled={busy}>
+              {t('Add')}
+            </Button>
+            {canPickVersion ? (
+              <Button variant="link" isInline onClick={onChangeVersion} isDisabled={busy}>
+                {t('Choose version')}
+              </Button>
+            ) : null}
+          </>
         )}
       </div>
     </article>

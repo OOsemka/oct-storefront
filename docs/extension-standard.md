@@ -16,9 +16,10 @@ Before a tile ships, satisfy **all** of:
 2. **Publish the combined tag the catalog lists.** Tag format is `<semver>-ocp<major.minor>` (not `ocp4.22-1.0.1`, not bare `:1.1.0`, not bare `:4.22`). Never list a catalog row for (version, OpenShift minor) unless that exact tag exists and is public. That is what caused Add-success / Open-404 (`:1.1.0` cataloged, only `:4.22` published). Bare `:4.22` / `:1.1.0` may remain as extra aliases.
 3. **Install bundle is complete.** Add resolves YAML in this order: `versions[].deployYAML` → storefront `catalog/deploy/oct-<name>.yaml` (also register the import in `BUNDLED_DEPLOY` in `src/utils/catalog-actions.ts`) → `deployURL` → generated Namespace + plugin Deployment + Service + ConsolePlugin. Generated YAML does **not** include extra PVCs, RBAC, or sidecars. Put every required volume, PVC, Service, ServiceAccount, and RBAC in the bundled YAML. **Required PVCs must be in the bundle** so Add creates them **before** Deployments (pods that mount a missing PVC stay Pending). Not every extension needs a PVC; every volume a Deployment mounts must be in the bundle Add applies. `oct-baremetal` precreates `image-cache` (100Gi).
 4. **StorageClass:** Omit `spec.storageClassName` on PVCs to use the **cluster default**. Add shows a StorageClass dropdown when the bundle contains a PVC (default = cluster default). Authors can also set PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName` as the Add default. `storageClassName` is immutable after the PVC is Bound. Do not hardcode a lab StorageClass in the bundle.
-5. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin, Route. Other kinds fail Add. Add sorts PVCs before Deployments.
-6. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
-7. **Add success is not done.** Confirm the plugin Deployment is Running (and any sidecars) before calling the extension shippable. For Bare Metal Hosts, also confirm `discovery-service` is Running and PVC `image-cache` is Bound.
+5. **Bare Metal Hosts Add:** Check `provisioning.metal3.io/provisioning-configuration` `spec.watchAllNamespaces`. If missing/false, Add shows a warning and a recommended switch (default on) that patches `true` with the **user’s console credentials**. Unchecking still installs the plugin but warns. If the patch is forbidden, show the error and `oc patch provisioning.metal3.io provisioning-configuration --type=merge -p '{"spec":{"watchAllNamespaces":true}}'`. Do **not** grant cluster-admin to a plugin ServiceAccount for this. Inventory shows the same warning as a safety net when hosts exist outside `openshift-machine-api`.
+6. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin, Route. Other kinds fail Add. Add sorts PVCs before Deployments.
+7. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
+8. **Add success is not done.** Confirm the plugin Deployment is Running (and any sidecars) before calling the extension shippable. For Bare Metal Hosts, also confirm `discovery-service` is Running and PVC `image-cache` is Bound.
 
 ## Public images (required)
 
@@ -79,10 +80,11 @@ Optional `spec.pinVersion: "1.0.0"` (alias: spec `version:`) keeps Add on that s
 
 | Action | Rule |
 | --- | --- |
-| Add | Newest stable semver compatible with cluster OCP; pull that row's combined `image` |
-| Pin | `pinVersion` or user pick; no automatic jump |
+| Add | One-click: newest stable semver compatible with cluster OCP. **Choose version** when multiple compatible semvers exist. |
+| Pin | `pinVersion` is the Add default; the user can still pick another compatible semver |
 | Enable | Re-enable plugin; keep existing image |
-| Update | Explicit click; patch Deployment; same ConsolePlugin |
+| Update | Explicit click to newest compatible; tile shows “Update available” |
+| Change version | Explicit picker (including older compatible semvers); same ConsolePlugin |
 | Remove | Disable this plugin only |
 | Same ID | Cannot run two semvers at once |
 

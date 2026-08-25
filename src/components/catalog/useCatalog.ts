@@ -16,6 +16,7 @@ import {
   detectWindowOpenShiftVersion,
   pickToolVersion,
   pickAvailableUpdate,
+  compatibleSemvers,
 } from '../../utils/catalog-types';
 import {
   addExtension,
@@ -80,6 +81,7 @@ export function useCatalog(category: ToolCategory) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,6 +140,7 @@ export function useCatalog(category: ToolCategory) {
           enabled,
           installedVersion,
           updateAvailable: pickAvailableUpdate(t.spec, installedVersion, clusterVersion),
+          compatibleSemvers: compatibleSemvers(t.spec, clusterVersion),
         };
       });
 
@@ -170,9 +173,14 @@ export function useCatalog(category: ToolCategory) {
     setBusyId(id);
     setError(null);
     setNotice(null);
+    setWarning(null);
     try {
-      await fn();
+      const result = await fn();
       setNotice(okMessage);
+      if (result && typeof result === 'object' && 'warnings' in result) {
+        const warnings = (result as { warnings?: string[] }).warnings;
+        if (warnings?.length) setWarning(warnings.join(' '));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -243,10 +251,12 @@ export function useCatalog(category: ToolCategory) {
           );
         }
         await saveExternalTool(tool);
-        await addExtension(tool, picked.version, clusterVersion, {
+        setWarning(null);
+        const result = await addExtension(tool, picked.version, clusterVersion, {
           storageClassName: tool.spec.storageClassName,
         });
         setNotice(`Added external extension ${tool.spec.displayName}.`);
+        if (result.warnings.length) setWarning(result.warnings.join(' '));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -270,6 +280,7 @@ export function useCatalog(category: ToolCategory) {
     busyId,
     error,
     notice,
+    warning,
     add,
     enable,
     update,
