@@ -47,7 +47,7 @@
       "description": "Bond physical NICs by MachineConfigPool. Creates NodeNetworkConfigurationPolicy resources.",
       "category": "network",
       "source": "community",
-      "git": "https://github.com/cjanisze/oct-network-bond",
+      "git": "https://github.com/OOsemka/oct-network-bond",
       "consolePlugin": "oct-network-bond",
       "href": "/community-tools/network/bond",
       "defaultChannel": "stable",
