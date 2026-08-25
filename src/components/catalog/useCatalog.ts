@@ -183,10 +183,10 @@ export function useCatalog(category: ToolCategory) {
     (item: CatalogItem, version?: ToolVersion) =>
       run(
         item.id,
-        () => addExtension(item.tool, version),
+        () => addExtension(item.tool, version, clusterVersion),
         `Added ${item.tool.spec.displayName}${version?.version ? ` ${version.version}` : ''}. Refresh the console to load the plugin.`,
       ),
-    [run],
+    [run, clusterVersion],
   );
 
   const enable = useCallback(
@@ -200,11 +200,11 @@ export function useCatalog(category: ToolCategory) {
       const next = version || item.updateAvailable;
       return run(
         item.id,
-        () => addExtension(item.tool, next),
+        () => addExtension(item.tool, next, clusterVersion),
         `Updated ${item.tool.spec.displayName} to ${next?.version || 'the latest compatible release'}. Refresh the console.`,
       );
     },
-    [run],
+    [run, clusterVersion],
   );
 
   const remove = useCallback(
@@ -242,7 +242,7 @@ export function useCatalog(category: ToolCategory) {
           );
         }
         await saveExternalTool(tool);
-        await addExtension(tool, picked.version);
+        await addExtension(tool, picked.version, clusterVersion);
         setNotice(`Added external extension ${tool.spec.displayName}.`);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));

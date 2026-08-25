@@ -106,7 +106,7 @@ spec:
     spec:
       containers:
         - name: plugin
-          image: quay.io/cjanisze/oct-baremetal:1.1.0
+          image: quay.io/cjanisze/oct-baremetal:1.1.0-ocp4.22
           ports:
             - containerPort: 9443
               protocol: TCP
@@ -310,7 +310,7 @@ spec:
     spec:
       containers:
         - name: discovery-service
-          image: quay.io/cjanisze/oct-baremetal-discovery:4.22
+          image: quay.io/cjanisze/oct-baremetal-discovery:1.1.0-ocp4.22
           ports:
             - containerPort: 8080
               name: http

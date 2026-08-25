@@ -9,9 +9,9 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 
 | Directory | Plugin ID | Image tags |
 | --- | --- | --- |
-| **oct-storefront** (this) | `oct-storefront` | `:1.x.x` (semver); optional `:1.x.x-ocp4.22` if rebuilt per OCP |
-| oct-baremetal | `oct-baremetal` | same |
-| oct-network-bond | `oct-network-bond` | same |
+| **oct-storefront** (this) | `oct-storefront` | `:1.x.x-ocp4.22` (required); optional aliases `:1.x.x` / `:4.22` |
+| oct-baremetal | `oct-baremetal` | same scheme |
+| oct-network-bond | `oct-network-bond` | same scheme |
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
@@ -28,7 +28,9 @@ Administrator left-nav
 
 ## Catalog schema (CommunityTool) — two version axes
 
-1. **Extension semver** (`versions[].version`, git tag `v1.2.0`, image `:1.2.0`)
+Keep two axes in the catalog. Image tags always encode both: `<semver>-ocp<major.minor>` (e.g. `1.1.0-ocp4.22`). Not `ocp4.22-1.0.1`.
+
+1. **Extension semver** (`versions[].version`, git tag `v1.2.0`)
 2. **OpenShift minor** (`versions[].openshift` list; optional git branch `ocp-4.22` when PF/API diverge)
 
 ```yaml
@@ -51,17 +53,22 @@ spec:
   versions:
     - version: "1.1.0"
       channel: stable
-      openshift: ["4.21", "4.22"]
-      image: quay.io/example/oct-my-tool:1.1.0
+      openshift: ["4.21"]
+      image: quay.io/example/oct-my-tool:1.1.0-ocp4.21
+      gitRef: v1.1.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/example/oct-my-tool:1.1.0-ocp4.22
       gitRef: v1.1.0
     - version: "1.2.0"
       channel: stable
       openshift: ["4.22"]
-      image: quay.io/example/oct-my-tool:1.2.0
+      image: quay.io/example/oct-my-tool:1.2.0-ocp4.22
       gitRef: v1.2.0
 ```
 
-Every `versions[].image` (and any discovery/sidecar image the extension pulls) must be **public** and the **listed tag must exist**. Private or unpublished tags break tile Add on other clusters. `spec.href` must match a `console-extensions.json` route.
+Every `versions[].image` (and any discovery/sidecar image the extension pulls) must be **public** and the **exact combined tag must exist**. Never list a (version, OpenShift minor) row unless that tag is public. `spec.href` must match a `console-extensions.json` route.
 
 Legacy rows (`openshift: "4.22"` without `version`) still parse.
 
@@ -71,14 +78,14 @@ Legacy rows (`openshift: "4.22"` without `version`) still parse.
 
 | Action | Behavior |
 | --- | --- |
-| **Add** (not installed) | Newest **stable** semver whose `openshift` list includes the cluster (`ClusterVersion` / `window.SERVER_FLAGS`). Unknown cluster → user pick. Never pick an OCP-incompatible row when cluster minor is known. |
-| **Pin** | `spec.pinVersion` (or spec `version:`) or an explicit pick. That semver stays; 1.2.0 is not applied automatically. |
+| **Add** (not installed) | Newest **stable** semver whose `openshift` list includes the cluster (`ClusterVersion` / `window.SERVER_FLAGS`). Pull that row's combined `image`. Unknown cluster → user pick. Never pick an OCP-incompatible row when cluster minor is known. |
+| **Pin** | `spec.pinVersion` (or spec `version:`) or an explicit pick. That semver stays; 1.2.0 is not applied automatically. The matching row is the one whose `openshift` includes the cluster. |
 | **Enable** | Re-enables `spec.plugins`. **Does not** change the Deployment image. |
 | **Update** | Explicit click. Same ConsolePlugin name; patches the plugin Deployment image. Never auto. Tile shows installed vs newer compatible (“Update available”). |
 | **Remove** | Disables this plugin only. Leaves Deployment. Does not uninstall other tools or other pinned plugins. |
 | **Same plugin ID** | One ConsolePlugin name = **one running version**. 1.2 does not run beside 1.1 under the same ID. Legacy stays on 1.1 by **not** clicking Update. |
 
-Git: tags `v1.2.0`; optional `ocp-4.22` branch for PF/API. A `v1.2.0` tag can live on `ocp-4.22`. Images prefer `:1.2.0`; use `:1.2.0-ocp4.22` when the same semver is rebuilt per OCP. Do not auto-migrate running clusters.
+Git: tags `v1.2.0`; optional `ocp-4.22` branch for PF/API. A `v1.2.0` tag can live on `ocp-4.22`. Images in catalog and install YAML are `:1.2.0-ocp4.22`. Same bits on two minors → two tags on one digest. Do not auto-migrate running clusters.
 
 ## New extension / Add must go Ready
 
@@ -87,7 +94,7 @@ Git: tags `v1.2.0`; optional `ocp-4.22` branch for PF/API. A `v1.2.0` tag can li
 Before shipping a tile, agents MUST:
 
 1. **Catalog image tag exists and is public.** `spec.versions[].image` (and every sidecar the bundle pulls) must pull anonymously. Community Add has **no pull secret**.
-2. **Publish the semver tag the catalog lists.** Two axes: extension `:1.1.0` vs OpenShift `:4.22`. Do not list `:1.1.0` if only `:4.22` exists. Prefer publishing `:1.1.0` (keep the OCP tag if used).
+2. **Publish the combined tag the catalog lists.** `<semver>-ocp<major.minor>`. Do not list `:1.1.0` or `:4.22` as the install image. That mismatch is what caused Add-success / Open-404.
 3. **Bundle is complete.** Add applies `catalog/deploy/oct-<name>.yaml` (register in `BUNDLED_DEPLOY`) or generated Namespace/Deployment/Service/ConsolePlugin only. Include every PVC, volume, RBAC, Service, and sidecar the Deployments need.
 4. **`spec.href` matches `console-extensions.json`.** `oct-baremetal`: `/baremetal/nodes`. `oct-network-bond`: `/community-tools/network/bond` unless those routes changed.
 5. **Add success is not Ready.** Confirm the plugin Deployment is Running before calling the tile done.

@@ -184,7 +184,7 @@ spec:
 `;
 }
 
-/** Set the plugin Deployment's container image to the selected catalog version. */
+/** Set the plugin Deployment's container image to the selected catalog version (combined tag). */
 export function applyVersionImage(yaml: string, pluginName: string, image?: string): string {
   if (!image) return yaml;
   const docs = loadAll(yaml || '');

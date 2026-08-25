@@ -73,7 +73,7 @@ export const AddExternalModal: FC<{
               value={text}
               onChange={(_e, v) => setText(v)}
               placeholder={t(
-                'Paste a CommunityTool document. spec.versions (or spec.validatedOn) is required, for example versions: [{ version: "1.0.0", channel: "stable", openshift: ["4.22"], image: "quay.io/example/oct-tool:1.0.0" }].',
+                'Paste a CommunityTool document. spec.versions (or spec.validatedOn) is required, for example versions: [{ version: "1.0.0", channel: "stable", openshift: ["4.22"], image: "quay.io/example/oct-tool:1.0.0-ocp4.22" }].',
               )}
             />
             <HelperText>

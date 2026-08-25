@@ -2,7 +2,7 @@
 
 OCT extensions use **`oct-<name>`** for directories, plugin IDs, images, and catalog `metadata.name` / `spec.consolePlugin`. This is a community project, not Red Hat supported.
 
-Versioning has **two axes**: extension **semver** and **OpenShift minor**. Do not ship only `:4.22` if you also need independent extension releases. Catalog `versions[].image` must be the **semver tag that actually exists** on a **public** registry.
+Versioning has **two axes in the catalog**: extension **semver** and **OpenShift minor**. Do not collapse the catalog into a single `:4.22` tag. **Image tags MUST encode both axes**: `<semver>-ocp<major.minor>` (e.g. `1.1.0-ocp4.22`). Catalog `versions[].image` must be that **exact combined tag**, public, and present on the registry.
 
 ## Add must go Ready (required)
 
@@ -13,7 +13,7 @@ If the nginx plugin image cannot be pulled, Add still reports success, tile **Op
 Before a tile ships, satisfy **all** of:
 
 1. **Image tag exists and is public.** Every `spec.versions[].image` and every sidecar/discovery image the bundle pulls must pull **anonymously**. Community Add and community `oc apply` have **no pull secret**. A missing tag (`manifest unknown`) is a ship-blocker.
-2. **Publish the semver the catalog lists.** Two axes: extension semver (`:1.1.0`, git `v1.1.0`) vs OpenShift minor (`ocp-4.22`; optional image `:4.22` or `:1.1.0-ocp4.22`). Listing `:1.1.0` while only `:4.22` exists is invalid. Prefer publishing `:1.1.0`; keep the OCP tag if you still use it.
+2. **Publish the combined tag the catalog lists.** Tag format is `<semver>-ocp<major.minor>` (not `ocp4.22-1.0.1`, not bare `:1.1.0`, not bare `:4.22`). Never list a catalog row for (version, OpenShift minor) unless that exact tag exists and is public. That is what caused Add-success / Open-404 (`:1.1.0` cataloged, only `:4.22` published). Bare `:4.22` / `:1.1.0` may remain as extra aliases.
 3. **Install bundle is complete.** Add resolves YAML in this order: `versions[].deployYAML` → storefront `catalog/deploy/oct-<name>.yaml` (also register the import in `BUNDLED_DEPLOY` in `src/utils/catalog-actions.ts`) → `deployURL` → generated Namespace + plugin Deployment + Service + ConsolePlugin. Generated YAML does **not** include extra PVCs, RBAC, or sidecars. Put every required volume, PVC, Service, ServiceAccount, and RBAC in the bundled YAML. Not every extension needs a PVC; every volume a Deployment mounts must be in the bundle Add applies.
 4. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin. Other kinds fail Add.
 5. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
@@ -21,15 +21,18 @@ Before a tile ships, satisfy **all** of:
 
 ## Public images (required)
 
-Every `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository) **and the listed tag must exist**. Private or missing tags break `oc apply` and tile **Add** on other clusters. Do not publish a catalog tile that points at a private repo or an unpublished tag.
+Every `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository) **and the listed combined tag must exist**. Private or missing tags break `oc apply` and tile **Add** on other clusters. Do not publish a catalog tile that points at a private repo or an unpublished tag.
+
+If one semver supports multiple OpenShift minors with the **same** bits, publish **two tags on the same digest** (`1.1.0-ocp4.21` and `1.1.0-ocp4.22`), not one ambiguous `:1.1.0` as the only catalog image. Prefer one `versions[]` row per (semver, OCP minor) so `image` is the exact combined tag.
 
 ## Git / images
 
 | Axis | Git | Image |
 | --- | --- | --- |
-| Extension release | tag `v1.2.0` (may sit on `ocp-4.22`) | `:1.2.0` preferred |
-| OpenShift minor (PF/API) | branch `ocp-4.22` / `ocp-4.21`; `main` = newest (4.22) | optional `:1.2.0-ocp4.22` when the same semver is rebuilt per OCP |
+| Extension release | tag `v1.2.0` (may sit on `ocp-4.22`) | `:1.2.0-ocp4.22` (required in catalog) |
+| OpenShift minor (PF/API) | branch `ocp-4.22` / `ocp-4.21`; `main` = newest (4.22) | suffix `-ocp4.22` / `-ocp4.21` on the same semver |
 | PatternFly | PF 6 on 4.22; do not mix PF majors on one branch | |
+| Aliases | | optional extra `:1.2.0` and `:4.22` if already published |
 
 ## CommunityTool template
 
@@ -53,24 +56,29 @@ spec:
   versions:
     - version: "1.0.0"
       channel: stable
-      openshift: ["4.21", "4.22"]
-      image: quay.io/example/oct-example-tool:1.0.0
+      openshift: ["4.21"]
+      image: quay.io/example/oct-example-tool:1.0.0-ocp4.21
+      gitRef: v1.0.0
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/example/oct-example-tool:1.0.0-ocp4.22
       gitRef: v1.0.0
     - version: "1.1.0"
       channel: stable
       openshift: ["4.22"]
-      image: quay.io/example/oct-example-tool:1.1.0
+      image: quay.io/example/oct-example-tool:1.1.0-ocp4.22
       gitRef: v1.1.0
   minOpenShift: "4.21"
 ```
 
-Optional `spec.pinVersion: "1.0.0"` (alias: spec `version:`) keeps Add on that semver.
+Optional `spec.pinVersion: "1.0.0"` (alias: spec `version:`) keeps Add on that semver (the row whose `openshift` includes the cluster).
 
 ## Add / upgrade (storefront)
 
 | Action | Rule |
 | --- | --- |
-| Add | Newest stable semver compatible with cluster OCP |
+| Add | Newest stable semver compatible with cluster OCP; pull that row's combined `image` |
 | Pin | `pinVersion` or user pick; no automatic jump |
 | Enable | Re-enable plugin; keep existing image |
 | Update | Explicit click; patch Deployment; same ConsolePlugin |
@@ -86,12 +94,12 @@ Never auto-update. Never auto-migrate running clusters.
 | `metadata.name` | yes | `oct-<name>` stats key |
 | `spec.consolePlugin` | yes | ConsolePlugin CR name (`oct-<name>`) |
 | `spec.href` | yes (for Open) | Must match a `console-extensions.json` route |
-| `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift` (string or list), `image` (**public**, **tag exists**) |
+| `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift`, `image` (`<semver>-ocp<minor>`, **public**, **tag exists**) |
 | `spec.defaultChannel` | no | Default `stable` |
 | `spec.pinVersion` | no | Pin Add to this semver |
 | `spec.category` | yes | compute, storage, network, management |
 | `spec.source` | yes | `community` in catalog; storefront forces `external` on paste |
-| `spec.image` | fallback | Used only if `versions[]` has no image |
+| `spec.image` | fallback | Used only if `versions[]` has no image; must still be a combined tag |
 
 ## Checklist for a new extension repo
 
@@ -99,6 +107,6 @@ Never auto-update. Never auto-migrate running clusters.
 2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc` (`alwaysApply: true`).
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
-5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route.
+5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public combined** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route.
 6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services) and register it in `BUNDLED_DEPLOY`.
 7. `yarn build` in the extension and the storefront. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.

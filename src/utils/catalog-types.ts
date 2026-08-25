@@ -40,7 +40,8 @@ export type CommunityToolSpec = {
   channels?: Record<string, Record<string, unknown>>;
   /**
    * Two axes: extension semver (`version`) and OpenShift minors (`openshift`).
-   * Add defaults to the newest stable semver whose openshift list includes the cluster.
+   * Image tags are `<semver>-ocp<major.minor>`. Add defaults to the newest stable
+   * semver whose openshift list includes the cluster, then pulls that row's image.
    * Pinning `version` / `pinVersion` keeps legacy installs off newer releases.
    */
   versions?: ToolVersion[];
@@ -171,7 +172,45 @@ export function versionLabel(row: ToolVersion): string {
 }
 
 export function versionKey(row: ToolVersion): string {
-  return row.version || openshiftList(row).join(',') || row.image || '';
+  const ocp = openshiftList(row).join(',');
+  if (row.version && ocp) return `${row.version}+ocp${ocp}`;
+  return row.version || ocp || row.image || '';
+}
+
+/** Canonical registry tag: `<semver>-ocp<major.minor>` (e.g. `1.1.0-ocp4.22`). */
+export function combinedImageTag(semver: string, ocpMinor: string): string {
+  const v = (semver || '').replace(/^v/, '').trim();
+  const ocp = parseVersionFilter(ocpMinor);
+  if (!v || !ocp) return '';
+  return `${v}-ocp${ocp}`;
+}
+
+/**
+ * Catalog/install image for a versions[] row.
+ * Uses the catalog image when it is already the combined tag; otherwise rewrites a
+ * bare `:1.1.0` / `:4.22` alias to `<semver>-ocp<minor>` using the cluster minor
+ * when that minor is in the row's openshift list (else the row's only minor).
+ */
+export function imageForRow(
+  row: ToolVersion | undefined,
+  clusterMinor?: string,
+  fallback?: string,
+): string {
+  const image = row?.image || fallback || '';
+  if (!image || image.includes('@sha256:')) return image;
+  const semver = (row?.version || '').replace(/^v/, '').trim();
+  if (!semver) return image;
+  const listed = row ? openshiftList(row) : [];
+  const cluster = parseVersionFilter(clusterMinor || '');
+  let ocp = '';
+  if (cluster && (listed.length === 0 || listed.includes(cluster))) ocp = cluster;
+  else if (listed.length === 1) ocp = listed[0];
+  const wanted = combinedImageTag(semver, ocp);
+  if (!wanted) return image;
+  const lastSlash = image.lastIndexOf('/');
+  const lastColon = image.lastIndexOf(':');
+  if (lastColon <= lastSlash) return `${image}:${wanted}`;
+  return `${image.slice(0, lastColon)}:${wanted}`;
 }
 
 export function openshiftMinors(spec: CommunityToolSpec): string[] {
@@ -282,10 +321,12 @@ export function pickToolVersion(
   const available = versions.map(versionLabel);
 
   if (pin) {
-    const pinned = versions.find((row) => row.version === pin);
-    if (!pinned) {
+    const pinnedRows = versions.filter((row) => row.version === pin);
+    if (!pinnedRows.length) {
       return { status: 'unsupported', clusterMinor: cluster, available };
     }
+    const pinned =
+      (cluster && pinnedRows.find((row) => versionMatchesCluster(row, cluster))) || pinnedRows[0];
     if (cluster && !versionMatchesCluster(pinned, cluster)) {
       return { status: 'pinned-incompatible', version: pinned, clusterMinor: cluster, available };
     }

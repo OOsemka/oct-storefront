@@ -14,20 +14,24 @@ spec:
   defaultChannel: stable
   channels:
     stable: {}
-  # Two axes: versions[].version (semver, image :1.1.0) vs openshift (cluster minor).
-  # Publish the semver tag the catalog lists. Do not list :1.1.0 if only :4.22 exists.
-  # Every versions[].image must be a public registry repo (e.g. public Quay)
-  # AND the tag must exist (anonymous pull). Community Add has no pull secret.
-  # Private or missing tags → Add can still succeed; Open 404s (ImagePullBackOff).
+  # Two axes in the catalog: versions[].version (semver) vs openshift (cluster minor).
+  # Image tags MUST be <semver>-ocp<major.minor> (e.g. :1.1.0-ocp4.22), not :1.1.0 or :4.22.
+  # Never list a (version, OCP minor) row unless that exact public tag exists.
+  # Community Add has no pull secret. Missing tags → Add can still succeed; Open 404s.
   versions:
     - version: "1.0.0"
       channel: stable
-      openshift: ["4.21", "4.22"]
-      image: quay.io/example/oct-example-tool:1.0.0
+      openshift: ["4.21"]
+      image: quay.io/example/oct-example-tool:1.0.0-ocp4.21
+      gitRef: v1.0.0
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/example/oct-example-tool:1.0.0-ocp4.22
       gitRef: v1.0.0
     - version: "1.1.0"
       channel: stable
       openshift: ["4.22"]
-      image: quay.io/example/oct-example-tool:1.1.0
+      image: quay.io/example/oct-example-tool:1.1.0-ocp4.22
       gitRef: v1.1.0
   minOpenShift: "4.21"

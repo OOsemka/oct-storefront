@@ -1,7 +1,7 @@
 {
   "apiVersion": "communitytools.io/v1alpha1",
   "kind": "CommunityCatalog",
-  "generatedAt": "2026-08-24T00:00:00Z",
+  "generatedAt": "2026-08-25T00:00:00Z",
   "extensions": [
     {
       "id": "oct-baremetal",
@@ -17,15 +17,22 @@
         {
           "version": "1.0.0",
           "channel": "stable",
-          "openshift": ["4.21", "4.22"],
-          "image": "quay.io/cjanisze/oct-baremetal:1.0.0",
+          "openshift": ["4.21"],
+          "image": "quay.io/cjanisze/oct-baremetal:1.0.0-ocp4.21",
+          "gitRef": "v1.0.0"
+        },
+        {
+          "version": "1.0.0",
+          "channel": "stable",
+          "openshift": ["4.22"],
+          "image": "quay.io/cjanisze/oct-baremetal:1.0.0-ocp4.22",
           "gitRef": "v1.0.0"
         },
         {
           "version": "1.1.0",
           "channel": "stable",
           "openshift": ["4.22"],
-          "image": "quay.io/cjanisze/oct-baremetal:1.1.0",
+          "image": "quay.io/cjanisze/oct-baremetal:1.1.0-ocp4.22",
           "gitRef": "v1.1.0"
         }
       ],
@@ -48,15 +55,22 @@
         {
           "version": "1.0.0",
           "channel": "stable",
-          "openshift": ["4.21", "4.22"],
-          "image": "quay.io/cjanisze/oct-network-bond:1.0.0",
+          "openshift": ["4.21"],
+          "image": "quay.io/cjanisze/oct-network-bond:1.0.0-ocp4.21",
+          "gitRef": "v1.0.0"
+        },
+        {
+          "version": "1.0.0",
+          "channel": "stable",
+          "openshift": ["4.22"],
+          "image": "quay.io/cjanisze/oct-network-bond:1.0.0-ocp4.22",
           "gitRef": "v1.0.0"
         },
         {
           "version": "1.1.0",
           "channel": "stable",
           "openshift": ["4.22"],
-          "image": "quay.io/cjanisze/oct-network-bond:1.1.0",
+          "image": "quay.io/cjanisze/oct-network-bond:1.1.0-ocp4.22",
           "gitRef": "v1.1.0"
         }
       ],

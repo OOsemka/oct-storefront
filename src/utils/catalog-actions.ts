@@ -21,6 +21,7 @@ import {
   STOREFRONT_NS,
   SyncStatus,
   ToolVersion,
+  imageForRow,
 } from './catalog-types';
 import {
   mergePublicIntoTool,
@@ -292,8 +293,12 @@ export async function setPluginEnabled(pluginName: string, enabled: boolean): Pr
   });
 }
 
-export async function resolveDeployYaml(tool: CommunityTool, version?: ToolVersion): Promise<string> {
-  const image = version?.image || tool.spec.image;
+export async function resolveDeployYaml(
+  tool: CommunityTool,
+  version?: ToolVersion,
+  clusterMinor?: string,
+): Promise<string> {
+  const image = imageForRow(version, clusterMinor, tool.spec.image);
   const deployYAML = version?.deployYAML || tool.spec.deployYAML;
   const deployURL = version?.deployURL || tool.spec.deployURL;
   let yaml = '';
@@ -321,15 +326,20 @@ export async function resolveDeployYaml(tool: CommunityTool, version?: ToolVersi
   return applyVersionImage(yaml, tool.spec.consolePlugin, image);
 }
 
-export async function addExtension(tool: CommunityTool, version?: ToolVersion): Promise<string[]> {
-  const yaml = await resolveDeployYaml(tool, version);
+export async function addExtension(
+  tool: CommunityTool,
+  version?: ToolVersion,
+  clusterMinor?: string,
+): Promise<string[]> {
+  const image = imageForRow(version, clusterMinor, tool.spec.image);
+  const yaml = await resolveDeployYaml(tool, version, clusterMinor);
   const log = await applyYaml(yaml);
   await setPluginEnabled(tool.spec.consolePlugin, true);
   await incrementDownloads(tool.metadata.name, tool.spec.source);
   await recordInstalled(tool.metadata.name, {
     version: version?.version || '',
     channel: version?.channel || tool.spec.defaultChannel || DEFAULT_CHANNEL,
-    image: version?.image || tool.spec.image,
+    image,
   });
   return log;
 }

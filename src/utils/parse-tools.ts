@@ -161,7 +161,7 @@ export function parseSingleTool(yamlText: string): { tool?: CommunityTool; error
     if (!tool.spec.validatedOn?.length && !tool.spec.versions?.length) {
       return {
         error:
-          'spec.versions or spec.validatedOn is required (for example versions: [{ version: "1.0.0", channel: "stable", openshift: ["4.22"], image: "..." }]).',
+          'spec.versions or spec.validatedOn is required (for example versions: [{ version: "1.0.0", channel: "stable", openshift: ["4.22"], image: "quay.io/example/oct-tool:1.0.0-ocp4.22" }]).',
       };
     }
     const hasInstall =
