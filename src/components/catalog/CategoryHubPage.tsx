@@ -45,19 +45,19 @@ const I18N = 'plugin__oct-storefront';
 const HUB_COPY: Record<ToolCategory, { title: string; description: string }> = {
   compute: {
     title: 'Compute',
-    description: 'Compute extensions for machines and hosts. Add Bare Metal Hosts from the catalog.',
+    description: 'Tools for machines, nodes, and related workflows.',
   },
   storage: {
     title: 'Storage',
-    description: 'Storage extensions for OpenShift Data Foundation and related networking.',
+    description: 'Tools for persistent storage and data services.',
   },
   network: {
     title: 'Network',
-    description: 'Network extensions for NMState, bonding, and related node networking.',
+    description: 'Tools for cluster and node networking.',
   },
   management: {
     title: 'Management',
-    description: 'Cluster management extensions that do not fit Compute, Storage, or Network.',
+    description: 'Tools for cluster operations and configuration.',
   },
 };
 
