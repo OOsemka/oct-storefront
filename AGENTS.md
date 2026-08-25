@@ -61,7 +61,7 @@ spec:
       gitRef: v1.2.0
 ```
 
-Every `versions[].image` (and any discovery/sidecar image the extension pulls) must be **public**. Private images break tile Add on other clusters.
+Every `versions[].image` (and any discovery/sidecar image the extension pulls) must be **public** and the **listed tag must exist**. Private or unpublished tags break tile Add on other clusters. `spec.href` must match a `console-extensions.json` route.
 
 Legacy rows (`openshift: "4.22"` without `version`) still parse.
 
@@ -79,6 +79,20 @@ Legacy rows (`openshift: "4.22"` without `version`) still parse.
 | **Same plugin ID** | One ConsolePlugin name = **one running version**. 1.2 does not run beside 1.1 under the same ID. Legacy stays on 1.1 by **not** clicking Update. |
 
 Git: tags `v1.2.0`; optional `ocp-4.22` branch for PF/API. A `v1.2.0` tag can live on `ocp-4.22`. Images prefer `:1.2.0`; use `:1.2.0-ocp4.22` when the same semver is rebuilt per OCP. Do not auto-migrate running clusters.
+
+## New extension / Add must go Ready
+
+**Add** creates Namespace, ConsolePlugin, and appends `spec.plugins` even when the plugin **never becomes Ready**. **Open** then 404s: href is registered, no plugin bundle (typical: nginx **ImagePullBackOff** / `manifest unknown`).
+
+Before shipping a tile, agents MUST:
+
+1. **Catalog image tag exists and is public.** `spec.versions[].image` (and every sidecar the bundle pulls) must pull anonymously. Community Add has **no pull secret**.
+2. **Publish the semver tag the catalog lists.** Two axes: extension `:1.1.0` vs OpenShift `:4.22`. Do not list `:1.1.0` if only `:4.22` exists. Prefer publishing `:1.1.0` (keep the OCP tag if used).
+3. **Bundle is complete.** Add applies `catalog/deploy/oct-<name>.yaml` (register in `BUNDLED_DEPLOY`) or generated Namespace/Deployment/Service/ConsolePlugin only. Include every PVC, volume, RBAC, Service, and sidecar the Deployments need.
+4. **`spec.href` matches `console-extensions.json`.** `oct-baremetal`: `/baremetal/nodes`. `oct-network-bond`: `/community-tools/network/bond` unless those routes changed.
+5. **Add success is not Ready.** Confirm the plugin Deployment is Running before calling the tile done.
+
+Canonical checklist: `docs/extension-standard.md`. Do not `oc apply` unless asked.
 
 ## Stats / fail-open
 

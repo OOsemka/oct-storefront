@@ -28,4 +28,4 @@ spec:
       gitRef: v1.2.0
 ```
 
-**Add** = newest **stable** semver whose `openshift` includes the cluster. **Update** is a click; never auto. **Enable** does not change the image. **Remove** disables this plugin only. One ConsolePlugin name = one running version. Pin with `pinVersion` / not clicking Update. Prefer `:1.2.0` or `:1.2.0-ocp4.22` when APIs diverge. Catalog `versions[].image` (and discovery/sidecar images) must be **public**. No live-cluster auto-migrate.
+**Add** = newest **stable** semver whose `openshift` includes the cluster. **Update** is a click; never auto. **Enable** does not change the image. **Remove** disables this plugin only. One ConsolePlugin name = one running version. Pin with `pinVersion` / not clicking Update. Prefer `:1.2.0` or `:1.2.0-ocp4.22` when APIs diverge. Catalog `versions[].image` (and discovery/sidecar images) must be **public** and the **listed tag must exist** — do not catalog `:1.2.0` if only `:4.22` was published. No live-cluster auto-migrate. Add-must-go-Ready: **`oct-extension-add.mdc`**.

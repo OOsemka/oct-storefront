@@ -9,12 +9,16 @@ spec:
   source: community
   git: https://github.com/example/oct-example-tool
   consolePlugin: oct-example-tool
+  # Must match a path in this extension's console-extensions.json.
   href: /example-tool
   defaultChannel: stable
   channels:
     stable: {}
-  # Every versions[].image must be a public registry repo (e.g. public Quay).
-  # Private images break tile Add on other clusters.
+  # Two axes: versions[].version (semver, image :1.1.0) vs openshift (cluster minor).
+  # Publish the semver tag the catalog lists. Do not list :1.1.0 if only :4.22 exists.
+  # Every versions[].image must be a public registry repo (e.g. public Quay)
+  # AND the tag must exist (anonymous pull). Community Add has no pull secret.
+  # Private or missing tags → Add can still succeed; Open 404s (ImagePullBackOff).
   versions:
     - version: "1.0.0"
       channel: stable

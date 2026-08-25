@@ -2,11 +2,26 @@
 
 OCT extensions use **`oct-<name>`** for directories, plugin IDs, images, and catalog `metadata.name` / `spec.consolePlugin`. This is a community project, not Red Hat supported.
 
-Versioning has **two axes**: extension **semver** and **OpenShift minor**. Do not ship only `:4.22` if you also need independent extension releases.
+Versioning has **two axes**: extension **semver** and **OpenShift minor**. Do not ship only `:4.22` if you also need independent extension releases. Catalog `versions[].image` must be the **semver tag that actually exists** on a **public** registry.
+
+## Add must go Ready (required)
+
+Storefront **Add** applies YAML, then appends `consoles.operator.openshift.io/cluster` `spec.plugins`. It does **not** wait for the ConsolePlugin to become Ready.
+
+If the nginx plugin image cannot be pulled, Add still reports success, tile **Open** is enabled, and Console **404s** (href registered, no plugin bundle — typically **ImagePullBackOff** / `manifest unknown`).
+
+Before a tile ships, satisfy **all** of:
+
+1. **Image tag exists and is public.** Every `spec.versions[].image` and every sidecar/discovery image the bundle pulls must pull **anonymously**. Community Add and community `oc apply` have **no pull secret**. A missing tag (`manifest unknown`) is a ship-blocker.
+2. **Publish the semver the catalog lists.** Two axes: extension semver (`:1.1.0`, git `v1.1.0`) vs OpenShift minor (`ocp-4.22`; optional image `:4.22` or `:1.1.0-ocp4.22`). Listing `:1.1.0` while only `:4.22` exists is invalid. Prefer publishing `:1.1.0`; keep the OCP tag if you still use it.
+3. **Install bundle is complete.** Add resolves YAML in this order: `versions[].deployYAML` → storefront `catalog/deploy/oct-<name>.yaml` (also register the import in `BUNDLED_DEPLOY` in `src/utils/catalog-actions.ts`) → `deployURL` → generated Namespace + plugin Deployment + Service + ConsolePlugin. Generated YAML does **not** include extra PVCs, RBAC, or sidecars. Put every required volume, PVC, Service, ServiceAccount, and RBAC in the bundled YAML. Not every extension needs a PVC; every volume a Deployment mounts must be in the bundle Add applies.
+4. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin. Other kinds fail Add.
+5. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
+6. **Add success is not done.** Confirm the plugin Deployment is Running (and any sidecars) before calling the extension shippable.
 
 ## Public images (required)
 
-Every `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository). Private images break `oc apply` and tile **Add** on other clusters. Do not publish a catalog tile that points at a private repo.
+Every `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository) **and the listed tag must exist**. Private or missing tags break `oc apply` and tile **Add** on other clusters. Do not publish a catalog tile that points at a private repo or an unpublished tag.
 
 ## Git / images
 
@@ -70,7 +85,8 @@ Never auto-update. Never auto-migrate running clusters.
 | --- | --- | --- |
 | `metadata.name` | yes | `oct-<name>` stats key |
 | `spec.consolePlugin` | yes | ConsolePlugin CR name (`oct-<name>`) |
-| `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift` (string or list), `image` (**public**) |
+| `spec.href` | yes (for Open) | Must match a `console-extensions.json` route |
+| `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift` (string or list), `image` (**public**, **tag exists**) |
 | `spec.defaultChannel` | no | Default `stable` |
 | `spec.pinVersion` | no | Pin Add to this semver |
 | `spec.category` | yes | compute, storage, network, management |
@@ -80,8 +96,9 @@ Never auto-update. Never auto-migrate running clusters.
 ## Checklist for a new extension repo
 
 1. Repo / plugin ID / image: `oct-<name>`. Copy `docs/extension-template/`.
-2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`.
+2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc` (`alwaysApply: true`).
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
-5. PR a tile with `spec.versions[]` (semver + openshift) into the storefront `catalog/community.yaml`. Images must be **public**.
-6. `yarn build` in the extension and the storefront. Do not `oc apply` unless asked.
+5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route.
+6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services) and register it in `BUNDLED_DEPLOY`.
+7. `yarn build` in the extension and the storefront. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.

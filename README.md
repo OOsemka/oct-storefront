@@ -27,16 +27,17 @@ This apply installs **only** the storefront. It does **not** install `oct-bareme
 ## Add an extension
 
 1. Copy [`docs/extension-template/`](docs/extension-template/) into a new repo named `oct-<name>`.
-2. Publish **public** container images (see below) and list them on `spec.versions[].image`.
-3. Open a PR against [`catalog/community.yaml`](catalog/community.yaml) in this repo.
+2. Publish **public** container images whose **tags exist** (see below) and list those exact tags on `spec.versions[].image`. Prefer the extension **semver** tag (`:1.1.0`), not only an OpenShift minor tag (`:4.22`).
+3. Set `spec.href` to a route from the extension `console-extensions.json`. If Add needs more than Namespace/Deployment/Service/ConsolePlugin, put the full YAML in `catalog/deploy/oct-<name>.yaml`.
+4. Open a PR against [`catalog/community.yaml`](catalog/community.yaml) in this repo.
 
-Catalog fields, semver × OpenShift minors, and Add/Update rules: [docs/extension-standard.md](docs/extension-standard.md).
+**Add can succeed while the plugin never becomes Ready** (Open then 404s). Confirm the plugin Deployment is Running. Canonical checklist: [docs/extension-standard.md](docs/extension-standard.md).
 
 ### Public images (required)
 
-Every catalog `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository).
+Every catalog `spec.versions[].image` — and any related discovery or sidecar image the extension pulls — must be **public** (for example a public Quay repository) **and the listed tag must exist**.
 
-Private images break `oc apply` and tile **Add** on other clusters: those clusters cannot pull your image. Do not ship a catalog tile that points at a private repo.
+Private or unpublished tags break `oc apply` and tile **Add** on other clusters: those clusters cannot pull your image. Community Add has no pull secret. Do not ship a catalog tile that points at a private repo or a tag that was never published.
 
 ## Quick start (developers)
 
