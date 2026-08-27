@@ -16,6 +16,7 @@ Directories, `package.json` `consolePlugin.name`, ConsolePlugin CR, image repos,
 | Storefront | `oct-storefront` | `oct-storefront` |
 | Bare Metal Hosts | `oct-baremetal` | `oct-baremetal` |
 | Network Bond | `oct-network-bond` | `oct-network-bond` |
+| Banner | `oct-banner` | `oct-banner` |
 
 i18n: `locales/en/plugin__<plugin-id>.json`. Proxy: `/api/proxy/plugin/<plugin-id>/<alias>`.
 

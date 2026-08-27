@@ -7,6 +7,7 @@ import {
 import bundledCommunityYaml from '../../catalog/community.yaml';
 import bmhDeployYaml from '../../catalog/deploy/oct-baremetal.yaml';
 import bondDeployYaml from '../../catalog/deploy/oct-network-bond.yaml';
+import bannerDeployYaml from '../../catalog/deploy/oct-banner.yaml';
 import { ConfigMapModel, ConsoleOperatorModel } from './k8s-models';
 import {
   CACHE_CONFIGMAP,
@@ -41,6 +42,7 @@ import {
 const BUNDLED_DEPLOY: Record<string, string> = {
   'oct-baremetal': bmhDeployYaml,
   'oct-network-bond': bondDeployYaml,
+  'oct-banner': bannerDeployYaml,
 };
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };
