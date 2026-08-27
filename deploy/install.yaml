@@ -1,7 +1,7 @@
 # OpenShift Community Tools storefront — one-file install.
 #   oc apply -f https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
 # Images are public on quay.io/cjanisze (<semver>-ocp<major.minor>). No namespace pull secret is required.
-# This does not install oct-baremetal or oct-network-bond.
+# This does not install oct-baremetal, oct-network-bond, or oct-banner.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -155,6 +155,40 @@ data:
           openshift: ["4.22"]
           image: quay.io/cjanisze/oct-network-bond:1.1.0-ocp4.22
           gitRef: v1.1.0
+    ---
+    apiVersion: communitytools.io/v1alpha1
+    kind: CommunityTool
+    metadata:
+      name: oct-banner
+    spec:
+      displayName: Banner
+      description: >-
+        Show the current OpenShift Console banner and change its text and colors.
+        Uses ConsoleNotification. Changes apply cluster-wide.
+      category: management
+      source: community
+      git: https://github.com/OOsemka/oct-banner
+      consolePlugin: oct-banner
+      href: /community-tools/management/banner
+      defaultChannel: stable
+      channels:
+        stable: {}
+        candidate: {}
+      validatedOn:
+        - "4.21"
+        - "4.22"
+      minOpenShift: "4.21"
+      versions:
+        - version: "1.0.0"
+          channel: stable
+          openshift: ["4.21"]
+          image: quay.io/cjanisze/oct-banner:1.0.0-ocp4.21
+          gitRef: v1.0.0
+        - version: "1.0.0"
+          channel: stable
+          openshift: ["4.22"]
+          image: quay.io/cjanisze/oct-banner:1.0.0-ocp4.22
+          gitRef: v1.0.0
   sync.json: |
     {"ok":true,"source":"bundled","message":"Catalog bundled in deploy/install.yaml."}
 ---
