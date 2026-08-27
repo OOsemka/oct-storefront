@@ -12,6 +12,7 @@
       "git": "https://github.com/cjanisze/oct-baremetal",
       "consolePlugin": "oct-baremetal",
       "href": "/baremetal/nodes",
+      "icon": "tiles/oct-baremetal.svg",
       "defaultChannel": "stable",
       "versions": [
         {
@@ -50,6 +51,7 @@
       "git": "https://github.com/OOsemka/oct-network-bond",
       "consolePlugin": "oct-network-bond",
       "href": "/community-tools/network/bond",
+      "icon": "tiles/oct-network-bond.svg",
       "defaultChannel": "stable",
       "versions": [
         {

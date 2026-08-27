@@ -82,6 +82,7 @@ data:
       git: https://github.com/cjanisze/oct-baremetal
       consolePlugin: oct-baremetal
       href: /baremetal/nodes
+      icon: tiles/oct-baremetal.svg
       defaultChannel: stable
       channels:
         stable: {}
@@ -126,6 +127,7 @@ data:
       git: https://github.com/OOsemka/oct-network-bond
       consolePlugin: oct-network-bond
       href: /community-tools/network/bond
+      icon: tiles/oct-network-bond.svg
       defaultChannel: stable
       channels:
         stable: {}
@@ -170,6 +172,7 @@ data:
       git: https://github.com/OOsemka/oct-banner
       consolePlugin: oct-banner
       href: /community-tools/management/banner
+      icon: tiles/oct-banner.svg
       defaultChannel: stable
       channels:
         stable: {}
@@ -222,7 +225,10 @@ spec:
     spec:
       containers:
         - name: plugin
-          image: quay.io/cjanisze/oct-storefront:1.0.0-ocp4.22
+          # Bump this combined tag when webpack UI changes (picker, icons, copy).
+          # Catalog ConfigMap updates do not roll the plugin image. Keep IfNotPresent
+          # (the default for a named tag). Never retag the only install tag to ship JS.
+          image: quay.io/cjanisze/oct-storefront:1.1.0-ocp4.22
           ports:
             - containerPort: 9443
               protocol: TCP

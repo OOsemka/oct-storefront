@@ -1,3 +1,4 @@
+/** CommunityTool YAML parser. Keep spec.icon (bundled tile key / data URL) in sync with catalog-types. */
 import { load, loadAll } from 'js-yaml';
 import {
   CATEGORIES,
@@ -96,6 +97,8 @@ export function specFromUnknown(
     image: asString(raw.image) || undefined,
     consolePlugin: asString(raw.consolePlugin) || asString(raw.plugin) || '',
     href: asString(raw.href) || undefined,
+    /** Bundled key (tiles/oct-<name>.svg) or data URL — not a lab/GitHub-raw URL. */
+    icon: asString(raw.icon) || undefined,
     validatedOn: readValidatedOn(raw),
     minOpenShift: asString(raw.minOpenShift) || undefined,
     maxOpenShift: asString(raw.maxOpenShift) || undefined,
@@ -202,6 +205,7 @@ export function mergePublicIntoTool(
   if (ext.image) spec.image = ext.image;
   if (ext.consolePlugin) spec.consolePlugin = ext.consolePlugin;
   if (ext.href) spec.href = ext.href;
+  if (ext.icon) spec.icon = ext.icon;
   if (ext.validatedOn?.length) spec.validatedOn = ext.validatedOn;
   if (ext.minOpenShift) spec.minOpenShift = ext.minOpenShift;
   if (ext.maxOpenShift) spec.maxOpenShift = ext.maxOpenShift;
@@ -229,6 +233,7 @@ export function toolFromPublic(ext: PublicCatalogExtension): CommunityTool | nul
       image: ext.image,
       consolePlugin: ext.consolePlugin || id,
       href: ext.href,
+      icon: ext.icon,
       validatedOn: ext.validatedOn || [],
       minOpenShift: ext.minOpenShift,
       maxOpenShift: ext.maxOpenShift,
@@ -258,6 +263,7 @@ export function toCommunityYaml(tools: CommunityTool[]): string {
       if (t.spec.git) lines.push(`  git: ${t.spec.git}`);
       if (t.spec.image) lines.push(`  image: ${t.spec.image}`);
       if (t.spec.href) lines.push(`  href: ${t.spec.href}`);
+      if (t.spec.icon) lines.push(`  icon: ${JSON.stringify(t.spec.icon)}`);
       lines.push('  validatedOn:');
       for (const v of t.spec.validatedOn || []) lines.push(`    - ${JSON.stringify(v)}`);
       if (t.spec.minOpenShift) lines.push(`  minOpenShift: ${JSON.stringify(t.spec.minOpenShift)}`);

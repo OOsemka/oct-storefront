@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Original industrial bear: hex badge, riveted visor, hex-nut nose. Not Ironic/Metal3/Red Hat marks. -->
+  <polygon
+    points="32,3 58,17.5 58,46.5 32,61 6,46.5 6,17.5"
+    fill="#F2F5F8"
+    stroke="#8B98A6"
+    stroke-width="1.75"
+    stroke-linejoin="round"
+  />
+  <!-- Ears -->
+  <circle cx="17.5" cy="20" r="7.6" fill="#6A3A16"/>
+  <circle cx="17.5" cy="20.5" r="4.2" fill="#D4B08A"/>
+  <circle cx="46.5" cy="20" r="7.6" fill="#6A3A16"/>
+  <circle cx="46.5" cy="20.5" r="4.2" fill="#D4B08A"/>
+  <!-- Head -->
+  <ellipse cx="32" cy="36" rx="19.5" ry="18.2" fill="#7A451C"/>
+  <!-- Steel brow plate + rivets -->
+  <path
+    d="M15.5 30.5 C20 24.5 44 24.5 48.5 30.5 L47 36.2 C42 31.2 22 31.2 17 36.2 Z"
+    fill="#9AA7B3"
+    stroke="#6A7682"
+    stroke-width="0.8"
+  />
+  <circle cx="21" cy="31.2" r="1.35" fill="#5A6570"/>
+  <circle cx="32" cy="28.6" r="1.35" fill="#5A6570"/>
+  <circle cx="43" cy="31.2" r="1.35" fill="#5A6570"/>
+  <!-- Eyes -->
+  <circle cx="24.2" cy="36.4" r="2.35" fill="#1A120C"/>
+  <circle cx="39.8" cy="36.4" r="2.35" fill="#1A120C"/>
+  <circle cx="24.9" cy="35.7" r="0.75" fill="#F7EFE4"/>
+  <circle cx="40.5" cy="35.7" r="0.75" fill="#F7EFE4"/>
+  <!-- Muzzle -->
+  <ellipse cx="32" cy="45.2" rx="10.4" ry="7.2" fill="#E2C4A0"/>
+  <!-- Hex-nut nose (bare metal) -->
+  <path
+    d="M32 39.2 L36.2 41.6 L36.2 46.2 L32 48.6 L27.8 46.2 L27.8 41.6 Z"
+    fill="#6E7B86"
+    stroke="#3F4A52"
+    stroke-width="0.85"
+    stroke-linejoin="round"
+  />
+  <circle cx="32" cy="43.9" r="1.15" fill="#D7DEE4"/>
+  <!-- Smile -->
+  <path d="M27.5 49.4 Q32 52.2 36.5 49.4" stroke="#5C3516" stroke-width="1.15" stroke-linecap="round"/>
+</svg>

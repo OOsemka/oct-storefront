@@ -12,6 +12,8 @@ spec:
   git: https://github.com/cjanisze/oct-baremetal
   consolePlugin: oct-baremetal
   href: /baremetal/nodes
+  # Bundled storefront SVG (src/assets/tiles/). Not a URL.
+  icon: tiles/oct-baremetal.svg
   # Add checks Provisioning/provisioning-configuration spec.watchAllNamespaces
   # and can patch true with the user's console credentials (recommended switch).
   # Optional: spec.storageClassName pre-selects Add's StorageClass dropdown
@@ -60,6 +62,8 @@ spec:
   git: https://github.com/OOsemka/oct-network-bond
   consolePlugin: oct-network-bond
   href: /community-tools/network/bond
+  # Bundled storefront SVG (src/assets/tiles/). Not a URL.
+  icon: tiles/oct-network-bond.svg
   defaultChannel: stable
   channels:
     stable: {}
@@ -104,6 +108,8 @@ spec:
   git: https://github.com/OOsemka/oct-banner
   consolePlugin: oct-banner
   href: /community-tools/management/banner
+  # Bundled storefront SVG (src/assets/tiles/). Not a URL.
+  icon: tiles/oct-banner.svg
   defaultChannel: stable
   channels:
     stable: {}

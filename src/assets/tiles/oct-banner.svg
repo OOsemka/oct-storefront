@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Original cartoon green brute holding a pennant (Banner / smash pun). Not Marvel/Hulk artwork. -->
+  <circle cx="32" cy="32" r="30" fill="#EEF7EE" stroke="#9CC89F" stroke-width="1.75"/>
+  <!-- Legs -->
+  <rect x="21" y="46" width="8.5" height="12" rx="3.2" fill="#2F7A36"/>
+  <rect x="34.5" y="46" width="8.5" height="12" rx="3.2" fill="#2F7A36"/>
+  <!-- Torso -->
+  <path
+    d="M20 30 C20 27 44 27 44 30 L41.5 48 C41 51 23 51 22.5 48 Z"
+    fill="#3FA344"
+    stroke="#2C7A32"
+    stroke-width="1"
+  />
+  <ellipse cx="32" cy="40" rx="7" ry="6" fill="#62C066" opacity="0.85"/>
+  <!-- Left arm + fist (raised) -->
+  <path d="M23 32 Q12 24 13 13" stroke="#3FA344" stroke-width="7.2" fill="none" stroke-linecap="round"/>
+  <circle cx="13" cy="12" r="5.6" fill="#62C066" stroke="#2C7A32" stroke-width="1"/>
+  <!-- Right arm + fist holding pennant -->
+  <path d="M41 32 Q52 26 50 16" stroke="#3FA344" stroke-width="7.2" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="15.5" r="5.6" fill="#62C066" stroke="#2C7A32" stroke-width="1"/>
+  <!-- Pennant (the banner) -->
+  <line x1="50" y1="4.5" x2="50" y2="16" stroke="#6B5420" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M50.8 5 L62 10.2 L50.8 15.4 Z" fill="#F0C14A" stroke="#C49222" stroke-width="0.7" stroke-linejoin="round"/>
+  <!-- Head -->
+  <circle cx="32" cy="18.5" r="9.2" fill="#4AAD4F" stroke="#2C7A32" stroke-width="1"/>
+  <!-- Brows + eyes (geometric, not a licensed likeness) -->
+  <path d="M26 15.2 L30.2 16.6" stroke="#1F4D22" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M38 15.2 L33.8 16.6" stroke="#1F4D22" stroke-width="1.3" stroke-linecap="round"/>
+  <ellipse cx="27.6" cy="18.6" rx="2.3" ry="2.6" fill="#F7FFF7"/>
+  <ellipse cx="36.4" cy="18.6" rx="2.3" ry="2.6" fill="#F7FFF7"/>
+  <circle cx="28.1" cy="19.1" r="1.15" fill="#1A2E1B"/>
+  <circle cx="36.9" cy="19.1" r="1.15" fill="#1A2E1B"/>
+  <!-- Grin -->
+  <path d="M28.2 22.8 Q32 25.4 35.8 22.8" stroke="#1F4D22" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+</svg>

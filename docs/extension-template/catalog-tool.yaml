@@ -11,6 +11,9 @@ spec:
   consolePlugin: oct-example-tool
   # Must match a path in this extension's console-extensions.json.
   href: /example-tool
+  # Bundled storefront SVG: add src/assets/tiles/oct-<name>.svg, register in
+  # src/utils/tile-icons.ts, and copy the same spec.icon into deploy/install.yaml.
+  icon: tiles/oct-example-tool.svg
   defaultChannel: stable
   channels:
     stable: {}

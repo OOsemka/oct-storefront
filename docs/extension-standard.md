@@ -15,11 +15,15 @@ Before a tile ships, satisfy **all** of:
 1. **Image tag exists and is public.** Every `spec.versions[].image` and every sidecar/discovery image the bundle pulls must pull **anonymously**. Community Add and community `oc apply` have **no pull secret**. A missing tag (`manifest unknown`) is a ship-blocker.
 2. **Publish the combined tag the catalog lists.** Tag format is `<semver>-ocp<major.minor>` (not `ocp4.22-1.0.1`, not bare `:1.1.0`, not bare `:4.22`). Never list a catalog row for (version, OpenShift minor) unless that exact tag exists and is public. That is what caused Add-success / Open-404 (`:1.1.0` cataloged, only `:4.22` published). Bare `:4.22` / `:1.1.0` may remain as extra aliases.
 3. **Install bundle is complete.** Add resolves YAML in this order: `versions[].deployYAML` → storefront `catalog/deploy/oct-<name>.yaml` (also register the import in `BUNDLED_DEPLOY` in `src/utils/catalog-actions.ts`) → `deployURL` → generated Namespace + plugin Deployment + Service + ConsolePlugin. Generated YAML does **not** include extra PVCs, RBAC, or sidecars. Put every required volume, PVC, Service, ServiceAccount, and RBAC in the bundled YAML. **Required PVCs must be in the bundle** so Add creates them **before** Deployments (pods that mount a missing PVC stay Pending). Not every extension needs a PVC; every volume a Deployment mounts must be in the bundle Add applies. `oct-baremetal` precreates `image-cache` (100Gi).
-4. **StorageClass:** Omit `spec.storageClassName` on PVCs to use the **cluster default**. Add shows a StorageClass dropdown when the bundle contains a PVC (default = cluster default). Authors can also set PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName` as the Add default. `storageClassName` is immutable after the PVC is Bound. Do not hardcode a lab StorageClass in the bundle.
+4. **StorageClass:** Omit `spec.storageClassName` on PVCs to use the **cluster default**. Add shows a StorageClass dropdown when the bundle contains a PVC (default = cluster default). Authors can also set PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName` as the Add default. `storageClassName` is immutable after the PVC is Bound. Never hardcode a lab StorageClass, network, hostname, or other cluster-specific value in YAML or code. Read it from the cluster, omit for default, or use the value chosen at Add.
 5. **Bare Metal Hosts Add:** Check `provisioning.metal3.io/provisioning-configuration` `spec.watchAllNamespaces`. If missing/false, Add shows a warning and a recommended switch (default on) that patches `true` with the **user’s console credentials**. Unchecking still installs the plugin but warns. If the patch is forbidden, show the error and `oc patch provisioning.metal3.io provisioning-configuration --type=merge -p '{"spec":{"watchAllNamespaces":true}}'`. Do **not** grant cluster-admin to a plugin ServiceAccount for this. Inventory shows the same warning as a safety net when hosts exist outside `openshift-machine-api`.
 6. **Kinds Add can create:** Namespace, Deployment, Service, ServiceAccount, Secret, ConfigMap, PersistentVolumeClaim, Role, RoleBinding, ClusterRole, ClusterRoleBinding, ConsolePlugin, Route. Other kinds fail Add. Add sorts PVCs before Deployments.
-7. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond` unless those routes changed.
+7. **`spec.href` matches plugin routes.** Tile **Open** uses `spec.href`. It must be a path registered in the extension `console-extensions.json`. Current: `oct-baremetal` → `/baremetal/nodes`; `oct-network-bond` → `/community-tools/network/bond`; `oct-banner` → `/community-tools/management/banner` unless those routes changed.
 8. **Add success is not done.** Confirm the plugin Deployment is Running (and any sidecars) before calling the extension shippable. For Bare Metal Hosts, also confirm `discovery-service` is Running and PVC `image-cache` is Bound.
+
+## Cluster-portable code (required)
+
+OCT must run on any OpenShift cluster. **Never hardcode** environment-specific values: StorageClass names, VLAN/CIDR/bond names, lab domains, node names, cluster API/console URLs. Omit the field for the cluster default, read the live object, or use the value chosen at Add. Optional env/annotation overrides must default to empty — never a lab name. Cursor rule: `.cursor/rules/oct-no-env-hardcoding.mdc`.
 
 ## Public images (required)
 
@@ -51,6 +55,7 @@ spec:
   git: https://github.com/example/oct-example-tool
   consolePlugin: oct-example-tool
   href: /example-tool
+  icon: tiles/oct-example-tool.svg  # bundled storefront SVG; not a URL
   defaultChannel: stable
   channels:
     stable: {}
@@ -90,6 +95,12 @@ Optional `spec.pinVersion: "1.0.0"` (alias: spec `version:`) keeps Add on that s
 
 Never auto-update. Never auto-migrate running clusters.
 
+## Storefront install vs catalog YAML
+
+`oc apply` of storefront `deploy/install.yaml` refreshes ConfigMap `community-tools-cache` (**tiles**: names, versions, Banner, `spec.icon` keys). **Choose version** and **tile icons** live in the storefront **webpack plugin image**. They appear only when the Deployment **image tag** changes.
+
+Keep `imagePullPolicy` IfNotPresent. Do not make Always the product default. **Any storefront UI change** (picker, icons, copy) bumps storefront semver and `install.yaml` to a **new combined tag** (e.g. `1.1.0-ocp4.22`). Never ship plugin JS by retagging the only install tag. Customers who apply after a catalog-only commit see new tiles, not new storefront chrome.
+
 ## Fields
 
 | Field | Required | Notes |
@@ -97,6 +108,7 @@ Never auto-update. Never auto-migrate running clusters.
 | `metadata.name` | yes | `oct-<name>` stats key |
 | `spec.consolePlugin` | yes | ConsolePlugin CR name (`oct-<name>`) |
 | `spec.href` | yes (for Open) | Must match a `console-extensions.json` route |
+| `spec.icon` | no | Tile mark. Bundled key `tiles/oct-<name>.svg` (file in storefront `src/assets/tiles/`, registered in `src/utils/tile-icons.ts`). Not a GitHub-raw or lab URL. Data URL allowed for external YAML. Plugin id is a fallback. |
 | `spec.versions` | **yes** (or `validatedOn`) | Each row: `version` (semver), `channel`, `openshift`, `image` (`<semver>-ocp<minor>`, **public**, **tag exists**) |
 | `spec.defaultChannel` | no | Default `stable` |
 | `spec.pinVersion` | no | Pin Add to this semver |
@@ -108,9 +120,9 @@ Never auto-update. Never auto-migrate running clusters.
 ## Checklist for a new extension repo
 
 1. Repo / plugin ID / image: `oct-<name>`. Copy `docs/extension-template/`.
-2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc` (`alwaysApply: true`).
+2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc`, `oct-no-env-hardcoding.mdc` (`alwaysApply: true`).
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
-5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public combined** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route.
+5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public combined** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route. Add an original SVG at `src/assets/tiles/oct-<name>.svg`, register it in `src/utils/tile-icons.ts`, set `spec.icon: tiles/oct-<name>.svg` in `community.yaml` **and** `deploy/install.yaml`.
 6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services **and required PVCs**) and register it in `BUNDLED_DEPLOY`. Omit PVC `storageClassName` for the cluster default; Add can override.
 7. `yarn build` in the extension and the storefront. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.

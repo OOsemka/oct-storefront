@@ -7,6 +7,7 @@ import {
   ratingAverage,
   openshiftMinors,
 } from '../../utils/catalog-types';
+import { resolveTileIcon } from '../../utils/tile-icons';
 import './catalog.css';
 
 const Star: FC<{ filled: boolean; onClick?: () => void; disabled?: boolean }> = ({
@@ -45,11 +46,23 @@ export const ExtensionTile: FC<{
   const badge = tool.spec.source === 'external' ? t('External') : t('Community');
   const updateVer = item.updateAvailable?.version;
   const canPickVersion = (item.compatibleSemvers || []).length > 1;
+  const icon = resolveTileIcon(tool);
 
   return (
     <article className="ct-tile" id={`ct-tile-${item.id}`}>
       <header className="ct-tile__header">
-        <h3 className="ct-tile__title">{tool.spec.displayName}</h3>
+        <div className="ct-tile__heading">
+          {icon ? (
+            <img
+              className="ct-tile__icon"
+              src={icon}
+              alt={tool.spec.displayName}
+              width={40}
+              height={40}
+            />
+          ) : null}
+          <h3 className="ct-tile__title">{tool.spec.displayName}</h3>
+        </div>
         <Label color={tool.spec.source === 'external' ? 'orange' : 'blue'}>{badge}</Label>
       </header>
       <p className="ct-tile__desc">{tool.spec.description}</p>

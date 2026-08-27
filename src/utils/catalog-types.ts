@@ -26,6 +26,12 @@ export type CommunityToolSpec = {
   consolePlugin: string;
   /** Console route opened by the Open link when the plugin is enabled. */
   href?: string;
+  /**
+   * Catalog tile mark. Prefer a bundled key (`tiles/oct-<name>.svg`) resolved by
+   * the storefront webpack map — not a GitHub-raw or lab URL. Data URLs are OK
+   * for external YAML. Plugin id is a fallback when this is omitted.
+   */
+  icon?: string;
   /** OpenShift versions this extension was validated on (e.g. "4.22"). Derived from versions[] when omitted. */
   validatedOn: string[];
   minOpenShift?: string;
@@ -113,6 +119,7 @@ export type PublicCatalogExtension = {
   image?: string;
   consolePlugin?: string;
   href?: string;
+  icon?: string;
   validatedOn?: string[];
   minOpenShift?: string;
   maxOpenShift?: string;

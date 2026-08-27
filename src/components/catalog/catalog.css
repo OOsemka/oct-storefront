@@ -30,9 +30,25 @@
   gap: var(--pf-t--global--spacer--sm, 8px);
 }
 
+.ct-tile__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm, 8px);
+  min-width: 0;
+  flex: 1;
+}
+
+.ct-tile__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
 .ct-tile__title {
   margin: 0;
   font-size: var(--pf-t--global--font--size--md, 1rem);
+  line-height: 1.3;
 }
 
 .ct-tile__desc {

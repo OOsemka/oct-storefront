@@ -42,7 +42,12 @@ module.exports = {
         type: 'asset/source',
       },
       {
+        test: /assets\/tiles\/.+\.svg$/,
+        type: 'asset/inline',
+      },
+      {
         test: /\.(png|jpg|jpeg|gif|svg|woff2?|ttf|eot|otf)(\?.*$|$)/,
+        exclude: /assets\/tiles\/.+\.svg$/,
         type: 'asset/resource',
       },
     ],
