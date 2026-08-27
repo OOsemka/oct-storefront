@@ -13,6 +13,7 @@ import { CommunityTool } from './catalog-types';
 import octBaremetal from '../assets/tiles/oct-baremetal.svg';
 import octBanner from '../assets/tiles/oct-banner.svg';
 import octNetworkBond from '../assets/tiles/oct-network-bond.svg';
+import octWindowsBuilder from '../assets/tiles/oct-windows-builder.svg';
 
 const BUNDLED: Record<string, string> = {};
 
@@ -25,6 +26,7 @@ function register(id: string, url: string): void {
 register('oct-baremetal', octBaremetal);
 register('oct-banner', octBanner);
 register('oct-network-bond', octNetworkBond);
+register('oct-windows-builder', octWindowsBuilder);
 
 function normalizeIconKey(raw: string): string {
   const s = raw.trim();

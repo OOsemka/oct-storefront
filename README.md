@@ -2,11 +2,11 @@
 
 **Community project. Not officially supported by Red Hat.** Unofficial catalog for OpenShift Console extensions.
 
-This repository is the **storefront**: left-nav **Community Tools** and category hubs (Compute, Storage, Network, Management). Extensions such as Bare Metal Hosts (`oct-baremetal`), Network Bond (`oct-network-bond`), and Banner (`oct-banner`) are separate ConsolePlugins.
+This repository is the **storefront**: left-nav **Community Tools** and category hubs (Compute, Storage, Network, Management). Extensions such as Bare Metal Hosts (`oct-baremetal`), Network Bond (`oct-network-bond`), Banner (`oct-banner`), and Windows Builder (`oct-windows-builder`) are separate ConsolePlugins.
 
 - **Plugin ID:** `oct-storefront`
 - **OpenShift:** 4.22 (PatternFly 6)
-- **Images:** `quay.io/cjanisze/oct-storefront:1.1.0-ocp4.22` (plugin UI) and `quay.io/cjanisze/oct-storefront-catalog:1.0.0-ocp4.22` (catalog-service; no webpack UI)
+- **Images:** `quay.io/cjanisze/oct-storefront:1.2.0-ocp4.22` (plugin UI; also publish `:1.2.0-ocp4.21`) and `quay.io/cjanisze/oct-storefront-catalog:1.0.0-ocp4.22` (catalog-service; no webpack UI)
 
 ## Install (one command)
 
@@ -29,7 +29,7 @@ Apply refreshes **catalog YAML** in ConfigMap `community-tools-cache` (tile name
 ## Add an extension
 
 1. Copy [`docs/extension-template/`](docs/extension-template/) into a new repo named `oct-<name>`.
-2. Publish **public** container images whose tags are `<semver>-ocp<major.minor>` (for example `:1.1.0-ocp4.22`) and list those exact tags on `spec.versions[].image`. Do not catalog `:1.1.0` if only `:4.22` exists. Bare `:4.22` / `:1.1.0` may stay as extra aliases.
+2. Publish **public** container images whose tags are `<semver>-ocp<major.minor>` (for example `:1.1.0-ocp4.22`) **and the matching `-ocp4.21` tag**. List those exact tags on `spec.versions[].image`. Always publish both OpenShift minors (same digest if bits match). Do not catalog `:1.1.0` if only `:4.22` exists. Bare `:4.22` / `:1.1.0` may stay as extra aliases.
 3. Set `spec.href` to a route from the extension `console-extensions.json`. If Add needs more than Namespace/Deployment/Service/ConsolePlugin, put the full YAML in `catalog/deploy/oct-<name>.yaml` — including **every required PVC** (created before Deployments). Omit PVC `storageClassName` to use the cluster default; Add lets the installer pick a StorageClass. Optional CommunityTool `spec.storageClassName` or PVC annotation `communitytools.io/storage-class`.
 4. **Bare Metal Hosts:** Add checks Metal3 `watchAllNamespaces` and can enable it with the user’s console credentials (recommended switch). Inventory warns if it is still false and hosts sit outside `openshift-machine-api`.
 5. Open a PR against [`catalog/community.yaml`](catalog/community.yaml) in this repo. Ship an original tile SVG in `src/assets/tiles/`, register it in `src/utils/tile-icons.ts`, and set `spec.icon` (same value in `deploy/install.yaml`).

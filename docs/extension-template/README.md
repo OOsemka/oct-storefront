@@ -9,7 +9,7 @@ This is OpenShift Community Tools (OCT), a **community project**, not officially
 - Directory / git repo: `oct-<name>`
 - `package.json` `consolePlugin.name`: `oct-<name>`
 - ConsolePlugin CR and namespace: `oct-<name>`
-- Image: `quay.io/<org>/oct-<name>:1.2.0-ocp4.22` (`<semver>-ocp<major.minor>`) — **must be public; the tag must exist**. Optional aliases `:1.2.0` / `:4.22`.
+- Image: `quay.io/<org>/oct-<name>:1.2.0-ocp4.22` and `:1.2.0-ocp4.21` (`<semver>-ocp<major.minor>`) — **must be public; both tags must exist**. Same digest if bits match. Optional aliases `:1.2.0` / `:4.22`.
 - i18n: `locales/en/plugin__oct-<name>.json`
 - Tile `spec.href`: a path from this plugin's `console-extensions.json`
 
@@ -33,7 +33,7 @@ Catalog `spec.versions[].image` and any discovery/sidecar images must be **publi
 
 ## Versioning
 
-Two axes in the catalog: **semver** (`v1.2.0`) and **OpenShift minor** (`ocp-4.22` when PF/API differ). Image tags always encode both (`1.2.0-ocp4.22`, not `ocp4.22-1.2.0`). Storefront Add picks the newest stable semver compatible with the cluster; it never auto-upgrades an existing install.
+Two axes in the catalog: **semver** (`v1.2.0`) and **OpenShift minor** (`ocp-4.22` when PF/API differ). Image tags always encode both (`1.2.0-ocp4.22`, not `ocp4.22-1.2.0`). **Always publish both** `-ocp4.21` and `-ocp4.22`. Storefront Add picks the newest stable semver compatible with the cluster; it never auto-upgrades an existing install.
 
 ## Checklist
 

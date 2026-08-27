@@ -13,6 +13,7 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 | oct-baremetal | `oct-baremetal` | same scheme |
 | oct-network-bond | `oct-network-bond` | same scheme |
 | oct-banner | `oct-banner` | same scheme |
+| oct-windows-builder | `oct-windows-builder` | same scheme |
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
@@ -22,7 +23,7 @@ This webpack bundle must **not** contain extension pages. Hubs list tiles; **Ope
 
 Keep `imagePullPolicy` IfNotPresent (the default for a named tag). Do **not** make Always the product default. Retagging `:1.0.0-ocp4.22` does not update nodes that already pulled that tag.
 
-**Any storefront UI change** (picker, icons, copy) **bumps storefront semver** and `install.yaml` to a **new combined tag** that does not yet exist on cluster nodes (e.g. `1.1.0-ocp4.22`). Never ship new plugin JS by retagging the only install tag. A catalog-only commit is visible after apply as new **tiles**; storefront **chrome** (icons, version button) stays on the old image.
+**Any storefront UI change** (picker, icons, copy) **bumps storefront semver** and `install.yaml` to a **new combined tag** that does not yet exist on cluster nodes (e.g. `1.2.0-ocp4.22`), and publish the matching `-ocp4.21` tag too. Never ship new plugin JS by retagging the only install tag. A catalog-only commit is visible after apply as new **tiles**; storefront **chrome** (icons, version button) stays on the old image.
 
 ## Navigation (two levels)
 
@@ -37,7 +38,7 @@ Administrator left-nav
 
 ## Catalog schema (CommunityTool) — two version axes
 
-Keep two axes in the catalog. Image tags always encode both: `<semver>-ocp<major.minor>` (e.g. `1.1.0-ocp4.22`). Not `ocp4.22-1.0.1`.
+Keep two axes in the catalog. Image tags always encode both: `<semver>-ocp<major.minor>` (e.g. `1.1.0-ocp4.22`). Not `ocp4.22-1.0.1`. **Always publish both** `<semver>-ocp4.21` and `<semver>-ocp4.22` (same digest if bits match). Catalog `versions[]` lists both minors when those tags exist.
 
 1. **Extension semver** (`versions[].version`, git tag `v1.2.0`)
 2. **OpenShift minor** (`versions[].openshift` list; optional git branch `ocp-4.22` when PF/API diverge)
@@ -109,7 +110,7 @@ Before shipping a tile, agents MUST:
 1. **Catalog image tag exists and is public.** `spec.versions[].image` (and every sidecar the bundle pulls) must pull anonymously. Community Add has **no pull secret**.
 2. **Publish the combined tag the catalog lists.** `<semver>-ocp<major.minor>`. Do not list `:1.1.0` or `:4.22` as the install image. That mismatch is what caused Add-success / Open-404.
 3. **Bundle is complete.** Add applies `catalog/deploy/oct-<name>.yaml` (register in `BUNDLED_DEPLOY`) or generated Namespace/Deployment/Service/ConsolePlugin only. Include every PVC, volume, RBAC, Service, and sidecar the Deployments need. **Precreate required PVCs in the bundle** (Add creates them before Deployments). `oct-baremetal` needs PVC `image-cache` (100Gi). Omit `storageClassName` for the cluster default; Add shows a StorageClass dropdown when the YAML has a PVC. Optional PVC annotation `communitytools.io/storage-class` or CommunityTool `spec.storageClassName`.
-4. **`spec.href` matches `console-extensions.json`.** `oct-baremetal`: `/baremetal/nodes`. `oct-network-bond`: `/community-tools/network/bond`. `oct-banner`: `/community-tools/management/banner` unless those routes changed.
+4. **`spec.href` matches `console-extensions.json`.** `oct-baremetal`: `/baremetal/nodes`. `oct-network-bond`: `/community-tools/network/bond`. `oct-banner`: `/community-tools/management/banner`. `oct-windows-builder`: `/community-tools/compute/windows-builder` unless those routes changed.
 5. **Add success is not Ready.** Confirm the plugin Deployment is Running before calling the tile done. For Bare Metal Hosts, also confirm `discovery-service` is Running and `image-cache` is Bound.
 6. **Bare Metal Hosts Add** checks Metal3 `Provisioning/provisioning-configuration` `spec.watchAllNamespaces`. If missing/false, the Add dialog warns and can patch `true` with the user’s console token (recommended switch, default on). Do not grant cluster-admin to a plugin ServiceAccount for this.
 

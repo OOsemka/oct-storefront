@@ -19,6 +19,7 @@ spec:
     stable: {}
   # Two axes in the catalog: versions[].version (semver) vs openshift (cluster minor).
   # Image tags MUST be <semver>-ocp<major.minor> (e.g. :1.1.0-ocp4.22), not :1.1.0 or :4.22.
+  # Always publish both -ocp4.21 and -ocp4.22 (same digest if bits match).
   # Never list a (version, OCP minor) row unless that exact public tag exists.
   # Community Add has no pull secret. Missing tags → Add can still succeed; Open 404s.
   versions:

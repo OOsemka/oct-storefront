@@ -1,6 +1,6 @@
 {
   "name": "oct-storefront",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Community project. Unofficial OpenShift Console catalog for community extensions. Not officially supported by Red Hat.",
   "private": true,
   "license": "Apache-2.0",
@@ -38,7 +38,7 @@
   },
   "consolePlugin": {
     "name": "oct-storefront",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "displayName": "OpenShift Community Tools",
     "description": "Community project. Unofficial OpenShift Console catalog. Not officially supported by Red Hat.",
     "exposedModules": {

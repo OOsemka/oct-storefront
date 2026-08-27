@@ -129,3 +129,31 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-banner:1.0.0-ocp4.22
       gitRef: v1.0.0
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-windows-builder
+spec:
+  displayName: Windows Builder
+  description: >-
+    Build sysprepped Windows disks for OpenShift Virtualization. Creates CDI
+    DataVolumes (win2k19, win2k25, win11, or a custom name) from an ISO you
+    provide. No Tekton. Community project, not officially supported by Red Hat.
+  category: compute
+  source: community
+  git: https://github.com/OOsemka/oct-windows-builder
+  consolePlugin: oct-windows-builder
+  href: /community-tools/compute/windows-builder
+  # Bundled storefront SVG (src/assets/tiles/). Original paperclip assistant, not Microsoft Clippy art.
+  icon: tiles/oct-windows-builder.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+    candidate: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  # versions omitted until :1.0.0-ocp4.21 and :1.0.0-ocp4.22 are public
+  # for both plugin and builder.

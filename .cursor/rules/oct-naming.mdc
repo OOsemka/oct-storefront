@@ -17,6 +17,7 @@ Directories, `package.json` `consolePlugin.name`, ConsolePlugin CR, image repos,
 | Bare Metal Hosts | `oct-baremetal` | `oct-baremetal` |
 | Network Bond | `oct-network-bond` | `oct-network-bond` |
 | Banner | `oct-banner` | `oct-banner` |
+| Windows Builder | `oct-windows-builder` | `oct-windows-builder` |
 
 i18n: `locales/en/plugin__<plugin-id>.json`. Proxy: `/api/proxy/plugin/<plugin-id>/<alias>`.
 
