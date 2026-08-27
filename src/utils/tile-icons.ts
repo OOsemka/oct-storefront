@@ -26,6 +26,7 @@ function register(id: string, url: string): void {
 register('oct-baremetal', octBaremetal);
 register('oct-banner', octBanner);
 register('oct-network-bond', octNetworkBond);
+/** Original paperclip assistant (googly eyes + eyebrows). Not Microsoft Clippy art. */
 register('oct-windows-builder', octWindowsBuilder);
 
 function normalizeIconKey(raw: string): string {

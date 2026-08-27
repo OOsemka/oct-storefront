@@ -228,6 +228,16 @@ data:
           openshift: ["4.22"]
           image: quay.io/cjanisze/oct-windows-builder:1.0.0-ocp4.22
           gitRef: v1.0.0
+        - version: "1.0.1"
+          channel: stable
+          openshift: ["4.21"]
+          image: quay.io/cjanisze/oct-windows-builder:1.0.1-ocp4.21
+          gitRef: v1.0.1
+        - version: "1.0.1"
+          channel: stable
+          openshift: ["4.22"]
+          image: quay.io/cjanisze/oct-windows-builder:1.0.1-ocp4.22
+          gitRef: v1.0.1
   sync.json: |
     {"ok":true,"source":"bundled","message":"Catalog bundled in deploy/install.yaml."}
 ---
@@ -264,7 +274,7 @@ spec:
           # Bump this combined tag when webpack UI changes (picker, icons, copy).
           # Catalog ConfigMap updates do not roll the plugin image. Keep IfNotPresent
           # (the default for a named tag). Never retag the only install tag to ship JS.
-          image: quay.io/cjanisze/oct-storefront:1.2.0-ocp4.22
+          image: quay.io/cjanisze/oct-storefront:1.2.1-ocp4.22
           ports:
             - containerPort: 9443
               protocol: TCP
