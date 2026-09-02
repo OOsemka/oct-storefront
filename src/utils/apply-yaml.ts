@@ -2,7 +2,7 @@ import { loadAll, dump } from 'js-yaml';
 import { k8sCreate, k8sGet, k8sPatch, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
 import { DeploymentModel, modelForKind } from './k8s-models';
 
-/** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. */
+/** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. Never a lab class name in YAML. */
 export const PVC_STORAGE_CLASS_ANNOTATION = 'communitytools.io/storage-class';
 
 export type PvcSummary = { name: string; size: string };

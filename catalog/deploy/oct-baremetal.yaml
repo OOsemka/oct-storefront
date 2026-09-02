@@ -197,6 +197,15 @@ rules:
       - snapshot.storage.k8s.io
     resources:
       - volumesnapshots
+      - volumesnapshotclasses
+    verbs:
+      - get
+      - list
+  # List StorageClasses (image-cache / snapshot restore uses the Add class)
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - storageclasses
     verbs:
       - get
       - list
@@ -286,9 +295,10 @@ metadata:
   annotations:
     description: >-
       Shared cache for bare-metal OS images served over HTTP. Sized for
-      2-3 raw disk images. Omit storageClassName (or leave Add on cluster
-      default) unless you need a specific class. Optional annotation
-      communitytools.io/storage-class selects a class when Add has no UI override.
+      2-3 raw disk images. Never hardcode a lab StorageClass. Omit
+      storageClassName (or leave Add on cluster default) unless you need a
+      specific class. Optional annotation communitytools.io/storage-class
+      selects a class when Add has no UI override.
 spec:
   accessModes:
     - ReadWriteOnce
@@ -322,6 +332,9 @@ metadata:
     app: discovery-service
 spec:
   replicas: 1
+  # RWO image-cache cannot attach to two nodes; RollingUpdate deadlocks.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: discovery-service
@@ -333,6 +346,11 @@ spec:
       containers:
         - name: discovery-service
           image: quay.io/cjanisze/oct-baremetal-discovery:1.1.0-ocp4.22
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           ports:
             - containerPort: 8080
               name: http

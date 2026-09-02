@@ -237,6 +237,7 @@ export const AddExtensionModal: FC<{
             </FormGroup>
           ) : null}
           {state?.needsStorageClass ? (
+            // Cluster-portable: admin picks the class at Add. Never default a lab StorageClass name.
             <FormGroup label={t('Storage class')} fieldId="ct-add-storage-class">
               <FormSelect
                 id="ct-add-storage-class"
