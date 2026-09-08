@@ -6,7 +6,7 @@ This repository is the **storefront**: left-nav **Community Tools** and category
 
 - **Plugin ID:** `oct-storefront`
 - **OpenShift:** 4.22 (PatternFly 6)
-- **Images:** `quay.io/cjanisze/oct-storefront:1.2.1-ocp4.22` (plugin UI; also publish `:1.2.1-ocp4.21`) and `quay.io/cjanisze/oct-storefront-catalog:1.0.0-ocp4.22` (catalog-service; no webpack UI)
+- **Images:** `quay.io/cjanisze/oct-storefront:1.2.3-ocp4.22` (plugin UI; also publish `:1.2.3-ocp4.21`) and `quay.io/cjanisze/oct-storefront-catalog:1.0.0-ocp4.22` (catalog-service; no webpack UI)
 
 ## Install (one command)
 
@@ -24,7 +24,18 @@ Then:
 
 This apply installs **only** the storefront. It does **not** install `oct-baremetal` or `oct-network-bond`.
 
-Apply refreshes **catalog YAML** in ConfigMap `community-tools-cache` (tile names, versions, Banner, `spec.icon` keys). **Plugin code** (Choose version, tile icons, copy) lives in the webpack image and changes only when the Deployment **image tag** in `install.yaml` changes. Keep `imagePullPolicy` IfNotPresent. Do not retag the only install tag to ship new JS — bump storefront semver and point `install.yaml` at a new combined tag (for example `1.1.0-ocp4.22`). A catalog-only commit shows new **tiles** after apply, not new storefront **chrome**.
+Apply refreshes **catalog YAML** in ConfigMap `community-tools-cache` (tile names, versions, Banner, `spec.icon` keys). **Plugin code** (Choose version, tile icons, copy) lives in the webpack image and changes only when the Deployment **image tag** in `install.yaml` changes. Keep `imagePullPolicy` IfNotPresent. Do not retag the only install tag to ship new JS — bump storefront semver and point `install.yaml` at a new combined tag (for example `1.2.3-ocp4.22`). A catalog-only commit shows new **tiles** after apply, not new storefront **chrome**.
+
+## Architecture
+
+| Component | Description |
+| --- | --- |
+| Plugin UI (`src/`, `console-extensions.json`) | Four hub pages (Compute, Storage, Network, Management) registered as `console.page/route`. Tiles rendered by `CategoryHubPage` → `ExtensionTile`. |
+| Catalog-service (`catalog-service/`, Go 1.22) | In-cluster HTTP(S) sidecar proxying public catalog and stats. Proxy: `/api/proxy/plugin/oct-storefront/catalog-service`. |
+| ConfigMap `community-tools-cache` | Seeded from bundled `catalog/community.yaml`; refreshed from public catalog. Fail-open: cached/bundled on error. Keys: `community.yaml`, `stats.json`, `sync.json`, `installed.json`. |
+| Tile icons (`src/utils/tile-icons.ts`) | Bundled SVGs resolved by `spec.icon` → `metadata.name` → `consolePlugin`. |
+
+Navigation uses `useNavigate` from `react-router-dom-v5-compat` (React Router v6 bridge over the Console's v5 host). Hub routes registered via `console-extensions.json`; tile **Open** calls `navigate(tool.spec.href)`.
 
 ## Add an extension
 

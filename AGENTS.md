@@ -17,6 +17,24 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
+**Current version:** `1.2.3` (package.json / consolePlugin.version).
+
+## Routing (React Router v6 via v5-compat)
+
+Hub routes are registered as `console.page/route` extensions in `console-extensions.json`. In-page navigation uses `useNavigate` from `react-router-dom-v5-compat` (^6.30.0); there are no `Routes`/`Route` components in source. React Router 5 (`5.3.4`) is the Console host; the v5-compat bridge provides the v6 `useNavigate` hook.
+
+## Catalog-service architecture
+
+| Piece | Role |
+| --- | --- |
+| **catalog-service** (`catalog-service/`, Go 1.22) | In-cluster HTTP(S) sidecar. Proxies `GET /api/v1/public-catalog`, `GET /api/v1/fetch-yaml`, and stats POSTs to `COMMUNITY_TOOLS_CATALOG_URL` (3–10s timeouts). |
+| **community-tools-cache** ConfigMap | Namespace `oct-storefront`. Seeded from bundled `catalog/community.yaml` on first hub mount; refreshed from public catalog via proxy. Keys: `community.yaml`, `stats.json`, `sync.json` (`checkedAt`/`ok`/`source`), `installed.json`. No TTL — refresh runs once per catalog mount; on public failure, fail-opens to cache/bundled. |
+| **community-tools-external** ConfigMap | Sibling CM for externally-added YAML tools. |
+| **useCatalog** hook (`src/utils/catalog-actions.ts`, `src/components/catalog/useCatalog.ts`) | `ensureCacheSeeded` → `refreshPublicCatalogIntoCache` → merge cache + external; `CategoryHubPage` renders `ExtensionTile`s. Tiles are not fetched live from the service on every render. |
+| **Tile icons** (`src/utils/tile-icons.ts`, `src/assets/tiles/`) | Bundled SVGs registered under keys like `oct-baremetal`, `tiles/oct-baremetal.svg`. `resolveTileIcon` tries `spec.icon` → `metadata.name` → `consolePlugin`. Registered: `oct-baremetal`, `oct-banner`, `oct-network-bond`, `oct-windows-builder`. |
+
+Proxy: `/api/proxy/plugin/oct-storefront/catalog-service`.
+
 ## Catalog apply vs plugin image
 
 `oc apply` of `deploy/install.yaml` updates ConfigMap `community-tools-cache` (tile list, versions, Banner, `spec.icon` keys) and the Deployment spec. **Choose version**, **Change version**, and **tile icons** live in the **webpack plugin image**, not the ConfigMap. They change only when the Deployment **image tag** changes.
@@ -121,8 +139,6 @@ Canonical checklist: `docs/extension-standard.md`. Do not `oc apply` unless aske
 Never bake in a lab StorageClass, VLAN, CIDR, hostname, or similar. Omit the field (cluster default), read the live cluster, or use the value chosen at Add. Rule: `.cursor/rules/oct-no-env-hardcoding.mdc`.
 
 ## Stats / fail-open
-
-ConfigMaps `community-tools-cache` (includes `installed.json`) and `community-tools-external` in namespace **`oct-storefront`**. Proxy: `/api/proxy/plugin/oct-storefront/catalog-service`.
 
 Add / Remove never call the public server. Downloads/ratings: local always; public POST best-effort for community ids.
 
