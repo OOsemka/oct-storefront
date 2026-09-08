@@ -1,5 +1,6 @@
 import React, { FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom-v5-compat';
 import { Label, Button } from '@patternfly/react-core';
 import {
   CatalogItem,
@@ -38,6 +39,7 @@ export const ExtensionTile: FC<{
   onRate: (stars: number) => void;
 }> = ({ item, preferPublic, busy, onAdd, onEnable, onUpdate, onRemove, onChangeVersion, onRate }) => {
   const { t } = useTranslation('plugin__oct-storefront');
+  const navigate = useNavigate();
   const { tool, stats, enabled, installed } = item;
   const avg = ratingAverage(stats, preferPublic);
   const downloads = downloadCount(stats, preferPublic);
@@ -88,7 +90,7 @@ export const ExtensionTile: FC<{
         {enabled ? (
           <>
             {tool.spec.href ? (
-              <Button variant="link" isInline component="a" href={tool.spec.href}>
+              <Button variant="link" isInline onClick={() => navigate(tool.spec.href!)}>
                 {t('Open')}
               </Button>
             ) : null}

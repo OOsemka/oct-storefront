@@ -47,6 +47,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-baremetal:1.1.0-ocp4.22
       gitRef: v1.1.0
+    - version: "0.1.1"
+      channel: candidate
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-baremetal:0.1.1-ocp4.21
+      gitRef: v0.1.1
+    - version: "0.1.1"
+      channel: candidate
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-baremetal:0.1.1-ocp4.22
+      gitRef: v0.1.1
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -93,6 +103,26 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-bond:1.1.0-ocp4.22
       gitRef: v1.1.0
+    - version: "0.1.1"
+      channel: candidate
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-bond:0.1.1-ocp4.21
+      gitRef: v0.1.1
+    - version: "0.1.1"
+      channel: candidate
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bond:0.1.1-ocp4.22
+      gitRef: v0.1.1
+    - version: "0.1.2"
+      channel: candidate
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-bond:0.1.2-ocp4.21
+      gitRef: v0.1.2
+    - version: "0.1.2"
+      channel: candidate
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bond:0.1.2-ocp4.22
+      gitRef: v0.1.2
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -316,3 +346,13 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-windows-builder:1.0.15-ocp4.22
       gitRef: v1.0.15
+    - version: "1.0.16"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-windows-builder:1.0.16-ocp4.21
+      gitRef: v1.0.16
+    - version: "1.0.16"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-windows-builder:1.0.16-ocp4.22
+      gitRef: v1.0.16
