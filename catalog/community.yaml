@@ -356,3 +356,39 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-windows-builder:1.0.16-ocp4.22
       gitRef: v1.0.16
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-storage-bench
+spec:
+  displayName: Storage Bench
+  description: >-
+    Benchmark ODF/Ceph storage performance with RADOS and FIO tests.
+    Compare results over time. Community project, not officially
+    supported by Red Hat.
+  category: storage
+  source: community
+  git: https://github.com/OOsemka/oct-storage-bench
+  consolePlugin: oct-storage-bench
+  href: /community-tools/storage/bench
+  icon: tiles/oct-storage-bench.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+    candidate: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "0.1.1"
+      channel: candidate
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storage-bench:0.1.1-ocp4.21
+      gitRef: v0.1.1
+    - version: "0.1.1"
+      channel: candidate
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storage-bench:0.1.1-ocp4.22
+      gitRef: v0.1.1

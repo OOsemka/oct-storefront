@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Seat -->
+  <rect x="8" y="28" width="48" height="6" rx="2" fill="#4394E5"/>
+  <!-- Back rest -->
+  <rect x="10" y="16" width="44" height="4" rx="1.5" fill="#4394E5"/>
+  <rect x="10" y="22" width="44" height="4" rx="1.5" fill="#4394E5"/>
+  <!-- Left leg -->
+  <path d="M14 28 L14 34 L10 50" stroke="#2D6CA2" stroke-width="3" stroke-linecap="round"/>
+  <!-- Right leg -->
+  <path d="M50 28 L50 34 L54 50" stroke="#2D6CA2" stroke-width="3" stroke-linecap="round"/>
+  <!-- Left arm rest -->
+  <path d="M12 16 L12 34" stroke="#2D6CA2" stroke-width="3" stroke-linecap="round"/>
+  <!-- Right arm rest -->
+  <path d="M52 16 L52 34" stroke="#2D6CA2" stroke-width="3" stroke-linecap="round"/>
+  <!-- Ground shadow -->
+  <ellipse cx="32" cy="52" rx="24" ry="3" fill="#E0E0E0" opacity="0.5"/>
+</svg>

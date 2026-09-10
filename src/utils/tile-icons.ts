@@ -13,6 +13,7 @@ import { CommunityTool } from './catalog-types';
 import octBaremetal from '../assets/tiles/oct-baremetal.svg';
 import octBanner from '../assets/tiles/oct-banner.svg';
 import octNetworkBond from '../assets/tiles/oct-network-bond.svg';
+import octStorageBench from '../assets/tiles/oct-storage-bench.svg';
 import octWindowsBuilder from '../assets/tiles/oct-windows-builder.svg';
 
 const BUNDLED: Record<string, string> = {};
@@ -26,6 +27,7 @@ function register(id: string, url: string): void {
 register('oct-baremetal', octBaremetal);
 register('oct-banner', octBanner);
 register('oct-network-bond', octNetworkBond);
+register('oct-storage-bench', octStorageBench);
 /** Original paperclip assistant (googly eyes + eyebrows). Not Microsoft Clippy art. */
 register('oct-windows-builder', octWindowsBuilder);
 
