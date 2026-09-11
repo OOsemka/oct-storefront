@@ -28,6 +28,7 @@ import {
   installedFromCache,
   refreshPublicCatalogIntoCache,
   removeExtension,
+  removeExternalTool,
   saveExternalTool,
   setClusterRating,
   statsFor,
@@ -245,6 +246,16 @@ export function useCatalog(category: ToolCategory) {
     [run],
   );
 
+  const removeFromCatalog = useCallback(
+    (item: CatalogItem) =>
+      run(
+        item.id,
+        () => removeExternalTool(item.id),
+        `Removed ${item.tool.spec.displayName} from the external catalog and disabled the plugin.`,
+      ),
+    [run],
+  );
+
   const rate = useCallback(async (item: CatalogItem, stars: number) => {
     try {
       await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current);
@@ -304,6 +315,7 @@ export function useCatalog(category: ToolCategory) {
     enable,
     update,
     remove,
+    removeFromCatalog,
     rate,
     addExternal,
   };

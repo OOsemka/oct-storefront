@@ -269,6 +269,7 @@ export function toCommunityYaml(tools: CommunityTool[]): string {
       if (t.spec.minOpenShift) lines.push(`  minOpenShift: ${JSON.stringify(t.spec.minOpenShift)}`);
       if (t.spec.maxOpenShift) lines.push(`  maxOpenShift: ${JSON.stringify(t.spec.maxOpenShift)}`);
       if (t.spec.deployURL) lines.push(`  deployURL: ${t.spec.deployURL}`);
+      if (t.spec.deployYAML) lines.push(`  deployYAML: ${JSON.stringify(t.spec.deployYAML)}`);
       if (t.spec.storageClassName) lines.push(`  storageClassName: ${JSON.stringify(t.spec.storageClassName)}`);
       if (t.spec.defaultChannel) lines.push(`  defaultChannel: ${t.spec.defaultChannel}`);
       if (t.spec.pinVersion) lines.push(`  pinVersion: ${JSON.stringify(t.spec.pinVersion)}`);
@@ -296,6 +297,7 @@ export function toCommunityYaml(tools: CommunityTool[]): string {
           if (ver.image) lines.push(`      image: ${ver.image}`);
           if (ver.gitRef) lines.push(`      gitRef: ${ver.gitRef}`);
           if (ver.deployURL) lines.push(`      deployURL: ${ver.deployURL}`);
+          if (ver.deployYAML) lines.push(`      deployYAML: ${JSON.stringify(ver.deployYAML)}`);
         }
       }
       return lines.join('\n');

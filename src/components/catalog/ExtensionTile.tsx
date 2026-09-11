@@ -36,8 +36,9 @@ export const ExtensionTile: FC<{
   onUpdate: () => void;
   onChangeVersion: () => void;
   onRemove: () => void;
+  onRemoveFromCatalog?: () => void;
   onRate: (stars: number) => void;
-}> = ({ item, preferPublic, busy, onAdd, onEnable, onUpdate, onRemove, onChangeVersion, onRate }) => {
+}> = ({ item, preferPublic, busy, onAdd, onEnable, onUpdate, onRemove, onRemoveFromCatalog, onChangeVersion, onRate }) => {
   const { t } = useTranslation('plugin__oct-storefront');
   const navigate = useNavigate();
   const { tool, stats, enabled, installed } = item;
@@ -107,6 +108,11 @@ export const ExtensionTile: FC<{
             <Button variant="link" isInline onClick={onRemove} isDisabled={busy}>
               {t('Remove')}
             </Button>
+            {tool.spec.source === 'external' && onRemoveFromCatalog ? (
+              <Button variant="link" isInline onClick={onRemoveFromCatalog} isDisabled={busy} isDanger>
+                {t('Remove from catalog')}
+              </Button>
+            ) : null}
           </>
         ) : installed ? (
           <Button variant="link" isInline onClick={onEnable} isDisabled={busy}>
@@ -120,6 +126,11 @@ export const ExtensionTile: FC<{
             {canPickVersion ? (
               <Button variant="link" isInline onClick={onChangeVersion} isDisabled={busy}>
                 {t('Choose version')}
+              </Button>
+            ) : null}
+            {tool.spec.source === 'external' && onRemoveFromCatalog ? (
+              <Button variant="link" isInline onClick={onRemoveFromCatalog} isDisabled={busy} isDanger>
+                {t('Remove from catalog')}
               </Button>
             ) : null}
           </>

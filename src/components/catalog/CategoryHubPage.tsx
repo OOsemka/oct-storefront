@@ -286,6 +286,11 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
                     onUpdate={() => catalog.update(item)}
                     onChangeVersion={() => requestChangeVersion(item)}
                     onRemove={() => catalog.remove(item)}
+                    onRemoveFromCatalog={
+                      item.tool.spec.source === 'external'
+                        ? () => catalog.removeFromCatalog(item)
+                        : undefined
+                    }
                     onRate={(stars) => catalog.rate(item, stars)}
                   />
                 ))}
