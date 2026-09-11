@@ -408,7 +408,7 @@ spec:
   source: community
   git: https://github.com/OOsemka/oct-storefront
   consolePlugin: oct-storefront
-  href: /community-tools/compute
+  href: /community-tools/management/storefront
   icon: tiles/oct-storefront.svg
   defaultChannel: stable
   channels:

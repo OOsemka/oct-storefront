@@ -93,5 +93,14 @@
   "BareMetal Operator is not watching all namespaces": "BareMetal Operator is not watching all namespaces",
   "BareMetal Operator only reconciles BareMetalHosts in openshift-machine-api. Hosts in other namespaces stay Unknown until spec.watchAllNamespaces is true.": "BareMetal Operator only reconciles BareMetalHosts in openshift-machine-api. Hosts in other namespaces stay Unknown until spec.watchAllNamespaces is true.",
   "The plugin will still install. Set spec.watchAllNamespaces: true later, or keep hosts in openshift-machine-api. Command:": "The plugin will still install. Set spec.watchAllNamespaces: true later, or keep hosts in openshift-machine-api. Command:",
-  "Install will patch Provisioning/provisioning-configuration with your console credentials. This does not use a plugin ServiceAccount.": "Install will patch Provisioning/provisioning-configuration with your console credentials. This does not use a plugin ServiceAccount."
+  "Install will patch Provisioning/provisioning-configuration with your console credentials. This does not use a plugin ServiceAccount.": "Install will patch Provisioning/provisioning-configuration with your console credentials. This does not use a plugin ServiceAccount.",
+  "About OpenShift Community Tools": "About OpenShift Community Tools",
+  "What is OCT?": "What is OCT?",
+  "OpenShift Community Tools (OCT) is a set of community-built UX extensions for the OpenShift Console. Extensions are installed and managed through this storefront — browse categories, add tools with one click, and keep them updated.": "OpenShift Community Tools (OCT) is a set of community-built UX extensions for the OpenShift Console. Extensions are installed and managed through this storefront — browse categories, add tools with one click, and keep them updated.",
+  "Storefront version: {{version}}": "Storefront version: {{version}}",
+  "Visit octools.net for documentation and developer guides": "Visit octools.net for documentation and developer guides",
+  "Source code on GitHub": "Source code on GitHub",
+  "Public stats API at api.octools.net": "Public stats API at api.octools.net",
+  "Storefront updates": "Storefront updates",
+  "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade.": "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade."
 }

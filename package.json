@@ -45,7 +45,8 @@
       "ComputePage": "./pages/ComputePage",
       "StoragePage": "./pages/StoragePage",
       "NetworkPage": "./pages/NetworkPage",
-      "ManagementPage": "./pages/ManagementPage"
+      "ManagementPage": "./pages/ManagementPage",
+      "StorefrontAboutPage": "./components/StorefrontAboutPage"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

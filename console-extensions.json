@@ -84,5 +84,13 @@
       "path": "/community-tools/management",
       "component": { "$codeRef": "ManagementPage" }
     }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/community-tools/management/storefront",
+      "component": { "$codeRef": "StorefrontAboutPage" }
+    }
   }
 ]
