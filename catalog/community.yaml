@@ -27,33 +27,13 @@ spec:
     - "4.22"
   minOpenShift: "4.21"
   versions:
-    - version: "1.0.0"
-      channel: stable
-      openshift: ["4.21"]
-      image: quay.io/cjanisze/oct-baremetal:1.0.0-ocp4.21
-      gitRef: v1.0.0
-    - version: "1.0.0"
-      channel: stable
-      openshift: ["4.22"]
-      image: quay.io/cjanisze/oct-baremetal:1.0.0-ocp4.22
-      gitRef: v1.0.0
-    - version: "1.1.0"
-      channel: stable
-      openshift: ["4.21"]
-      image: quay.io/cjanisze/oct-baremetal:1.1.0-ocp4.21
-      gitRef: v1.1.0
-    - version: "1.1.0"
-      channel: stable
-      openshift: ["4.22"]
-      image: quay.io/cjanisze/oct-baremetal:1.1.0-ocp4.22
-      gitRef: v1.1.0
     - version: "0.1.1"
-      channel: candidate
+      channel: stable
       openshift: ["4.21"]
       image: quay.io/cjanisze/oct-baremetal:0.1.1-ocp4.21
       gitRef: v0.1.1
     - version: "0.1.1"
-      channel: candidate
+      channel: stable
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-baremetal:0.1.1-ocp4.22
       gitRef: v0.1.1
@@ -83,43 +63,23 @@ spec:
     - "4.22"
   minOpenShift: "4.21"
   versions:
-    - version: "1.0.0"
-      channel: stable
-      openshift: ["4.21"]
-      image: quay.io/cjanisze/oct-network-bond:1.0.0-ocp4.21
-      gitRef: v1.0.0
-    - version: "1.0.0"
-      channel: stable
-      openshift: ["4.22"]
-      image: quay.io/cjanisze/oct-network-bond:1.0.0-ocp4.22
-      gitRef: v1.0.0
-    - version: "1.1.0"
-      channel: stable
-      openshift: ["4.21"]
-      image: quay.io/cjanisze/oct-network-bond:1.1.0-ocp4.21
-      gitRef: v1.1.0
-    - version: "1.1.0"
-      channel: stable
-      openshift: ["4.22"]
-      image: quay.io/cjanisze/oct-network-bond:1.1.0-ocp4.22
-      gitRef: v1.1.0
     - version: "0.1.1"
-      channel: candidate
+      channel: stable
       openshift: ["4.21"]
       image: quay.io/cjanisze/oct-network-bond:0.1.1-ocp4.21
       gitRef: v0.1.1
     - version: "0.1.1"
-      channel: candidate
+      channel: stable
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-bond:0.1.1-ocp4.22
       gitRef: v0.1.1
     - version: "0.1.2"
-      channel: candidate
+      channel: stable
       openshift: ["4.21"]
       image: quay.io/cjanisze/oct-network-bond:0.1.2-ocp4.21
       gitRef: v0.1.2
     - version: "0.1.2"
-      channel: candidate
+      channel: stable
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-bond:0.1.2-ocp4.22
       gitRef: v0.1.2
@@ -393,12 +353,12 @@ spec:
   minOpenShift: "4.21"
   versions:
     - version: "0.1.1"
-      channel: candidate
+      channel: stable
       openshift: ["4.21"]
       image: quay.io/cjanisze/oct-storage-bench:0.1.1-ocp4.21
       gitRef: v0.1.1
     - version: "0.1.1"
-      channel: candidate
+      channel: stable
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-storage-bench:0.1.1-ocp4.22
       gitRef: v0.1.1

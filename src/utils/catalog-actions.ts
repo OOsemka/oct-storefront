@@ -9,6 +9,7 @@ import bmhDeployYaml from '../../catalog/deploy/oct-baremetal.yaml';
 import bondDeployYaml from '../../catalog/deploy/oct-network-bond.yaml';
 import bannerDeployYaml from '../../catalog/deploy/oct-banner.yaml';
 import windowsBuilderDeployYaml from '../../catalog/deploy/oct-windows-builder.yaml';
+import storageBenchDeployYaml from '../../catalog/deploy/oct-storage-bench.yaml';
 import { ConfigMapModel, ConsoleOperatorModel } from './k8s-models';
 import {
   CACHE_CONFIGMAP,
@@ -45,6 +46,7 @@ const BUNDLED_DEPLOY: Record<string, string> = {
   'oct-network-bond': bondDeployYaml,
   'oct-banner': bannerDeployYaml,
   'oct-windows-builder': windowsBuilderDeployYaml,
+  'oct-storage-bench': storageBenchDeployYaml,
 };
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };
