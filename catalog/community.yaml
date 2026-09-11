@@ -91,8 +91,9 @@ metadata:
 spec:
   displayName: Banner
   description: >-
-    Show the current OpenShift Console banner and change its text and colors.
-    Uses ConsoleNotification. Changes apply cluster-wide.
+    Show and customize the OpenShift Console banner, logo, and branding.
+    Change text, colors, and console appearance. Uses ConsoleNotification.
+    Changes apply cluster-wide.
   category: management
   source: community
   git: https://github.com/OOsemka/oct-banner
@@ -334,9 +335,10 @@ metadata:
 spec:
   displayName: Storage Bench
   description: >-
-    Benchmark ODF/Ceph storage performance with RADOS and FIO tests.
-    Compare results over time. Community project, not officially
-    supported by Red Hat.
+    Benchmark storage performance with FIO-based workloads against any
+    storage backend. Includes RADOS tests for Ceph clusters. Compare
+    results over time. Community project, not officially supported by
+    Red Hat.
   category: storage
   source: community
   git: https://github.com/OOsemka/oct-storage-bench
@@ -391,3 +393,33 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-hello-world:1.0.0-ocp4.22
       gitRef: v1.0.0
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-storefront
+spec:
+  displayName: Community Tools Storefront
+  description: >-
+    The OCT catalog and extension manager. This tile shows when a
+    storefront update is available. Update fetches the latest install
+    manifest from GitHub and applies it.
+  category: management
+  source: community
+  git: https://github.com/OOsemka/oct-storefront
+  consolePlugin: oct-storefront
+  href: /community-tools/compute
+  icon: tiles/oct-storefront.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.22"
+  minOpenShift: "4.22"
+  versions:
+    - version: "1.2.3"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.2.3-ocp4.22
+      gitRef: v1.2.3
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml

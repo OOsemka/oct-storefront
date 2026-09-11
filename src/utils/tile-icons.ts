@@ -14,6 +14,8 @@ import octBaremetal from '../assets/tiles/oct-baremetal.svg';
 import octBanner from '../assets/tiles/oct-banner.svg';
 import octNetworkBond from '../assets/tiles/oct-network-bond.svg';
 import octStorageBench from '../assets/tiles/oct-storage-bench.svg';
+import octHelloWorld from '../assets/tiles/oct-hello-world.svg';
+import octStorefront from '../assets/tiles/oct-storefront.svg';
 import octWindowsBuilder from '../assets/tiles/oct-windows-builder.svg';
 
 const BUNDLED: Record<string, string> = {};
@@ -27,7 +29,9 @@ function register(id: string, url: string): void {
 register('oct-baremetal', octBaremetal);
 register('oct-banner', octBanner);
 register('oct-network-bond', octNetworkBond);
+register('oct-hello-world', octHelloWorld);
 register('oct-storage-bench', octStorageBench);
+register('oct-storefront', octStorefront);
 /** Original paperclip assistant (googly eyes + eyebrows). Not Microsoft Clippy art. */
 register('oct-windows-builder', octWindowsBuilder);
 
