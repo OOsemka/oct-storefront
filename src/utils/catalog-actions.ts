@@ -10,6 +10,7 @@ import bondDeployYaml from '../../catalog/deploy/oct-network-bond.yaml';
 import bannerDeployYaml from '../../catalog/deploy/oct-banner.yaml';
 import windowsBuilderDeployYaml from '../../catalog/deploy/oct-windows-builder.yaml';
 import storageBenchDeployYaml from '../../catalog/deploy/oct-storage-bench.yaml';
+import helloWorldDeployYaml from '../../catalog/deploy/oct-hello-world.yaml';
 import { ConfigMapModel, ConsoleOperatorModel } from './k8s-models';
 import {
   CACHE_CONFIGMAP,
@@ -47,6 +48,7 @@ const BUNDLED_DEPLOY: Record<string, string> = {
   'oct-banner': bannerDeployYaml,
   'oct-windows-builder': windowsBuilderDeployYaml,
   'oct-storage-bench': storageBenchDeployYaml,
+  'oct-hello-world': helloWorldDeployYaml,
 };
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };
@@ -420,6 +422,18 @@ export async function enableExtension(tool: CommunityTool): Promise<void> {
 /** Default Remove: disable this ConsolePlugin only (leave Deployment; do not touch other tools). */
 export async function removeExtension(tool: CommunityTool): Promise<void> {
   await setPluginEnabled(tool.spec.consolePlugin, false);
+}
+
+/** Remove an external tool from the external ConfigMap entirely (and disable the plugin). */
+export async function removeExternalTool(toolId: string): Promise<void> {
+  const cm = await getConfigMap(EXTERNAL_CONFIGMAP);
+  const existing = externalToolsFromCache(cm || undefined);
+  const match = existing.find((t) => t.metadata.name === toolId);
+  if (match) {
+    await setPluginEnabled(match.spec.consolePlugin, false);
+  }
+  const next = existing.filter((t) => t.metadata.name !== toolId);
+  await writeConfigMap(EXTERNAL_CONFIGMAP, { 'tools.yaml': toCommunityYaml(next) });
 }
 
 export function statsFor(id: string, stats: StatsMap): ExtensionStats {

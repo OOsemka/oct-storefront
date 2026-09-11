@@ -362,3 +362,32 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-storage-bench:0.1.1-ocp4.22
       gitRef: v0.1.1
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-hello-world
+spec:
+  displayName: Hello World
+  description: >-
+    OCT Hello World template extension. Fork this repo to create your own
+    OpenShift Community Tools module. Community project, not officially
+    supported by Red Hat.
+  category: management
+  source: community
+  git: https://github.com/OOsemka/oct-hello-world
+  consolePlugin: oct-hello-world
+  href: /community-tools/management/hello-world
+  icon: tiles/oct-hello-world.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.22"
+  minOpenShift: "4.22"
+  versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-hello-world:1.0.0-ocp4.22
+      gitRef: v1.0.0

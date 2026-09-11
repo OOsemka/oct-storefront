@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oct-hello-world
+  labels:
+    app.kubernetes.io/part-of: oct-hello-world
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oct-hello-world
+  namespace: oct-hello-world
+  labels:
+    app: oct-hello-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oct-hello-world
+  template:
+    metadata:
+      labels:
+        app: oct-hello-world
+    spec:
+      containers:
+        - name: plugin
+          image: quay.io/cjanisze/oct-hello-world:1.0.0-ocp4.22
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - name: plugin-serving-cert
+              readOnly: true
+              mountPath: /var/serving-cert
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: plugin-serving-cert
+          secret:
+            secretName: plugin-serving-cert
+            defaultMode: 420
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oct-hello-world
+  namespace: oct-hello-world
+  labels:
+    app: oct-hello-world
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: plugin-serving-cert
+spec:
+  ports:
+    - name: 9443-tcp
+      protocol: TCP
+      port: 9443
+      targetPort: 9443
+  selector:
+    app: oct-hello-world
+---
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: oct-hello-world
+spec:
+  displayName: Hello World (Community Tools)
+  backend:
+    type: Service
+    service:
+      name: oct-hello-world
+      namespace: oct-hello-world
+      port: 9443
+      basePath: /
