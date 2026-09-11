@@ -354,6 +354,16 @@ spec:
     - "4.22"
   minOpenShift: "4.21"
   versions:
+    - version: "0.1.2"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storage-bench:0.1.2-ocp4.21
+      gitRef: v0.1.2
+    - version: "0.1.2"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storage-bench:0.1.2-ocp4.22
+      gitRef: v0.1.2
     - version: "0.1.1"
       channel: stable
       openshift: ["4.21"]
