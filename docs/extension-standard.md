@@ -117,12 +117,75 @@ Keep `imagePullPolicy` IfNotPresent. Do not make Always the product default. **A
 | `spec.source` | yes | `community` in catalog; storefront forces `external` on paste |
 | `spec.image` | fallback | Used only if `versions[]` has no image; must still be a combined tag |
 
+## Deploy bundle consistency (required)
+
+Every `image:` reference in `catalog/deploy/oct-<name>.yaml` must use the `<semver>-ocp<minor>` format and **that exact tag must exist on the registry**.
+
+Extensions with sidecars (discovery-service, benchmark-runner, windows-builder) have **independent version numbers** from the plugin. Both must be updated together in the deploy bundle:
+
+- When a sidecar image is rebuilt, update its `image:` line in the deploy YAML.
+- When the plugin image is bumped, update the plugin `image:` line.
+- Rebuild the **storefront** image after any deploy YAML change — the YAMLs are webpack-bundled.
+
+Run `scripts/validate-catalog.sh` before committing. It cross-checks every catalog and deploy-bundle image tag against the registry, verifies both OCP minor rows exist, and confirms every deploy YAML is in `BUNDLED_DEPLOY`.
+
+### Companion images
+
+Extensions that have sidecar Deployments must list them in their `AGENTS.md` under a "Companion images" section so agents know about them when bumping versions:
+
+| Extension | Sidecar image | Current version |
+| --- | --- | --- |
+| `oct-baremetal` | `oct-baremetal-discovery` | 1.1.0 |
+| `oct-storage-bench` | `oct-storage-bench-runner` | 0.1.2 |
+| `oct-windows-builder` | `oct-windows-builder-builder` | 1.0.16 |
+
+## Cache behavior
+
+`ensureCacheSeeded()` (in `src/utils/catalog-actions.ts`) is **seed-once**: if the `community.yaml` key already exists in the `community-tools-cache` ConfigMap, it returns immediately without overwriting.
+
+This means: deploying a new storefront image with updated `community.yaml` does **not** automatically update the catalog data on the cluster. The admin must:
+
+```bash
+oc delete configmap community-tools-cache -n oct-storefront
+```
+
+The next page load calls `ensureCacheSeeded()`, finds no `community.yaml` key, and re-seeds from the new bundled YAML. Without this step, old catalog data (tile names, versions, descriptions) persists indefinitely.
+
+`refreshPublicCatalogIntoCache()` runs on page load with a 24-hour TTL. It merges stats from `api.octools.net` but does **not** overwrite the bundled `community.yaml` structure (it only updates tool metadata it receives from the public API).
+
+## Storefront architecture
+
+The `oct-storefront` namespace runs **two** Deployments with **different** images:
+
+| Deployment | Image | Purpose |
+| --- | --- | --- |
+| `oct-storefront` | `oct-storefront:<semver>-ocp<minor>` | nginx serving the webpack plugin bundle — the React UI, bundled `community.yaml`, bundled deploy YAMLs, tile icons |
+| `catalog-service` | `oct-storefront-catalog:<semver>-ocp<minor>` | Go proxy that forwards download/rating stats to `api.octools.net`, proxies `fetch-yaml` for external tool deployURL, and serves the public catalog endpoint |
+
+Key implications:
+
+- Updating storefront code, catalog tiles, or deploy bundles requires rebuilding and redeploying `oct-storefront` only.
+- The `catalog-service` image rarely changes (only when the Go proxy logic changes). Restarting the storefront does **not** restart catalog-service.
+- After redeploying `oct-storefront`, delete the cache ConfigMap (see "Cache behavior" above).
+
+## Pre-ship validation
+
+Run `scripts/validate-catalog.sh` before every commit that touches `catalog/community.yaml` or `catalog/deploy/*.yaml`:
+
+```bash
+./scripts/validate-catalog.sh              # full check (requires skopeo)
+./scripts/validate-catalog.sh --skip-registry  # structural checks only
+```
+
+It checks: OCP minor completeness, tag suffix correctness, registry tag existence, deploy-vs-catalog image consistency, and BUNDLED_DEPLOY coverage.
+
 ## Checklist for a new extension repo
 
 1. Repo / plugin ID / image: `oct-<name>`. Copy `docs/extension-template/`.
-2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc`, `oct-no-env-hardcoding.mdc` (`alwaysApply: true`).
+2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc`, `oct-no-env-hardcoding.mdc`, `oct-release-checklist.mdc` (`alwaysApply: true`).
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
 5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public combined** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route. Add an original SVG at `src/assets/tiles/oct-<name>.svg`, register it in `src/utils/tile-icons.ts`, set `spec.icon: tiles/oct-<name>.svg` in `community.yaml` **and** `deploy/install.yaml`.
 6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services **and required PVCs**) and register it in `BUNDLED_DEPLOY`. Omit PVC `storageClassName` for the cluster default; Add can override.
-7. `yarn build` in the extension and the storefront. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.
+7. `yarn build` in the extension and the storefront. Run `scripts/validate-catalog.sh`. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.
+8. If the extension has sidecars, add a "Companion images" section to `AGENTS.md` listing every image the deploy bundle references beyond the main plugin image. Follow `oct-release-checklist.mdc` for all version bumps.

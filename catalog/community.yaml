@@ -447,7 +447,7 @@ spec:
     - version: "1.2.5"
       channel: stable
       openshift: ["4.21"]
-      image: quay.io/cjanisze/oct-storefront:1.2.5-ocp4.22
+      image: quay.io/cjanisze/oct-storefront:1.2.5-ocp4.21
       gitRef: v1.2.5
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
     - version: "1.2.5"
