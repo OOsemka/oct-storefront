@@ -110,6 +110,16 @@ spec:
     - "4.22"
   minOpenShift: "4.21"
   versions:
+    - version: "1.1.1"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-banner:1.1.1-ocp4.21
+      gitRef: v1.1.1
+    - version: "1.1.1"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-banner:1.1.1-ocp4.22
+      gitRef: v1.1.1
     - version: "1.1.0"
       channel: stable
       openshift: ["4.21"]
@@ -395,9 +405,15 @@ spec:
   channels:
     stable: {}
   validatedOn:
+    - "4.21"
     - "4.22"
-  minOpenShift: "4.22"
+  minOpenShift: "4.21"
   versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-hello-world:1.0.0-ocp4.21
+      gitRef: v1.0.0
     - version: "1.0.0"
       channel: stable
       openshift: ["4.22"]
@@ -424,9 +440,16 @@ spec:
   channels:
     stable: {}
   validatedOn:
+    - "4.21"
     - "4.22"
-  minOpenShift: "4.22"
+  minOpenShift: "4.21"
   versions:
+    - version: "1.2.5"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.2.5-ocp4.22
+      gitRef: v1.2.5
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
     - version: "1.2.5"
       channel: stable
       openshift: ["4.22"]
