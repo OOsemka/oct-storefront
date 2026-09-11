@@ -417,9 +417,9 @@ spec:
     - "4.22"
   minOpenShift: "4.22"
   versions:
-    - version: "1.2.3"
+    - version: "1.2.4"
       channel: stable
       openshift: ["4.22"]
-      image: quay.io/cjanisze/oct-storefront:1.2.3-ocp4.22
-      gitRef: v1.2.3
+      image: quay.io/cjanisze/oct-storefront:1.2.4-ocp4.22
+      gitRef: v1.2.4
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
