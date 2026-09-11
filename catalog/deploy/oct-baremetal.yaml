@@ -345,7 +345,7 @@ spec:
     spec:
       containers:
         - name: discovery-service
-          image: quay.io/cjanisze/oct-baremetal-discovery:0.1.1-ocp4.22
+          image: quay.io/cjanisze/oct-baremetal-discovery:1.1.0-ocp4.22
           env:
             - name: POD_NAMESPACE
               valueFrom:
