@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { K8sResourceCommon, useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import {
   CACHE_CONFIGMAP,
@@ -51,6 +51,14 @@ function clusterVersionString(cv?: ClusterVersionKind): string {
   return m ? m[1] : '';
 }
 
+async function sha256(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export function useCatalog(category: ToolCategory) {
   const [cacheCm] = useK8sWatchResource<ConfigMapKind>({
     groupVersionKind: { version: 'v1', kind: 'ConfigMap' },
@@ -82,6 +90,17 @@ export function useCatalog(category: ToolCategory) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+
+  // Cluster hash for public rating dedup (SHA-256 of ClusterVersion UID)
+  const clusterHashRef = useRef<string>('');
+  useEffect(() => {
+    const uid = cv?.metadata?.uid;
+    if (uid && !clusterHashRef.current) {
+      sha256(uid).then((hash) => {
+        clusterHashRef.current = hash;
+      });
+    }
+  }, [cv]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,7 +247,7 @@ export function useCatalog(category: ToolCategory) {
 
   const rate = useCallback(async (item: CatalogItem, stars: number) => {
     try {
-      await setClusterRating(item.id, stars, item.tool.spec.source);
+      await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

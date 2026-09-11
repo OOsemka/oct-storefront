@@ -14,7 +14,10 @@ const CommunityDisclaimer: FC = () => {
       isInline
       title={t('Community project. Not officially supported by Red Hat.')}
     >
-      {t('OpenShift Community Tools is unofficial UX enhancements for the OpenShift Console.')}
+      {t('OpenShift Community Tools is unofficial UX enhancements for the OpenShift Console.')}{' '}
+      {t(
+        'Download counts and anonymous star ratings are collected to improve the catalog. No personal data or cluster identifiers are stored.',
+      )}
     </Alert>
   );
 };

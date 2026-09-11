@@ -63,7 +63,7 @@ export async function fetchDeployYaml(url: string): Promise<{ ok: boolean; yaml?
 export async function postPublicDownload(id: string): Promise<void> {
   try {
     await withTimeout(
-      consoleFetchJSON.post(`${CATALOG_PROXY}/api/v1/stats/download`, { id }),
+      consoleFetchJSON.post(`${CATALOG_PROXY}/api/v1/stats/download`, { toolId: id }),
       TIMEOUT_MS,
     );
   } catch {
@@ -72,10 +72,18 @@ export async function postPublicDownload(id: string): Promise<void> {
 }
 
 /** Best-effort. Ignore all errors. */
-export async function postPublicRating(id: string, rating: number): Promise<void> {
+export async function postPublicRating(
+  id: string,
+  rating: number,
+  clusterHash: string,
+): Promise<void> {
   try {
     await withTimeout(
-      consoleFetchJSON.post(`${CATALOG_PROXY}/api/v1/stats/rating`, { id, rating }),
+      consoleFetchJSON.post(`${CATALOG_PROXY}/api/v1/stats/rating`, {
+        toolId: id,
+        clusterHash,
+        stars: Math.min(5, Math.max(1, Math.round(rating))),
+      }),
       TIMEOUT_MS,
     );
   } catch {

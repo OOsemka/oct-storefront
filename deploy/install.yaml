@@ -425,7 +425,7 @@ spec:
           image: quay.io/cjanisze/oct-storefront-catalog:1.0.0-ocp4.22
           env:
             - name: COMMUNITY_TOOLS_CATALOG_URL
-              value: ""
+              value: "https://api.octools.net"
           ports:
             - containerPort: 8080
               name: http

@@ -170,7 +170,23 @@ export async function ensureCacheSeeded(): Promise<void> {
   });
 }
 
+const SYNC_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export async function refreshPublicCatalogIntoCache(): Promise<SyncStatus> {
+  // Skip sync if the last successful check was less than 24h ago
+  try {
+    const cm = await getConfigMap(CACHE_CONFIGMAP);
+    const lastSync = syncFromCache(cm || undefined);
+    if (lastSync.ok && lastSync.checkedAt) {
+      const age = Date.now() - new Date(lastSync.checkedAt).getTime();
+      if (age < SYNC_TTL_MS) {
+        return lastSync;
+      }
+    }
+  } catch {
+    /* proceed with sync */
+  }
+
   const result = await fetchPublicCatalog();
   const checkedAt = new Date().toISOString();
   if (!result.ok || !result.catalog) {
@@ -252,6 +268,7 @@ export async function setClusterRating(
   id: string,
   rating: number,
   source: 'community' | 'external',
+  clusterHash?: string,
 ): Promise<void> {
   const stars = Math.min(5, Math.max(1, Math.round(rating)));
   await patchStats((stats) => {
@@ -265,8 +282,8 @@ export async function setClusterRating(
     cur.clusterRating = stars;
     stats[id] = cur;
   });
-  if (source === 'community') {
-    void postPublicRating(id, stars);
+  if (source === 'community' && clusterHash) {
+    void postPublicRating(id, stars, clusterHash);
   }
 }
 
