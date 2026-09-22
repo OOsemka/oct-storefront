@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Road bridge: arch span over water, cables, traffic lanes. -->
+  <circle cx="32" cy="32" r="30" fill="#F3F7FB" stroke="#B7C6D4" stroke-width="1.75"/>
+  <!-- Water -->
+  <path d="M8 46 Q16 43 24 46 Q32 49 40 46 Q48 43 56 46 V56 H8 Z" fill="#D4EDFC" opacity="0.6"/>
+  <!-- Main arch -->
+  <path d="M10 44 Q32 12 54 44" fill="none" stroke="#0A6CBD" stroke-width="3" stroke-linecap="round"/>
+  <!-- Deck / road surface -->
+  <rect x="8" y="40" width="48" height="5" rx="1.5" fill="#6A7680"/>
+  <!-- Road markings (dashed center line) -->
+  <line x1="14" y1="42.5" x2="19" y2="42.5" stroke="#E8B923" stroke-width="1" stroke-linecap="round"/>
+  <line x1="23" y1="42.5" x2="28" y2="42.5" stroke="#E8B923" stroke-width="1" stroke-linecap="round"/>
+  <line x1="32" y1="42.5" x2="37" y2="42.5" stroke="#E8B923" stroke-width="1" stroke-linecap="round"/>
+  <line x1="41" y1="42.5" x2="46" y2="42.5" stroke="#E8B923" stroke-width="1" stroke-linecap="round"/>
+  <line x1="50" y1="42.5" x2="53" y2="42.5" stroke="#E8B923" stroke-width="1" stroke-linecap="round"/>
+  <!-- Vertical cables from arch to deck -->
+  <line x1="18" y1="31" x2="18" y2="40" stroke="#0A6CBD" stroke-width="1.2"/>
+  <line x1="25" y1="23" x2="25" y2="40" stroke="#0A6CBD" stroke-width="1.2"/>
+  <line x1="32" y1="19" x2="32" y2="40" stroke="#0A6CBD" stroke-width="1.2"/>
+  <line x1="39" y1="23" x2="39" y2="40" stroke="#0A6CBD" stroke-width="1.2"/>
+  <line x1="46" y1="31" x2="46" y2="40" stroke="#0A6CBD" stroke-width="1.2"/>
+  <!-- Left tower/pillar -->
+  <rect x="9" y="36" width="4" height="12" rx="0.8" fill="#4D5B67"/>
+  <!-- Right tower/pillar -->
+  <rect x="51" y="36" width="4" height="12" rx="0.8" fill="#4D5B67"/>
+</svg>

@@ -456,3 +456,83 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.2.5-ocp4.22
       gitRef: v1.2.5
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+    - version: "1.2.6"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.2.6-ocp4.21
+      gitRef: v1.2.6
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+    - version: "1.2.6"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.2.6-ocp4.22
+      gitRef: v1.2.6
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-network-bridge
+spec:
+  displayName: Network Bridge
+  description: >-
+    Create Linux or OVS bridges on cluster nodes with NMState. Tag VLANs,
+    configure OVN bridge-mappings, and manage bridges by MachineConfigPool.
+  category: network
+  source: community
+  git: https://github.com/OOsemka/oct-network-bridge
+  consolePlugin: oct-network-bridge
+  href: /community-tools/network/bridge
+  icon: tiles/oct-network-bridge.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-bridge:1.0.0-ocp4.21
+      gitRef: v1.0.0
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bridge:1.0.0-ocp4.22
+      gitRef: v1.0.0
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-network-vlan
+spec:
+  displayName: Network VLAN
+  description: >-
+    Create VLAN networks for VMs and pods. Supports Linux bridge NADs and
+    OVN ClusterUserDefinedNetworks with localnet topology.
+  category: network
+  source: community
+  git: https://github.com/OOsemka/oct-network-vlan
+  consolePlugin: oct-network-vlan
+  href: /community-tools/network/vlan
+  icon: tiles/oct-network-vlan.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-vlan:1.0.0-ocp4.21
+      gitRef: v1.0.0
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-vlan:1.0.0-ocp4.22
+      gitRef: v1.0.0
