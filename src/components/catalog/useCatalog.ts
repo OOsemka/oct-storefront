@@ -6,8 +6,9 @@ import {
   CatalogSort,
   CommunityTool,
   EXTERNAL_CONFIGMAP,
+  PLUGIN_ID,
   STOREFRONT_NS,
-  SyncStatus,
+    SyncStatus,
   ToolCategory,
   ToolVersion,
   downloadCount,
@@ -36,6 +37,9 @@ import {
   syncFromCache,
   toolsFromCache,
 } from '../../utils/catalog-actions';
+
+/** Running storefront version — must match package.json consolePlugin.version. */
+const STOREFRONT_VERSION = '1.2.6';
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };
 type ConsoleKind = K8sResourceCommon & { spec?: { plugins?: string[] } };
@@ -151,7 +155,11 @@ export function useCatalog(category: ToolCategory) {
       .map((t) => {
         const plugin = t.spec.consolePlugin;
         const enabled = enabledPlugins.includes(plugin);
-        const installedVersion = installedMap[t.metadata.name]?.version;
+        const installedVersion =
+          installedMap[t.metadata.name]?.version ||
+          (t.metadata.name === PLUGIN_ID && (enabled || pluginNames.has(plugin))
+            ? STOREFRONT_VERSION
+            : undefined);
         return {
           id: t.metadata.name,
           tool: t,
