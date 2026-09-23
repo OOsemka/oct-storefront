@@ -189,6 +189,9 @@ export async function ensureCacheSeeded(): Promise<void> {
   if (needsSeed) {
     data['stats.json'] = '{}';
   }
+  if (needsReseed && existing?.data?.['installed.json']) {
+    data['installed.json'] = existing.data['installed.json'];
+  }
   await writeConfigMap(CACHE_CONFIGMAP, data);
 }
 
