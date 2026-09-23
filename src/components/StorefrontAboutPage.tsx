@@ -14,11 +14,11 @@ import {
   Title,
 } from '@patternfly/react-core';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import { STOREFRONT_VERSION } from '../utils/catalog-types';
 import CommunityDisclaimer from './CommunityDisclaimer';
 import './StorefrontAboutPage.css';
 
 const I18N = 'plugin__oct-storefront';
-const STOREFRONT_VERSION = '1.2.4';
 
 const StorefrontAboutPage: FC = () => {
   const { t } = useTranslation(I18N);

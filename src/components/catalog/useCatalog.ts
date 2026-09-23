@@ -8,6 +8,7 @@ import {
   EXTERNAL_CONFIGMAP,
   PLUGIN_ID,
   STOREFRONT_NS,
+  STOREFRONT_VERSION,
     SyncStatus,
   ToolCategory,
   ToolVersion,
@@ -37,9 +38,6 @@ import {
   syncFromCache,
   toolsFromCache,
 } from '../../utils/catalog-actions';
-
-/** Running storefront version — must match package.json consolePlugin.version. */
-const STOREFRONT_VERSION = '1.2.7';
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };
 type ConsoleKind = K8sResourceCommon & { spec?: { plugins?: string[] } };

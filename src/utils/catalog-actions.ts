@@ -26,6 +26,7 @@ import {
   InstalledRecord,
   StatsMap,
   STOREFRONT_NS,
+  STOREFRONT_VERSION,
   SyncStatus,
   ToolVersion,
   imageForRow,
@@ -167,17 +168,28 @@ async function writeConfigMap(name: string, data: Record<string, string>): Promi
 
 export async function ensureCacheSeeded(): Promise<void> {
   const existing = await getConfigMap(CACHE_CONFIGMAP);
-  if (existing?.data?.['community.yaml']) return;
-  await writeConfigMap(CACHE_CONFIGMAP, {
+  const cachedVersion = existing?.data?.['bundled-version'];
+  const needsSeed = !existing?.data?.['community.yaml'];
+  const needsReseed = !needsSeed && cachedVersion !== STOREFRONT_VERSION;
+
+  if (!needsSeed && !needsReseed) return;
+
+  const data: Record<string, string> = {
     'community.yaml': bundledCommunityYaml,
-    'stats.json': '{}',
+    'bundled-version': STOREFRONT_VERSION,
     'sync.json': JSON.stringify({
       ok: false,
       source: 'bundled',
       checkedAt: new Date().toISOString(),
-      message: 'Seeded from the plugin bundle.',
+      message: needsReseed
+        ? `Re-seeded: storefront upgraded ${cachedVersion || 'unknown'} → ${STOREFRONT_VERSION}.`
+        : 'Seeded from the plugin bundle.',
     } as SyncStatus),
-  });
+  };
+  if (needsSeed) {
+    data['stats.json'] = '{}';
+  }
+  await writeConfigMap(CACHE_CONFIGMAP, data);
 }
 
 const SYNC_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours

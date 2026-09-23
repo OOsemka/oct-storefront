@@ -7,6 +7,8 @@ export const STOREFRONT_NS = 'oct-storefront';
 export const CACHE_CONFIGMAP = 'community-tools-cache';
 export const EXTERNAL_CONFIGMAP = 'community-tools-external';
 export const PLUGIN_ID = 'oct-storefront';
+/** Running storefront version — single source of truth. Must match package.json consolePlugin.version. */
+export const STOREFRONT_VERSION = '1.2.8';
 export const CATALOG_PROXY = '/api/proxy/plugin/oct-storefront/catalog-service';
 export const DEFAULT_CHANNEL = 'stable';
 
