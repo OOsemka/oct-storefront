@@ -17,6 +17,7 @@ import octStorageBench from '../assets/tiles/oct-storage-bench.svg';
 import octHelloWorld from '../assets/tiles/oct-hello-world.svg';
 import octStorefront from '../assets/tiles/oct-storefront.svg';
 import octNetworkBridge from '../assets/tiles/oct-network-bridge.svg';
+import octNetworkDhcp from '../assets/tiles/oct-network-dhcp.svg';
 import octNetworkVlan from '../assets/tiles/oct-network-vlan.svg';
 import octWindowsBuilder from '../assets/tiles/oct-windows-builder.svg';
 
@@ -32,6 +33,7 @@ register('oct-baremetal', octBaremetal);
 register('oct-banner', octBanner);
 register('oct-network-bond', octNetworkBond);
 register('oct-network-bridge', octNetworkBridge);
+register('oct-network-dhcp', octNetworkDhcp);
 register('oct-network-vlan', octNetworkVlan);
 register('oct-hello-world', octHelloWorld);
 register('oct-storage-bench', octStorageBench);

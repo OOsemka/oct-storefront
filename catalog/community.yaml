@@ -468,6 +468,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.2.6-ocp4.22
       gitRef: v1.2.6
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+    - version: "1.2.7"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.2.7-ocp4.21
+      gitRef: v1.2.7
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+    - version: "1.2.7"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.2.7-ocp4.22
+      gitRef: v1.2.7
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -535,4 +547,39 @@ spec:
       channel: stable
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-vlan:1.0.0-ocp4.22
+      gitRef: v1.0.0
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-network-dhcp
+spec:
+  displayName: Network DHCP
+  description: >-
+    Create dnsmasq-based DHCP servers attached to NAD VLAN networks.
+    Define IP pools, set gateway and DNS, and manage per-VM MAC reservations.
+    Supports both Linux bridge and OVN-based secondary networks.
+  category: network
+  source: community
+  git: https://github.com/OOsemka/oct-network-dhcp
+  consolePlugin: oct-network-dhcp
+  href: /community-tools/network/dhcp
+  icon: tiles/oct-network-dhcp.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-dhcp:1.0.0-ocp4.21
+      gitRef: v1.0.0
+    - version: "1.0.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-dhcp:1.0.0-ocp4.22
       gitRef: v1.0.0

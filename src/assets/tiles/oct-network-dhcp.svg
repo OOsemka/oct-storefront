@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- DHCP: IP address tag with broadcast waves, representing dynamic IP assignment. -->
+  <circle cx="32" cy="32" r="30" fill="#F3F7FB" stroke="#B7C6D4" stroke-width="1.75"/>
+  <!-- IP address tag/label -->
+  <rect x="10" y="22" width="32" height="18" rx="3" fill="#0A6CBD" opacity="0.9"/>
+  <rect x="12" y="24" width="28" height="14" rx="2" fill="#fff" opacity="0.95"/>
+  <!-- IP text -->
+  <text x="26" y="33.5" font-family="sans-serif" font-size="5.5" fill="#0A6CBD" text-anchor="middle" font-weight="bold">10.0.0.1</text>
+  <!-- Tag hole -->
+  <circle cx="13.5" cy="31" r="2" fill="#0A6CBD" opacity="0.7"/>
+  <circle cx="13.5" cy="31" r="1" fill="#F3F7FB"/>
+  <!-- Broadcast waves (right side, emanating from the tag) -->
+  <path d="M46 26 Q50 31 46 36" fill="none" stroke="#C4610A" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M49 23 Q55 31 49 39" fill="none" stroke="#C4610A" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M52 20 Q60 31 52 42" fill="none" stroke="#C4610A" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <!-- Small arrow from tag to waves -->
+  <line x1="42" y1="31" x2="44.5" y2="31" stroke="#C4610A" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Bottom label -->
+  <text x="32" y="52" font-family="sans-serif" font-size="4.5" fill="#6A7680" text-anchor="middle" font-weight="bold">DHCP</text>
+</svg>

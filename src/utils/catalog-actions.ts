@@ -12,6 +12,7 @@ import windowsBuilderDeployYaml from '../../catalog/deploy/oct-windows-builder.y
 import storageBenchDeployYaml from '../../catalog/deploy/oct-storage-bench.yaml';
 import helloWorldDeployYaml from '../../catalog/deploy/oct-hello-world.yaml';
 import bridgeDeployYaml from '../../catalog/deploy/oct-network-bridge.yaml';
+import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import { ConfigMapModel, ConsoleOperatorModel } from './k8s-models';
 import {
@@ -52,6 +53,7 @@ const BUNDLED_DEPLOY: Record<string, string> = {
   'oct-storage-bench': storageBenchDeployYaml,
   'oct-hello-world': helloWorldDeployYaml,
   'oct-network-bridge': bridgeDeployYaml,
+  'oct-network-dhcp': dhcpDeployYaml,
   'oct-network-vlan': vlanDeployYaml,
 };
 
