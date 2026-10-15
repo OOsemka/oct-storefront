@@ -647,3 +647,44 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-dhcp:1.0.4-ocp4.22
       gitRef: v1.0.4
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-shift-on-shift-virt
+spec:
+  displayName: Shift on Shift Virt
+  description: >-
+    Deploy standalone OpenShift clusters on KubeVirt virtual machines
+    (full OCP-on-OCP, not HyperShift). A wizard drives an agent-based install
+    onto a per-cluster user-defined network; one bastion VM provides nested
+    DNS, the Machine Config Server relay and an optional graphical desktop for
+    reaching the nested console.
+  category: compute
+  source: community
+  git: https://github.com/OOsemka/oct-shift-on-shift-virt
+  consolePlugin: oct-shift-on-shift-virt
+  href: /community-tools/compute/shift-on-shift-virt
+  icon: tiles/oct-shift-on-shift-virt.svg
+  # Needs KubeVirt (OpenShift Virtualization) and a StorageClass that can bind
+  # RWX Block volumes: nested VM root disks use them so masters stay
+  # live-migratable. The wizard also asks for an external VLAN NAD plus API and
+  # ingress IPs on it.
+  defaultChannel: stable
+  channels:
+    stable: {}
+    candidate: {}
+  validatedOn:
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "0.1.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.1.0-ocp4.21
+      gitRef: v0.1.0
+    - version: "0.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.1.0-ocp4.22
+      gitRef: v0.1.0
