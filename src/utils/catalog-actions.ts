@@ -14,6 +14,7 @@ import helloWorldDeployYaml from '../../catalog/deploy/oct-hello-world.yaml';
 import bridgeDeployYaml from '../../catalog/deploy/oct-network-bridge.yaml';
 import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
+import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
 import { ConfigMapModel, ConsoleOperatorModel } from './k8s-models';
 import {
   CACHE_CONFIGMAP,
@@ -56,6 +57,7 @@ const BUNDLED_DEPLOY: Record<string, string> = {
   'oct-network-bridge': bridgeDeployYaml,
   'oct-network-dhcp': dhcpDeployYaml,
   'oct-network-vlan': vlanDeployYaml,
+  'oct-shift-on-shift-virt': shiftOnShiftVirtDeployYaml,
 };
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };

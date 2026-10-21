@@ -659,7 +659,9 @@ spec:
     (full OCP-on-OCP, not HyperShift). A wizard drives an agent-based install
     onto a per-cluster user-defined network; one bastion VM provides nested
     DNS, the Machine Config Server relay and an optional graphical desktop for
-    reaching the nested console.
+    reaching the nested console. Optionally extends a host StorageClass into
+    the nested cluster (KubeVirt CSI) and installs OpenShift Virtualization
+    there.
   category: compute
   source: community
   git: https://github.com/OOsemka/oct-shift-on-shift-virt
@@ -688,3 +690,13 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-shift-on-shift-virt:0.1.0-ocp4.22
       gitRef: v0.1.0
+    - version: "0.2.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.2.0-ocp4.21
+      gitRef: v0.2.0
+    - version: "0.2.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.2.0-ocp4.22
+      gitRef: v0.2.0
