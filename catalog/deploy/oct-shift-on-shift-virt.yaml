@@ -63,7 +63,7 @@ spec:
                   maxLength: 63
                 baseDomain:
                   type: string
-                  description: Base domain for the nested cluster (e.g. openinfra.lab).
+                  description: Base domain for the nested cluster (e.g. example.com).
                   maxLength: 253
                 namespace:
                   type: string
@@ -891,9 +891,9 @@ spec:
             - ALL
         env:
         - name: EDGE_PROXY_VLAN_IP
-          value: 172.21.75.200
+          value: ""
         - name: EDGE_PROXY_NAD
-          value: default/vlan2111
+          value: ""
       volumes:
       - name: serving-cert
         secret:
