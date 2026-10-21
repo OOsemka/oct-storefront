@@ -653,7 +653,7 @@ kind: CommunityTool
 metadata:
   name: oct-shift-on-shift-virt
 spec:
-  displayName: Shift on Shift Virt
+  displayName: Shift-on-Shift Virt
   description: >-
     Deploy standalone OpenShift clusters on KubeVirt virtual machines
     (full OCP-on-OCP, not HyperShift). A wizard drives an agent-based install
