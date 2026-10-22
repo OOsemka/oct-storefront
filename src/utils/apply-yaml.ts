@@ -1,5 +1,5 @@
 import { loadAll, dump } from 'js-yaml';
-import { k8sCreate, k8sGet, k8sPatch, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
+import { k8sCreate, k8sGet, k8sPatch, k8sUpdate, K8sModel, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
 import { DeploymentModel, modelForKind } from './k8s-models';
 
 /** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. Never a lab class name in YAML. */
@@ -26,6 +26,7 @@ type PvcDoc = K8sResourceCommon & {
 
 /** Create PVCs before Deployments so pods that mount them can schedule. */
 const APPLY_KIND_ORDER: Record<string, number> = {
+  CustomResourceDefinition: -10,
   Namespace: 0,
   ServiceAccount: 10,
   Secret: 20,
@@ -125,11 +126,10 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
       log.push(`created ${kind}/${name}`);
     } catch (e) {
       if (alreadyExists(e)) {
-        if (kind === 'Deployment' && (await patchDeploymentImage(doc))) {
-          log.push(`updated ${kind}/${name}`);
-        } else {
-          log.push(`exists ${kind}/${name}`);
-        }
+        let updated = false;
+        if (kind === 'Deployment') updated = await patchDeploymentImages(doc);
+        else if (CONVERGE_KINDS.has(kind)) updated = await convergeToBundle(model, doc, log);
+        log.push(`${updated ? 'updated' : 'exists'} ${kind}/${name}`);
       } else {
         throw e;
       }
@@ -138,33 +138,85 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
   return log;
 }
 
-function desiredDeploymentImage(doc: K8sResourceCommon): string {
-  const spec = (doc as { spec?: { template?: { spec?: { containers?: Array<{ name?: string; image?: string }> } } } })
-    .spec;
-  const containers = spec?.template?.spec?.containers || [];
-  const plugin = containers.find((c) => c.name === 'plugin') || containers[0];
-  return plugin?.image || '';
-}
+/**
+ * Kinds an Add/Update converges to the bundle when they already exist. An
+ * upgraded controller with the previous CRD (schema, status enums) or
+ * permissions is broken, so these must match the version being installed.
+ * Everything else that exists keeps its cluster state: Deployments only get
+ * new images (env, replicas and resources may be tuned by the admin), and
+ * Services, Secrets, ConfigMaps and PVCs are never touched.
+ */
+const CONVERGE_KINDS = new Set([
+  'CustomResourceDefinition',
+  'ClusterRole',
+  'Role',
+  'ClusterRoleBinding',
+  'RoleBinding',
+  'ConsolePlugin',
+]);
 
-/** Patch an existing plugin Deployment image (upgrade). Same ConsolePlugin name cannot run two versions. */
-async function patchDeploymentImage(doc: K8sResourceCommon): Promise<boolean> {
+const NON_SPEC_KEYS = new Set(['apiVersion', 'kind', 'metadata', 'status']);
+
+async function convergeToBundle(model: K8sModel, doc: K8sResourceCommon, log: string[]): Promise<boolean> {
   const name = doc.metadata?.name;
   const ns = doc.metadata?.namespace;
-  const image = desiredDeploymentImage(doc);
-  if (!name || !ns || !image) return false;
+  if (!name) return false;
+  const existing = (await k8sGet({ model, name, ns })) as Record<string, unknown> & K8sResourceCommon;
+  const want = doc as Record<string, unknown>;
+  // roleRef is immutable; a changed one needs delete + create, which is not
+  // something to do silently during an upgrade.
+  if (want.roleRef && JSON.stringify(want.roleRef) !== JSON.stringify(existing.roleRef)) {
+    log.push(`skipped ${doc.kind}/${name}: roleRef differs from the installed one`);
+    return false;
+  }
+  const next: Record<string, unknown> = { ...existing };
+  let changed = false;
+  for (const key of Object.keys(want)) {
+    if (NON_SPEC_KEYS.has(key)) continue;
+    if (JSON.stringify(want[key]) !== JSON.stringify(existing[key])) {
+      next[key] = want[key];
+      changed = true;
+    }
+  }
+  const labels = { ...(existing.metadata?.labels || {}), ...(doc.metadata?.labels || {}) };
+  if (JSON.stringify(labels) !== JSON.stringify(existing.metadata?.labels || {})) {
+    next.metadata = { ...existing.metadata, labels };
+    changed = true;
+  }
+  if (!changed) return false;
+  await k8sUpdate({ model, data: next as K8sResourceCommon, name, ns });
+  return true;
+}
+
+type ContainerList = Array<{ name?: string; image?: string }>;
+
+function deploymentContainers(doc: K8sResourceCommon): ContainerList {
+  const spec = (doc as { spec?: { template?: { spec?: { containers?: ContainerList } } } }).spec;
+  return spec?.template?.spec?.containers || [];
+}
+
+/**
+ * Upgrade an existing Deployment: set each container's image to the bundle's
+ * (matched by container name). Covers companion Deployments such as an
+ * orchestrator, not just the plugin. Same ConsolePlugin name cannot run two versions.
+ */
+async function patchDeploymentImages(doc: K8sResourceCommon): Promise<boolean> {
+  const name = doc.metadata?.name;
+  const ns = doc.metadata?.namespace;
+  const wanted = deploymentContainers(doc);
+  if (!name || !ns || wanted.length === 0) return false;
   try {
-    const existing = (await k8sGet({ model: DeploymentModel, name, ns })) as K8sResourceCommon & {
-      spec?: { template?: { spec?: { containers?: Array<{ name?: string; image?: string }> } } };
-    };
-    const containers = existing.spec?.template?.spec?.containers || [];
-    let idx = containers.findIndex((c) => c.name === 'plugin');
-    if (idx < 0) idx = 0;
-    if (!containers[idx] || containers[idx].image === image) return false;
-    await k8sPatch({
-      model: DeploymentModel,
-      resource: existing,
-      data: [{ op: 'replace', path: `/spec/template/spec/containers/${idx}/image`, value: image }],
+    const existing = (await k8sGet({ model: DeploymentModel, name, ns })) as K8sResourceCommon;
+    const current = deploymentContainers(existing);
+    const ops: Array<{ op: string; path: string; value: string }> = [];
+    current.forEach((c, idx) => {
+      const w = wanted.find((x) => x.name === c.name) || (current.length === 1 && wanted.length === 1 ? wanted[0] : undefined);
+      if (w?.image && w.image !== c.image) {
+        ops.push({ op: 'replace', path: `/spec/template/spec/containers/${idx}/image`, value: w.image });
+      }
     });
+    if (ops.length === 0) return false;
+    await k8sPatch({ model: DeploymentModel, resource: existing, data: ops });
     return true;
   } catch {
     return false;

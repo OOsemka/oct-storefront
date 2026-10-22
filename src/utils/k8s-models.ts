@@ -94,6 +94,17 @@ export const SecretModel: K8sModel = {
   namespaced: true,
 };
 
+export const CustomResourceDefinitionModel: K8sModel = {
+  apiGroup: 'apiextensions.k8s.io',
+  apiVersion: 'v1',
+  kind: 'CustomResourceDefinition',
+  abbr: 'CRD',
+  label: 'CustomResourceDefinition',
+  labelPlural: 'CustomResourceDefinitions',
+  plural: 'customresourcedefinitions',
+  namespaced: false,
+};
+
 export const ClusterRoleModel: K8sModel = {
   apiGroup: 'rbac.authorization.k8s.io',
   apiVersion: 'v1',
@@ -168,6 +179,7 @@ export const KIND_MODELS: Record<string, K8sModel> = {
   Service: ServiceModel,
   ServiceAccount: ServiceAccountModel,
   Secret: SecretModel,
+  CustomResourceDefinition: CustomResourceDefinitionModel,
   ClusterRole: ClusterRoleModel,
   ClusterRoleBinding: ClusterRoleBindingModel,
   Role: RoleModel,
