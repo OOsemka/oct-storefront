@@ -15,7 +15,7 @@ import bridgeDeployYaml from '../../catalog/deploy/oct-network-bridge.yaml';
 import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
-import { ConfigMapModel, ConsoleOperatorModel } from './k8s-models';
+import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel } from './k8s-models';
 import {
   CACHE_CONFIGMAP,
   CommunityTool,
@@ -197,10 +197,12 @@ export async function ensureCacheSeeded(): Promise<void> {
   await writeConfigMap(CACHE_CONFIGMAP, data);
 }
 
-const SYNC_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// New releases must reach clusters the same day: an hour keeps the
+// "Update available" lag short while reads stay cheap (unthrottled, cached at the edge).
+const SYNC_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 export async function refreshPublicCatalogIntoCache(): Promise<SyncStatus> {
-  // Skip sync if the last successful check was less than 24h ago
+  // Skip sync if the last successful check is younger than SYNC_TTL_MS
   try {
     const cm = await getConfigMap(CACHE_CONFIGMAP);
     const lastSync = syncFromCache(cm || undefined);
@@ -435,6 +437,45 @@ export async function addExtension(
     image,
   });
   return { log, warnings };
+}
+
+type PluginBackend = K8sResourceCommon & {
+  spec?: { backend?: { service?: { name?: string; namespace?: string } } };
+};
+
+/** `quay.io/org/oct-x:1.2.3-ocp4.22` -> `1.2.3`. */
+export function semverFromImage(image: string): string | undefined {
+  if (image.includes('@') || image.lastIndexOf(':') <= image.lastIndexOf('/')) return undefined;
+  const tag = image.slice(image.lastIndexOf(':') + 1);
+  const m = tag.match(/^v?(\d+\.\d+\.\d+)(?:-ocp\d+\.\d+)?$/);
+  return m ? m[1] : undefined;
+}
+
+/**
+ * Installed version of an extension the storefront has no installed.json
+ * record for (added by hand, by `oc apply`, or before records existed):
+ * read the image of the Deployment behind its ConsolePlugin. A catalog row
+ * with that exact image wins; otherwise the `<semver>-ocp<minor>` tag is used.
+ * Without this no update is ever offered for such installs.
+ */
+export async function detectInstalledVersion(
+  tool: CommunityTool,
+  plugin: PluginBackend,
+): Promise<string | undefined> {
+  const svc = plugin.spec?.backend?.service;
+  if (!svc?.name || !svc.namespace) return undefined;
+  try {
+    const dep = (await k8sGet({ model: DeploymentModel, name: svc.name, ns: svc.namespace })) as K8sResourceCommon & {
+      spec?: { template?: { spec?: { containers?: Array<{ name?: string; image?: string }> } } };
+    };
+    const containers = dep.spec?.template?.spec?.containers || [];
+    const image = (containers.find((c) => c.name === 'plugin') || containers[0])?.image || '';
+    if (!image) return undefined;
+    const row = (tool.spec.versions || []).find((v) => v.version && v.image === image);
+    return row?.version || semverFromImage(image);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Re-enable without changing the running image (no auto-upgrade). */

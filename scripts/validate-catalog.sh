@@ -236,6 +236,64 @@ else
   fi
 fi
 
+# ── 7. Deploy YAML kinds the storefront can apply ───────────────────
+
+echo ""
+echo "── Deploy YAML kinds ──"
+
+MODELS_TS="$REPO_DIR/src/utils/k8s-models.ts"
+if [[ -d "$DEPLOY_DIR" && -f "$MODELS_TS" ]]; then
+  KIND_ISSUES=$(python3 - "$DEPLOY_DIR" "$MODELS_TS" <<'PY'
+import glob, os, re, sys, yaml
+deploy_dir, models_ts = sys.argv[1], sys.argv[2]
+src = open(models_ts).read()
+block = src[src.index("KIND_MODELS"):]
+block = block[:block.index("};")]
+supported = set(re.findall(r"^\s*(\w+):", block, re.M))
+for f in sorted(glob.glob(os.path.join(deploy_dir, "oct-*.yaml"))):
+    kinds = {d.get("kind") for d in yaml.safe_load_all(open(f)) if isinstance(d, dict) and d.get("kind")}
+    missing = sorted(kinds - supported)
+    name = os.path.basename(f)[:-5]
+    print(("MISSING " if missing else "OK ") + name + (" " + ",".join(missing) if missing else ""))
+PY
+)
+  while read -r status tool kinds; do
+    [[ -z "$status" ]] && continue
+    if [[ "$status" == "OK" ]]; then
+      green "$tool: every kind is in KIND_MODELS"
+    else
+      error "$tool: Add fails on unsupported kind(s) $kinds (add them to KIND_MODELS in k8s-models.ts)"
+    fi
+  done <<< "$KIND_ISSUES"
+fi
+
+# ── 8. Storefront lists its own version ─────────────────────────────
+
+echo ""
+echo "── Storefront self-update row ──"
+
+SF_VERSION=$(sed -n "s/.*STOREFRONT_VERSION = '\([^']*\)'.*/\1/p" "$REPO_DIR/src/utils/catalog-types.ts")
+SF_ROWS=$(python3 - "$CATALOG" "$SF_VERSION" <<'PY'
+import sys, yaml
+cat, ver = sys.argv[1], sys.argv[2]
+minors = set()
+for d in yaml.safe_load_all(open(cat)):
+    if d and d.get("metadata", {}).get("name") == "oct-storefront":
+        for v in d["spec"].get("versions", []):
+            if str(v.get("version")) == ver:
+                o = v.get("openshift")
+                minors.update(o if isinstance(o, list) else [o])
+print(" ".join(sorted(minors)))
+PY
+)
+for minor in "${OCP_MINORS[@]}"; do
+  if [[ " $SF_ROWS " == *" $minor "* ]]; then
+    green "oct-storefront $SF_VERSION has an OpenShift $minor row"
+  else
+    error "oct-storefront $SF_VERSION (STOREFRONT_VERSION) has no OpenShift $minor row in community.yaml: installed storefronts will never be offered this release"
+  fi
+done
+
 # ── Summary ──────────────────────────────────────────────────────────
 
 echo ""

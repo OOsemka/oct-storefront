@@ -24,6 +24,7 @@ import {
   addExtension,
   AddExtensionOpts,
   bundledCommunityTools,
+  detectInstalledVersion,
   enableExtension,
   ensureCacheSeeded,
   externalToolsFromCache,
@@ -129,8 +130,36 @@ export function useCatalog(category: ToolCategory) {
   );
   const stats = statsFromCache(cacheCm);
   const sync: SyncStatus = syncFromCache(cacheCm);
-  const installedMap = installedFromCache(cacheCm);
+  const installedMap = useMemo(() => installedFromCache(cacheCm), [cacheCm]);
   const preferPublic = Boolean(sync.ok && sync.source === 'public');
+
+  // Versions read from running Deployments for installs without an
+  // installed.json record (see detectInstalledVersion).
+  const [detected, setDetected] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const list = Array.isArray(plugins) ? plugins : [];
+    const tools = [
+      ...(cacheCm ? toolsFromCache(cacheCm) : bundledCommunityTools()),
+      ...externalToolsFromCache(externalCm),
+    ];
+    (async () => {
+      const found: Record<string, string> = {};
+      for (const t of tools) {
+        if (t.metadata.name === PLUGIN_ID || installedMap[t.metadata.name]?.version) continue;
+        const plugin = list.find((p) => p.metadata?.name === t.spec.consolePlugin);
+        if (!plugin) continue;
+        const v = await detectInstalledVersion(t, plugin);
+        if (v) found[t.metadata.name] = v;
+      }
+      if (!cancelled) {
+        setDetected((prev) => (JSON.stringify(prev) === JSON.stringify(found) ? prev : found));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [plugins, cacheCm, externalCm, installedMap]);
 
   const items = useMemo(() => {
     const community = cacheCm ? toolsFromCache(cacheCm) : bundledCommunityTools();
@@ -157,7 +186,8 @@ export function useCatalog(category: ToolCategory) {
           installedMap[t.metadata.name]?.version ||
           (t.metadata.name === PLUGIN_ID && (enabled || pluginNames.has(plugin))
             ? STOREFRONT_VERSION
-            : undefined);
+            : undefined) ||
+          (enabled || pluginNames.has(plugin) ? detected[t.metadata.name] : undefined);
         return {
           id: t.metadata.name,
           tool: t,
@@ -192,6 +222,7 @@ export function useCatalog(category: ToolCategory) {
     pluginNames,
     preferPublic,
     installedMap,
+    detected,
     clusterVersion,
   ]);
 

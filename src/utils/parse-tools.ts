@@ -77,7 +77,8 @@ function asVersions(v: unknown): ToolVersion[] {
       maxOpenShift,
       image: asString(o.image) || undefined,
       gitRef: asString(o.gitRef) || undefined,
-      deployURL: asString(o.deployURL) || undefined,
+      // the public API spells it deployUrl
+      deployURL: asString(o.deployURL) || asString(o.deployUrl) || undefined,
       deployYAML: asString(o.deployYAML) || undefined,
     });
   }
@@ -212,7 +213,16 @@ export function mergePublicIntoTool(
       if (ext.defaultChannel) spec.defaultChannel = ext.defaultChannel;
       if (ext.pinVersion) spec.pinVersion = ext.pinVersion;
       if (ext.storageClassName) spec.storageClassName = ext.storageClassName;
-  if (ext.versions?.length) spec.versions = ext.versions;
+  if (ext.versions?.length) {
+    // Public rows replace the bundled ones; keep a bundled deployURL when the
+    // public row for the same version has none.
+    const bundled = tool.spec.versions || [];
+    spec.versions = asVersions(ext.versions).map((v) => {
+      if (v.deployURL) return v;
+      const same = bundled.find((b) => b.version === v.version && b.deployURL);
+      return same ? { ...v, deployURL: same.deployURL } : v;
+    });
+  }
   spec.source = 'community';
   return { ...tool, spec };
 }
@@ -240,7 +250,7 @@ export function toolFromPublic(ext: PublicCatalogExtension): CommunityTool | nul
       defaultChannel: ext.defaultChannel,
       pinVersion: ext.pinVersion,
       storageClassName: ext.storageClassName,
-      versions: ext.versions,
+      versions: asVersions(ext.versions),
     },
   };
 }
