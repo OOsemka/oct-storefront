@@ -188,17 +188,49 @@ async function convergeToBundle(model: K8sModel, doc: K8sResourceCommon, log: st
   return true;
 }
 
-type ContainerList = Array<{ name?: string; image?: string }>;
+type EnvVar = { name?: string; value?: string; valueFrom?: unknown };
+type ContainerList = Array<{ name?: string; image?: string; env?: EnvVar[] }>;
 
 function deploymentContainers(doc: K8sResourceCommon): ContainerList {
   const spec = (doc as { spec?: { template?: { spec?: { containers?: ContainerList } } } }).spec;
   return spec?.template?.spec?.containers || [];
 }
 
+type JsonPatchOp = { op: string; path: string; value: unknown };
+
 /**
- * Upgrade an existing Deployment: set each container's image to the bundle's
- * (matched by container name). Covers companion Deployments such as an
- * orchestrator, not just the plugin. Same ConsolePlugin name cannot run two versions.
+ * JSON-patch ops that upgrade the running containers to the bundle: each
+ * container (matched by name) gets the bundle's image, plus any env var the
+ * bundle defines that the container does not have yet. A new release can
+ * need a new setting (Shift-on-Shift 0.2.0 needs DNS_MODE); without this an
+ * upgraded Deployment runs the new image with the old configuration.
+ * Existing env vars are never changed or removed: the admin may have tuned them.
+ */
+export function deploymentUpgradeOps(current: ContainerList, wanted: ContainerList): JsonPatchOp[] {
+  const ops: JsonPatchOp[] = [];
+  current.forEach((c, idx) => {
+    const w = wanted.find((x) => x.name === c.name) || (current.length === 1 && wanted.length === 1 ? wanted[0] : undefined);
+    if (!w) return;
+    const base = `/spec/template/spec/containers/${idx}`;
+    if (w.image && w.image !== c.image) {
+      ops.push({ op: 'replace', path: `${base}/image`, value: w.image });
+    }
+    const have = new Set((c.env || []).map((e) => e.name));
+    const missing = (w.env || []).filter((e) => e.name && !have.has(e.name));
+    if (missing.length === 0) return;
+    if (!c.env) {
+      ops.push({ op: 'add', path: `${base}/env`, value: missing });
+    } else {
+      for (const e of missing) ops.push({ op: 'add', path: `${base}/env/-`, value: e });
+    }
+  });
+  return ops;
+}
+
+/**
+ * Upgrade an existing Deployment (see deploymentUpgradeOps). Covers companion
+ * Deployments such as an orchestrator, not just the plugin. Same ConsolePlugin
+ * name cannot run two versions.
  */
 async function patchDeploymentImages(doc: K8sResourceCommon): Promise<boolean> {
   const name = doc.metadata?.name;
@@ -207,14 +239,7 @@ async function patchDeploymentImages(doc: K8sResourceCommon): Promise<boolean> {
   if (!name || !ns || wanted.length === 0) return false;
   try {
     const existing = (await k8sGet({ model: DeploymentModel, name, ns })) as K8sResourceCommon;
-    const current = deploymentContainers(existing);
-    const ops: Array<{ op: string; path: string; value: string }> = [];
-    current.forEach((c, idx) => {
-      const w = wanted.find((x) => x.name === c.name) || (current.length === 1 && wanted.length === 1 ? wanted[0] : undefined);
-      if (w?.image && w.image !== c.image) {
-        ops.push({ op: 'replace', path: `/spec/template/spec/containers/${idx}/image`, value: w.image });
-      }
-    });
+    const ops = deploymentUpgradeOps(deploymentContainers(existing), wanted);
     if (ops.length === 0) return false;
     await k8sPatch({ model: DeploymentModel, resource: existing, data: ops });
     return true;

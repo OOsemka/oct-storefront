@@ -516,6 +516,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.4.3-ocp4.22
       gitRef: v1.4.3
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+    - version: "1.4.4"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.4.4-ocp4.21
+      gitRef: v1.4.4
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+    - version: "1.4.4"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.4.4-ocp4.22
+      gitRef: v1.4.4
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
