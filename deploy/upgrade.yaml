@@ -81,7 +81,7 @@ spec:
     spec:
       containers:
       - name: plugin
-        image: quay.io/cjanisze/oct-storefront:1.4.7-ocp4.22
+        image: quay.io/cjanisze/oct-storefront:1.4.8-ocp4.22
         ports:
         - containerPort: 9443
           protocol: TCP
@@ -150,7 +150,7 @@ spec:
       serviceAccountName: catalog-service
       containers:
       - name: catalog-service
-        image: quay.io/cjanisze/oct-storefront-catalog:1.0.0-ocp4.22
+        image: quay.io/cjanisze/oct-storefront-catalog:1.0.1-ocp4.22
         env:
         - name: COMMUNITY_TOOLS_CATALOG_URL
           value: https://api.octools.net

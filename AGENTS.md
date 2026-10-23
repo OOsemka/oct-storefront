@@ -17,7 +17,7 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
-**Current version:** `1.2.3` (package.json / consolePlugin.version).
+**Current version:** `1.4.8` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
 
 ## Routing (React Router v6 via v5-compat)
 
@@ -27,7 +27,7 @@ Hub routes are registered as `console.page/route` extensions in `console-extensi
 
 | Piece | Role |
 | --- | --- |
-| **catalog-service** (`catalog-service/`, Go 1.22) | In-cluster HTTP(S) sidecar. Proxies `GET /api/v1/public-catalog`, `GET /api/v1/fetch-yaml`, and stats POSTs to `COMMUNITY_TOOLS_CATALOG_URL` (3–10s timeouts). |
+| **catalog-service** (`catalog-service/`, Go 1.22) | In-cluster HTTP(S) sidecar. Proxies `GET /api/v1/public-catalog` and stats POSTs to `COMMUNITY_TOOLS_CATALOG_URL` (3–10s timeouts). `GET /api/v1/fetch-yaml` fetches deploy manifests only over https from `raw.githubusercontent.com`, `gitlab.com`, `codeberg.org`, the catalog host, and hosts in `FETCH_YAML_ALLOWED_HOSTS` (redirects checked too); never make it an open proxy. |
 | **community-tools-cache** ConfigMap | Namespace `oct-storefront`. Seeded from bundled `catalog/community.yaml` on first hub mount; refreshed from public catalog via proxy. Keys: `community.yaml`, `stats.json`, `sync.json` (`checkedAt`/`ok`/`source`), `installed.json`. No TTL — refresh runs once per catalog mount; on public failure, fail-opens to cache/bundled. |
 | **community-tools-external** ConfigMap | Sibling CM for externally-added YAML tools. |
 | **useCatalog** hook (`src/utils/catalog-actions.ts`, `src/components/catalog/useCatalog.ts`) | `ensureCacheSeeded` → `refreshPublicCatalogIntoCache` → merge cache + external; `CategoryHubPage` renders `ExtensionTile`s. Tiles are not fetched live from the service on every render. |
