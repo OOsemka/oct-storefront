@@ -26,6 +26,7 @@ import {
   bundledCommunityTools,
   detectInstalledVersion,
   enableExtension,
+  installBlocker,
   ensureCacheSeeded,
   externalToolsFromCache,
   installedFromCache,
@@ -188,6 +189,8 @@ export function useCatalog(category: ToolCategory) {
             ? STOREFRONT_VERSION
             : undefined) ||
           (enabled || pluginNames.has(plugin) ? detected[t.metadata.name] : undefined);
+        const newer = pickAvailableUpdate(t.spec, installedVersion, clusterVersion);
+        const blocked = newer ? installBlocker(t, newer) : '';
         return {
           id: t.metadata.name,
           tool: t,
@@ -195,7 +198,8 @@ export function useCatalog(category: ToolCategory) {
           installed: enabled || pluginNames.has(plugin),
           enabled,
           installedVersion,
-          updateAvailable: pickAvailableUpdate(t.spec, installedVersion, clusterVersion),
+          updateAvailable: blocked ? undefined : newer,
+          updateBlocked: blocked && newer?.version ? { version: newer.version, reason: blocked } : undefined,
           compatibleSemvers: compatibleSemvers(t.spec, clusterVersion),
         };
       });

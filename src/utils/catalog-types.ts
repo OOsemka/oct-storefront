@@ -8,7 +8,7 @@ export const CACHE_CONFIGMAP = 'community-tools-cache';
 export const EXTERNAL_CONFIGMAP = 'community-tools-external';
 export const PLUGIN_ID = 'oct-storefront';
 /** Running storefront version — single source of truth. Must match package.json consolePlugin.version. */
-export const STOREFRONT_VERSION = '1.4.6';
+export const STOREFRONT_VERSION = '1.4.7';
 export const CATALOG_PROXY = '/api/proxy/plugin/oct-storefront/catalog-service';
 export const DEFAULT_CHANNEL = 'stable';
 
@@ -148,6 +148,8 @@ export type CatalogItem = {
   enabled: boolean;
   installedVersion?: string;
   updateAvailable?: ToolVersion;
+  /** Newer version this storefront cannot install yet (see installBlocker). */
+  updateBlocked?: { version: string; reason: string };
   /** Distinct compatible semvers for this cluster, newest first. */
   compatibleSemvers?: string[];
 };
