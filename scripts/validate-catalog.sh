@@ -294,6 +294,50 @@ for minor in "${OCP_MINORS[@]}"; do
   fi
 done
 
+# ── 9. Storefront self-update manifest ──────────────────────────────
+
+echo ""
+echo "── Storefront self-update manifest ──"
+
+UPGRADE_YAML="$REPO_DIR/deploy/upgrade.yaml"
+if [[ ! -f "$UPGRADE_YAML" ]]; then
+  error "deploy/upgrade.yaml missing (run scripts/gen-upgrade-yaml.py)"
+elif ! python3 "$SCRIPT_DIR/gen-upgrade-yaml.py" --check; then
+  error "deploy/upgrade.yaml is out of date with deploy/install.yaml (run scripts/gen-upgrade-yaml.py)"
+else
+  green "deploy/upgrade.yaml matches deploy/install.yaml"
+fi
+UNSUPPORTED=$(python3 - "$UPGRADE_YAML" "$REPO_DIR/src/utils/k8s-models.ts" <<'PY'
+import re, sys, yaml
+src = open(sys.argv[2]).read()
+block = src[src.index("KIND_MODELS"):]
+block = block[:block.index("};")]
+supported = set(re.findall(r"^\s*(\w+):", block, re.M))
+kinds = {d.get("kind") for d in yaml.safe_load_all(open(sys.argv[1])) if isinstance(d, dict)}
+print(" ".join(sorted(kinds - supported)))
+PY
+)
+if [[ -n "$UNSUPPORTED" ]]; then
+  error "deploy/upgrade.yaml has kinds installed storefronts cannot apply: $UNSUPPORTED"
+else
+  green "deploy/upgrade.yaml uses only appliable kinds"
+fi
+BAD_URLS=$(python3 - "$CATALOG" <<'PY'
+import sys, yaml
+for d in yaml.safe_load_all(open(sys.argv[1])):
+    if d and d.get("metadata", {}).get("name") == "oct-storefront":
+        for v in d["spec"].get("versions", []):
+            u = v.get("deployURL", "")
+            if u and not u.endswith("/deploy/upgrade.yaml"):
+                print(v.get("version"))
+PY
+)
+if [[ -n "$BAD_URLS" ]]; then
+  error "oct-storefront rows whose deployURL is not deploy/upgrade.yaml: $BAD_URLS"
+else
+  green "oct-storefront rows point deployURL at deploy/upgrade.yaml"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────
 
 echo ""
