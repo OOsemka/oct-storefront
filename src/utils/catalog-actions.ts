@@ -16,6 +16,7 @@ import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
 import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel } from './k8s-models';
+import { bundleBlocker, semverFromImage } from './bundle-check';
 import {
   CACHE_CONFIGMAP,
   CommunityTool,
@@ -349,6 +350,20 @@ export async function setPluginEnabled(pluginName: string, enabled: boolean): Pr
   });
 }
 
+/**
+ * Why this storefront cannot install `version` correctly, or '' when it can.
+ * A storefront older than a tool release only has the tool's previous bundle;
+ * installing the newer version from it would run the new plugin against old
+ * companions and RBAC (and record the update as done). Such a version needs
+ * its own manifest on the catalog row, or a newer storefront. Older versions
+ * and plugin-only tools are unaffected.
+ */
+export function installBlocker(tool: CommunityTool, version?: ToolVersion): string {
+  if (!version || version.deployYAML?.trim() || version.deployURL) return '';
+  const bundled = BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin];
+  return bundled ? bundleBlocker(tool.spec.displayName, tool.spec.consolePlugin, bundled, version.version) : '';
+}
+
 export async function resolveDeployYaml(
   tool: CommunityTool,
   version?: ToolVersion,
@@ -357,16 +372,19 @@ export async function resolveDeployYaml(
   const image = imageForRow(version, clusterMinor, tool.spec.image);
   const deployYAML = version?.deployYAML || tool.spec.deployYAML;
   const deployURL = version?.deployURL || tool.spec.deployURL;
+  const blocker = installBlocker(tool, version);
+  if (blocker) throw new Error(blocker);
+  // A row's own manifest is version-specific, so it wins over the bundle,
+  // which only matches the release this storefront was built with.
   let yaml = '';
   if (deployYAML?.trim()) yaml = deployYAML;
-  else {
-    const bundled = BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin];
-    if (bundled) yaml = bundled;
-  }
-  if (!yaml && deployURL) {
+  else if (deployURL) {
     const fetched = await fetchDeployYaml(deployURL);
     if (fetched.ok && fetched.yaml) yaml = fetched.yaml;
     else throw new Error(fetched.reason || `Could not fetch deploy YAML from ${deployURL}`);
+  } else {
+    const bundled = BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin];
+    if (bundled) yaml = bundled;
   }
   if (!yaml && image) {
     yaml = generatePluginManifests({
@@ -442,14 +460,6 @@ export async function addExtension(
 type PluginBackend = K8sResourceCommon & {
   spec?: { backend?: { service?: { name?: string; namespace?: string } } };
 };
-
-/** `quay.io/org/oct-x:1.2.3-ocp4.22` -> `1.2.3`. */
-export function semverFromImage(image: string): string | undefined {
-  if (image.includes('@') || image.lastIndexOf(':') <= image.lastIndexOf('/')) return undefined;
-  const tag = image.slice(image.lastIndexOf(':') + 1);
-  const m = tag.match(/^v?(\d+\.\d+\.\d+)(?:-ocp\d+\.\d+)?$/);
-  return m ? m[1] : undefined;
-}
 
 /**
  * Installed version of an extension the storefront has no installed.json

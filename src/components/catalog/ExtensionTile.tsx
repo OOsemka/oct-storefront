@@ -76,6 +76,11 @@ export const ExtensionTile: FC<{
       {updateVer ? (
         <p className="ct-tile__update">{t('Update available ({{version}})', { version: updateVer })}</p>
       ) : null}
+      {item.updateBlocked ? (
+        <p className="ct-tile__meta" title={item.updateBlocked.reason}>
+          {t('{{version}} available; update the storefront first', { version: item.updateBlocked.version })}
+        </p>
+      ) : null}
       <div className="ct-tile__stats">
         <div className="ct-stars" role="group" aria-label={t('Rating')}>
           {[1, 2, 3, 4, 5].map((n) => (
