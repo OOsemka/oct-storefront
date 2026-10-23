@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -88,13 +89,59 @@ func handlePublicCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true, "catalog": parsed})
 }
 
+// Deploy manifests live on public git hosts. fetch-yaml used to fetch any
+// http(s) URL for any console user, which made it a proxy into the cluster
+// network (in-cluster Services, node and metadata addresses). It now only
+// fetches https URLs on these hosts, the catalog's own host, and whatever an
+// admin adds with FETCH_YAML_ALLOWED_HOSTS (comma-separated).
+var defaultFetchHosts = []string{"raw.githubusercontent.com", "gitlab.com", "codeberg.org"}
+
+func allowedFetchHosts() map[string]bool {
+	hosts := map[string]bool{}
+	for _, h := range defaultFetchHosts {
+		hosts[h] = true
+	}
+	if u, err := url.Parse(catalogURL()); err == nil && u.Hostname() != "" {
+		hosts[strings.ToLower(u.Hostname())] = true
+	}
+	for _, h := range strings.Split(os.Getenv("FETCH_YAML_ALLOWED_HOSTS"), ",") {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
+			hosts[h] = true
+		}
+	}
+	return hosts
+}
+
+// checkFetchURL accepts only https URLs on an allowed host, on the default
+// port, without credentials.
+func checkFetchURL(raw string, allowed map[string]bool) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid url")
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("only https URLs are fetched")
+	}
+	if u.User != nil {
+		return fmt.Errorf("URLs with credentials are not fetched")
+	}
+	if p := u.Port(); p != "" && p != "443" {
+		return fmt.Errorf("only the default https port is allowed")
+	}
+	if !allowed[strings.ToLower(u.Hostname())] {
+		return fmt.Errorf("host %q is not allowed (set FETCH_YAML_ALLOWED_HOSTS on catalog-service to add it)", u.Hostname())
+	}
+	return nil
+}
+
 func handleFetchYAML(w http.ResponseWriter, r *http.Request) {
-	url := strings.TrimSpace(r.URL.Query().Get("url"))
-	if url == "" || !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
-		writeJSON(w, map[string]any{"ok": false, "reason": "url query must be http(s)"})
+	target := strings.TrimSpace(r.URL.Query().Get("url"))
+	allowed := allowedFetchHosts()
+	if err := checkFetchURL(target, allowed); err != nil {
+		writeJSON(w, map[string]any{"ok": false, "reason": err.Error()})
 		return
 	}
-	body, err := fetchURL(r.Context(), url, 10*time.Second)
+	body, err := fetchAllowed(r.Context(), target, allowed, 10*time.Second)
 	if err != nil {
 		writeJSON(w, map[string]any{"ok": false, "reason": err.Error()})
 		return
@@ -130,14 +177,29 @@ func handlePublicStat(kind string) http.HandlerFunc {
 	}
 }
 
+// fetchAllowed is fetchURL with every redirect held to the same rules.
+func fetchAllowed(ctx context.Context, target string, allowed map[string]bool, timeout time.Duration) ([]byte, error) {
+	client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("too many redirects")
+		}
+		return checkFetchURL(req.URL.String(), allowed)
+	}}
+	return fetchWith(ctx, client, target, timeout)
+}
+
 func fetchURL(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
+	return fetchWith(ctx, http.DefaultClient, url, timeout)
+}
+
+func fetchWith(ctx context.Context, client *http.Client, url string, timeout time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
