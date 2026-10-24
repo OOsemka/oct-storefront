@@ -28,10 +28,10 @@ Hub routes are registered as `console.page/route` extensions in `console-extensi
 | Piece | Role |
 | --- | --- |
 | **catalog-service** (`catalog-service/`, Go 1.22) | In-cluster HTTP(S) sidecar. Proxies `GET /api/v1/public-catalog` and stats POSTs to `COMMUNITY_TOOLS_CATALOG_URL` (3–10s timeouts). `GET /api/v1/fetch-yaml` fetches deploy manifests only over https from `raw.githubusercontent.com`, `gitlab.com`, `codeberg.org`, the catalog host, and hosts in `FETCH_YAML_ALLOWED_HOSTS` (redirects checked too); never make it an open proxy. |
-| **community-tools-cache** ConfigMap | Namespace `oct-storefront`. Seeded from bundled `catalog/community.yaml` on first hub mount; refreshed from public catalog via proxy. Keys: `community.yaml`, `stats.json`, `sync.json` (`checkedAt`/`ok`/`source`), `installed.json`. No TTL — refresh runs once per catalog mount; on public failure, fail-opens to cache/bundled. |
+| **community-tools-cache** ConfigMap | Namespace `oct-storefront`. Seeded from bundled `catalog/community.yaml` on first hub mount; refreshed from public catalog via proxy. Keys: `community.yaml`, `stats.json`, `sync.json` (`checkedAt`/`ok`/`source`), `installed.json`, `bundled-version`. The public catalog is re-fetched on a hub page load when the last successful sync is older than **1 hour** (`SYNC_TTL_MS`), so a newly seeded release reaches clusters within about an hour of someone opening Community Tools. A storefront version change re-seeds from the bundled catalog (keeping `installed.json`). On public failure, fail-opens to cache/bundled. |
 | **community-tools-external** ConfigMap | Sibling CM for externally-added YAML tools. |
 | **useCatalog** hook (`src/utils/catalog-actions.ts`, `src/components/catalog/useCatalog.ts`) | `ensureCacheSeeded` → `refreshPublicCatalogIntoCache` → merge cache + external; `CategoryHubPage` renders `ExtensionTile`s. Tiles are not fetched live from the service on every render. |
-| **Tile icons** (`src/utils/tile-icons.ts`, `src/assets/tiles/`) | Bundled SVGs registered under keys like `oct-baremetal`, `tiles/oct-baremetal.svg`. `resolveTileIcon` tries `spec.icon` → `metadata.name` → `consolePlugin`. Registered: `oct-baremetal`, `oct-banner`, `oct-network-bond`, `oct-windows-builder`. |
+| **Tile icons** (`src/utils/tile-icons.ts`, `src/assets/tiles/`) | Bundled SVGs registered under keys like `oct-baremetal`, `tiles/oct-baremetal.svg`. `resolveTileIcon` tries `spec.icon` → `metadata.name` → `consolePlugin`. Registered: `oct-baremetal`, `oct-banner`, `oct-network-bond`, `oct-network-bridge`, `oct-network-dhcp`, `oct-network-vlan`, `oct-hello-world`, `oct-storage-bench`, `oct-storefront`, `oct-windows-builder`, `oct-shift-on-shift-virt`. |
 
 Proxy: `/api/proxy/plugin/oct-storefront/catalog-service`.
 
@@ -112,12 +112,50 @@ Legacy rows (`openshift: "4.22"` without `version`) still parse.
 | **Add** (not installed) | Newest **stable** semver whose `openshift` list includes the cluster. One-click Add uses that default. **Choose version** (when more than one compatible semver exists) opens a picker, latest selected. Unknown cluster → user pick. Never pick an OCP-incompatible row when cluster minor is known. |
 | **Pin** | `spec.pinVersion` (or spec `version:`) is the Add **default**, not a lock. The user can still pick another compatible semver. |
 | **Enable** | Re-enables `spec.plugins`. **Does not** change the Deployment image. |
-| **Update** | Explicit click to the newest compatible semver. Never auto. Tile shows “Update available (x.y.z)”. |
+| **Update** | Explicit click to the newest compatible semver. Never auto. Tile shows “Update available (x.y.z)”. See **How Add and Update apply manifests** below for what an update changes, and when an update is held back (“x.y.z available; update the storefront first”). |
 | **Change version** | Explicit picker of any compatible semver (including older). Same ConsolePlugin name; one running version. |
 | **Remove** | Disables this plugin only. Leaves Deployment. Does not uninstall other tools or other pinned plugins. |
 | **Same plugin ID** | One ConsolePlugin name = **one running version**. 1.2 does not run beside 1.1 under the same ID. Legacy stays on 1.1 by **not** clicking Update. |
 
 Git: tags `v1.2.0`; optional `ocp-4.22` branch for PF/API. A `v1.2.0` tag can live on `ocp-4.22`. Images in catalog and install YAML are `:1.2.0-ocp4.22`. Same bits on two minors → two tags on one digest. Do not auto-migrate running clusters.
+
+## How Add and Update apply manifests
+
+`addExtension` → `resolveDeployYaml` → `applyYaml` (`src/utils/catalog-actions.ts`, `src/utils/apply-yaml.ts`).
+
+**Which manifest:** the catalog row's `deployYAML`, else the row's `deployURL` (fetched through catalog-service), else the bundled `catalog/deploy/oct-<name>.yaml` (`BUNDLED_DEPLOY`), else generated plugin manifests. The selected version's combined plugin image is then set on the plugin Deployment (`applyVersionImage`).
+
+**Bundles are version-specific.** A bundle is compiled into the storefront image and matches one tool release. For a tool whose bundle has **companions** (a CRD or a Deployment other than the plugin: Shift-on-Shift, Bare Metal Hosts, Windows Builder, Storage Bench), installing a version **newer than the bundle** from it would only swap the plugin image and leave the companions and RBAC behind. `installBlocker` / `bundleBlocker` (`src/utils/bundle-check.ts`) refuse that unless the row brings its own manifest; the tile shows “x.y.z available; update the storefront first” instead of Update. Older versions and plugin-only tools are unaffected. Consequence: **release the storefront with the regenerated bundle together with any companion-carrying tool release**, and on clusters update the storefront first.
+
+**Objects that already exist:**
+
+| Kind | On Add/Update |
+| --- | --- |
+| CustomResourceDefinition, ClusterRole, Role, ClusterRoleBinding, RoleBinding, ConsolePlugin | Converged to the bundle (`convergeToBundle`). A changed (immutable) `roleRef` is skipped and logged. |
+| Deployment | Every container (matched by name) gets the bundle's image, plus env vars the bundle defines that the container lacks (`deploymentUpgradeOps`). Existing env values, replicas and resources are never changed. |
+| Service, Secret, ConfigMap, PVC, Namespace, others | Left as the cluster has them. |
+
+Supported kinds are `KIND_MODELS` in `src/utils/k8s-models.ts`; `validate-catalog.sh` fails when a bundle uses another kind. CRDs are applied first.
+
+**Installed version:** `installed.json` (written by Add/Update), else the storefront's own `STOREFRONT_VERSION`, else read from the running plugin Deployment's image (`detectInstalledVersion`), so tools installed by hand still get update notifications.
+
+## Storefront self-update
+
+The storefront updates itself like any tool. Its catalog rows point `deployURL` at **`deploy/upgrade.yaml`**: `deploy/install.yaml` without the one-time enable-plugin Job (no storefront can apply a Job) and without the ConfigMaps (the cluster's cache and external tools must never be overwritten). It is generated, never edited by hand:
+
+```bash
+python3 scripts/gen-upgrade-yaml.py   # after any change to deploy/install.yaml
+```
+
+catalog-service is a companion with its own semver (`oct-storefront-catalog:<semver>-ocp<minor>`); bumping its image in `install.yaml` (and regenerating `upgrade.yaml`) ships it with the next storefront release.
+
+## Releasing (storefront and tools)
+
+1. Tool repo: bump, publish images for **both** minors (never overwrite a published tag), tag `v<semver>`.
+2. Storefront: add the tool's `versions[]` rows (keep older rows); regenerate `catalog/deploy/oct-<name>.yaml` from the tool repo when it has a bundle; for a storefront release also bump `package.json` (both fields), `STOREFRONT_VERSION`, add the storefront's **own** rows for both minors, point `install.yaml` at the new tag, run `scripts/gen-upgrade-yaml.py`.
+3. `scripts/validate-catalog.sh` must pass (tags public, both minors, bundle kinds supported, storefront self rows, `upgrade.yaml` in sync, storefront rows point at it). quay sometimes returns 502s: rerun before trusting a missing-tag error.
+4. Merge, then tag the storefront merge commit `v<semver>` (annotated) and push the tag; rows reference it as `gitRef`.
+5. Seed the public API from `octools-stats-worker` (`TOOL=<id> node seed.js`, `DRY_RUN=1` first; the admin token is a Worker secret held by maintainers). Clusters see the release within their 1 h sync window.
 
 ## New extension / Add must go Ready
 
