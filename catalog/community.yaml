@@ -83,6 +83,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-bond:0.1.2-ocp4.22
       gitRef: v0.1.2
+    - version: "0.2.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-bond:0.2.0-ocp4.21
+      gitRef: v0.2.0
+    - version: "0.2.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bond:0.2.0-ocp4.22
+      gitRef: v0.2.0
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -388,6 +398,43 @@ spec:
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
 metadata:
+  name: oct-odf-macvlans
+spec:
+  displayName: ODF Macvlans
+  description: >-
+    Move OpenShift Data Foundation (Ceph) traffic onto dedicated macvlan
+    public and cluster networks. Pick a node interface, VLAN IDs and CIDRs;
+    the tool configures the nodes with NMState, creates the NADs, runs the
+    Multus validation test and switches the StorageCluster. Requires ODF
+    4.21 or later. Community project, not officially supported by Red Hat.
+  category: storage
+  source: community
+  git: https://github.com/OOsemka/oct-odf-macvlans
+  consolePlugin: oct-odf-macvlans
+  href: /community-tools/storage/odf-macvlans
+  icon: tiles/oct-odf-macvlans.svg
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "0.1.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-odf-macvlans:0.1.0-ocp4.21
+      gitRef: v0.1.0
+    - version: "0.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-odf-macvlans:0.1.0-ocp4.22
+      gitRef: v0.1.0
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
   name: oct-hello-world
 spec:
   displayName: Hello World
@@ -588,6 +635,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.4.9-ocp4.22
       gitRef: v1.4.9
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.0-ocp4.21
+      gitRef: v1.5.0
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.0-ocp4.22
+      gitRef: v1.5.0
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -622,6 +681,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-bridge:1.0.0-ocp4.22
       gitRef: v1.0.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-bridge:1.1.0-ocp4.21
+      gitRef: v1.1.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bridge:1.1.0-ocp4.22
+      gitRef: v1.1.0
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -656,6 +725,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-vlan:1.0.0-ocp4.22
       gitRef: v1.0.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-vlan:1.1.0-ocp4.21
+      gitRef: v1.1.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-vlan:1.1.0-ocp4.22
+      gitRef: v1.1.0
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool

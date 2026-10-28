@@ -14,6 +14,7 @@ import octBaremetal from '../assets/tiles/oct-baremetal.svg';
 import octBanner from '../assets/tiles/oct-banner.svg';
 import octNetworkBond from '../assets/tiles/oct-network-bond.svg';
 import octStorageBench from '../assets/tiles/oct-storage-bench.svg';
+import octOdfMacvlans from '../assets/tiles/oct-odf-macvlans.svg';
 import octHelloWorld from '../assets/tiles/oct-hello-world.svg';
 import octStorefront from '../assets/tiles/oct-storefront.svg';
 import octNetworkBridge from '../assets/tiles/oct-network-bridge.svg';
@@ -38,6 +39,8 @@ register('oct-network-dhcp', octNetworkDhcp);
 register('oct-network-vlan', octNetworkVlan);
 register('oct-hello-world', octHelloWorld);
 register('oct-storage-bench', octStorageBench);
+/** Original storage octopus (Ceph nod): disk-stack body, network-lane tentacles. */
+register('oct-odf-macvlans', octOdfMacvlans);
 register('oct-storefront', octStorefront);
 /** Original paperclip assistant (googly eyes + eyebrows). Not Microsoft Clippy art. */
 register('oct-windows-builder', octWindowsBuilder);

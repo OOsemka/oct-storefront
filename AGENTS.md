@@ -17,7 +17,7 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
-**Current version:** `1.4.9` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
+**Current version:** `1.5.0` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
 
 ## Routing (React Router v6 via v5-compat)
 
@@ -31,7 +31,7 @@ Hub routes are registered as `console.page/route` extensions in `console-extensi
 | **community-tools-cache** ConfigMap | Namespace `oct-storefront`. Seeded from bundled `catalog/community.yaml` on first hub mount; refreshed from public catalog via proxy. Keys: `community.yaml`, `stats.json`, `sync.json` (`checkedAt`/`ok`/`source`), `installed.json`, `bundled-version`. The public catalog is re-fetched on a hub page load when the last successful sync is older than **1 hour** (`SYNC_TTL_MS`), so a newly seeded release reaches clusters within about an hour of someone opening Community Tools. A storefront version change re-seeds from the bundled catalog (keeping `installed.json`). On public failure, fail-opens to cache/bundled. |
 | **community-tools-external** ConfigMap | Sibling CM for externally-added YAML tools. |
 | **useCatalog** hook (`src/utils/catalog-actions.ts`, `src/components/catalog/useCatalog.ts`) | `ensureCacheSeeded` → `refreshPublicCatalogIntoCache` → merge cache + external; `CategoryHubPage` renders `ExtensionTile`s. Tiles are not fetched live from the service on every render. |
-| **Tile icons** (`src/utils/tile-icons.ts`, `src/assets/tiles/`) | Bundled SVGs registered under keys like `oct-baremetal`, `tiles/oct-baremetal.svg`. `resolveTileIcon` tries `spec.icon` → `metadata.name` → `consolePlugin`. Registered: `oct-baremetal`, `oct-banner`, `oct-network-bond`, `oct-network-bridge`, `oct-network-dhcp`, `oct-network-vlan`, `oct-hello-world`, `oct-storage-bench`, `oct-storefront`, `oct-windows-builder`, `oct-shift-on-shift-virt`. |
+| **Tile icons** (`src/utils/tile-icons.ts`, `src/assets/tiles/`) | Bundled SVGs registered under keys like `oct-baremetal`, `tiles/oct-baremetal.svg`. `resolveTileIcon` tries `spec.icon` → `metadata.name` → `consolePlugin`. Registered: `oct-baremetal`, `oct-banner`, `oct-network-bond`, `oct-network-bridge`, `oct-network-dhcp`, `oct-network-vlan`, `oct-hello-world`, `oct-storage-bench`, `oct-odf-macvlans`, `oct-storefront`, `oct-windows-builder`, `oct-shift-on-shift-virt`. |
 
 Proxy: `/api/proxy/plugin/oct-storefront/catalog-service`.
 
