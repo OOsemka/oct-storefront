@@ -17,7 +17,7 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
-**Current version:** `1.5.1` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
+**Current version:** `1.5.2` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
 
 ## Routing (React Router v6 via v5-compat)
 
