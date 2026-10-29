@@ -204,7 +204,7 @@ export async function ensureCacheSeeded(): Promise<void> {
 // "Update available" lag short while reads stay cheap (unthrottled, cached at the edge).
 const SYNC_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-/** force skips the SYNC_TTL_MS wait (the hub's "Check now"). */
+/** force skips the SYNC_TTL_MS wait (the hub's "Check for updates"). */
 export async function refreshPublicCatalogIntoCache(force = false): Promise<SyncStatus> {
   // Skip sync if the last successful check is younger than SYNC_TTL_MS
   try {

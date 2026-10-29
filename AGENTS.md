@@ -17,9 +17,9 @@ Directory (preferred): `oct-storefront`. Plugin ID: **`oct-storefront`**.
 
 This webpack bundle must **not** contain extension pages. Hubs list tiles; **Open** goes to the extension plugin. Do not rename plugin ID `oct-storefront` (breaking install). Do not `oc apply` unless asked.
 
-**Current version:** `1.5.5` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
+**Current version:** `1.5.6` (package.json / consolePlugin.version). Companion `catalog-service` image: `oct-storefront-catalog:1.0.1`.
 
-Hub pages show when the public catalog was last checked, with **Check now** (`refreshPublicCatalogIntoCache(true)` skips the one-hour `SYNC_TTL_MS`). The automatic sync still runs at most hourly on a Community Tools page load.
+Hub pages show when the public catalog was last checked, with **Check for updates** (`refreshPublicCatalogIntoCache(true)` skips the one-hour `SYNC_TTL_MS`). The automatic sync still runs at most hourly on a Community Tools page load.
 
 ## Routing (React Router v6 via v5-compat)
 

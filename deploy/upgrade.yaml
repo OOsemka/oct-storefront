@@ -81,7 +81,7 @@ spec:
     spec:
       containers:
       - name: plugin
-        image: quay.io/cjanisze/oct-storefront:1.5.5-ocp4.22
+        image: quay.io/cjanisze/oct-storefront:1.5.6-ocp4.22
         ports:
         - containerPort: 9443
           protocol: TCP

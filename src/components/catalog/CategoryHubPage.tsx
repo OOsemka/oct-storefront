@@ -189,7 +189,7 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
               ? t('Catalog checked {{time}}', { time: new Date(catalog.sync.checkedAt).toLocaleString() })
               : t('Catalog not checked yet')}{' '}
             <Button variant="link" isInline onClick={catalog.checkNow} isLoading={catalog.checking} isDisabled={catalog.checking}>
-              {t('Check now')}
+              {t('Check for updates')}
             </Button>
           </StackItem>
           {!catalog.sync.ok ? (
