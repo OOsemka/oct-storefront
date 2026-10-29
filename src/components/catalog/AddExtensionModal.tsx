@@ -280,6 +280,16 @@ export const AddExtensionModal: FC<{
             />
           ) : null}
         </Form>
+        {!isChange ? (
+          <Alert
+            isInline
+            variant="info"
+            className="ct-add-console-restart"
+            title={t('The OpenShift console restarts to load the new plugin')}
+          >
+            {t('You may be logged out and need to log in again after Install.')}
+          </Alert>
+        ) : null}
       </ModalBody>
       <ModalFooter>
         <Button

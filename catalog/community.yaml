@@ -357,6 +357,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-windows-builder:1.0.17-ocp4.22
       gitRef: v1.0.17
+    - version: "1.0.18"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-windows-builder:1.0.18-ocp4.21
+      gitRef: v1.0.18
+    - version: "1.0.18"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-windows-builder:1.0.18-ocp4.22
+      gitRef: v1.0.18
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -729,6 +739,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.5.7-ocp4.22
       gitRef: v1.5.7
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.8"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.8-ocp4.21
+      gitRef: v1.5.8
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.8"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.8-ocp4.22
+      gitRef: v1.5.8
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -847,6 +869,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-vlan:1.1.3-ocp4.22
       gitRef: v1.1.3
+    - version: "1.1.4"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-vlan:1.1.4-ocp4.21
+      gitRef: v1.1.4
+    - version: "1.1.4"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-vlan:1.1.4-ocp4.22
+      gitRef: v1.1.4
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
