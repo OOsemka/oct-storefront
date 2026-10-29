@@ -717,6 +717,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.5.6-ocp4.22
       gitRef: v1.5.6
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.7"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.7-ocp4.21
+      gitRef: v1.5.7
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.7"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.7-ocp4.22
+      gitRef: v1.5.7
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -825,6 +837,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-vlan:1.1.2-ocp4.22
       gitRef: v1.1.2
+    - version: "1.1.3"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-vlan:1.1.3-ocp4.21
+      gitRef: v1.1.3
+    - version: "1.1.3"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-vlan:1.1.3-ocp4.22
+      gitRef: v1.1.3
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
