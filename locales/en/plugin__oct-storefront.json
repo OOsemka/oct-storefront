@@ -56,15 +56,6 @@
   "default": "default",
   "This extension precreates PersistentVolumeClaim {{pvcs}} before the plugin starts. Leave as cluster default unless you need a specific class. storageClassName is set at create time and cannot change after the PVC is Bound.": "This extension precreates PersistentVolumeClaim {{pvcs}} before the plugin starts. Leave as cluster default unless you need a specific class. storageClassName is set at create time and cannot change after the PVC is Bound.",
   "This extension precreates PersistentVolumeClaims before the plugin starts. Leave as cluster default unless you need a specific class.": "This extension precreates PersistentVolumeClaims before the plugin starts. Leave as cluster default unless you need a specific class.",
-  "Catalog stats are local — public catalog unreachable.": "Catalog stats are local — public catalog unreachable.",
-  "Browsing and Add/Remove still work from the on-cluster cache and bundled catalog.": "Browsing and Add/Remove still work from the on-cluster cache and bundled catalog.",
-  "Action failed": "Action failed",
-  "Search extensions": "Search extensions",
-  "Search by name": "Search by name",
-  "All OpenShift versions": "All OpenShift versions",
-  "This cluster ({{version}})": "This cluster ({{version}})",
-  "Add external extension": "Add external extension",
-  "No extensions in this category": "No extensions in this category",
   "Installed {{version}}": "Installed {{version}}",
   "Update available ({{version}})": "Update available ({{version}})",
   "Update": "Update",
@@ -79,7 +70,6 @@
   "Choose a compatible release. Update still installs the latest in one click.": "Choose a compatible release. Update still installs the latest in one click.",
   "Select version": "Select version",
   "Cluster OpenShift version could not be detected. Choose which extension version to install.": "Cluster OpenShift version could not be detected. Choose which extension version to install.",
-  "Paste a CommunityTool document. spec.versions (or spec.validatedOn) is required (for example versions: [{ version: \"1.0.0\", channel: \"stable\", openshift: [\"4.22\"], image: \"quay.io/example/oct-tool:1.0.0-ocp4.22\" }]).": "Paste a CommunityTool document. spec.versions (or spec.validatedOn) is required (for example versions: [{ version: \"1.0.0\", channel: \"stable\", openshift: [\"4.22\"], image: \"quay.io/example/oct-tool:1.0.0-ocp4.22\" }]).",
   "Required: metadata.name, spec.displayName, spec.category, spec.consolePlugin, spec.versions or spec.validatedOn. Provide spec.versions[].image, spec.deployYAML, spec.deployURL, or spec.image. Optional spec.pinVersion keeps Add on that semver.": "Required: metadata.name, spec.displayName, spec.category, spec.consolePlugin, spec.versions or spec.validatedOn. Provide spec.versions[].image, spec.deployYAML, spec.deployURL, or spec.image. Optional spec.pinVersion keeps Add on that semver.",
   "Warning": "Warning",
   "BareMetal Operator namespace watch": "BareMetal Operator namespace watch",
@@ -102,5 +92,8 @@
   "Source code on GitHub": "Source code on GitHub",
   "Public stats API at api.octools.net": "Public stats API at api.octools.net",
   "Storefront updates": "Storefront updates",
-  "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade.": "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade."
+  "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade.": "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade.",
+  "Catalog checked {{time}}": "Catalog checked {{time}}",
+  "Catalog not checked yet": "Catalog not checked yet",
+  "Check for updates": "Check for updates"
 }

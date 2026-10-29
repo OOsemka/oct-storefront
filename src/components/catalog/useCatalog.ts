@@ -95,6 +95,7 @@ export function useCatalog(category: ToolCategory) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   // Cluster hash for public rating dedup (SHA-256 of ClusterVersion UID)
   const clusterHashRef = useRef<string>('');
@@ -337,8 +338,24 @@ export function useCatalog(category: ToolCategory) {
     [clusterVersion],
   );
 
+  /** Check the public catalog now instead of waiting for the hourly sync. */
+  const checkNow = async () => {
+    setChecking(true);
+    setError(null);
+    try {
+      const status = await refreshPublicCatalogIntoCache(true);
+      if (!status.ok) setWarning(status.message || 'Public catalog unreachable.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return {
     items,
+    checking,
+    checkNow,
     query,
     setQuery,
     sort,

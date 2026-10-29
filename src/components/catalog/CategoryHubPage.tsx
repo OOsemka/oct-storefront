@@ -184,6 +184,14 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
           <StackItem>
             <CommunityDisclaimer />
           </StackItem>
+          <StackItem className="ct-sync-line">
+            {catalog.sync.checkedAt
+              ? t('Catalog checked {{time}}', { time: new Date(catalog.sync.checkedAt).toLocaleString() })
+              : t('Catalog not checked yet')}{' '}
+            <Button variant="link" isInline onClick={catalog.checkNow} isLoading={catalog.checking} isDisabled={catalog.checking}>
+              {t('Check for updates')}
+            </Button>
+          </StackItem>
           {!catalog.sync.ok ? (
             <StackItem>
               <Alert isInline variant="info" title={t('Catalog stats are local — public catalog unreachable.')}>
