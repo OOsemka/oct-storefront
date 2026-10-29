@@ -128,3 +128,8 @@
   font-size: var(--pf-t--global--font--size--sm, 0.875rem);
   word-break: break-all;
 }
+
+.ct-sync-line {
+  color: var(--pf-t--global--text--color--subtle, #6a6e73);
+  font-size: var(--pf-t--global--font--size--sm, 0.875rem);
+}
