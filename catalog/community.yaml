@@ -347,6 +347,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-windows-builder:1.0.16-ocp4.22
       gitRef: v1.0.16
+    - version: "1.0.17"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-windows-builder:1.0.17-ocp4.21
+      gitRef: v1.0.17
+    - version: "1.0.17"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-windows-builder:1.0.17-ocp4.22
+      gitRef: v1.0.17
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -658,6 +668,18 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-storefront:1.5.1-ocp4.22
       gitRef: v1.5.1
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.2"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.2-ocp4.21
+      gitRef: v1.5.2
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.2"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.2-ocp4.22
+      gitRef: v1.5.2
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
