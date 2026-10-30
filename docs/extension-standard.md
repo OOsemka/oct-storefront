@@ -137,7 +137,7 @@ Extensions that have sidecar Deployments must list them in their `AGENTS.md` und
 | --- | --- | --- |
 | `oct-baremetal` | `oct-baremetal-discovery` | 1.1.0 |
 | `oct-storage-bench` | `oct-storage-bench-runner` | 0.1.2 |
-| `oct-windows-builder` | `oct-windows-builder-builder` | 1.0.17 |
+| `oct-windows-builder` | `oct-windows-builder-builder` | 1.0.18 |
 
 ## Cache behavior
 

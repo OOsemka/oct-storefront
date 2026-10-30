@@ -133,3 +133,7 @@
   color: var(--pf-t--global--text--color--subtle, #6a6e73);
   font-size: var(--pf-t--global--font--size--sm, 0.875rem);
 }
+
+.ct-add-console-restart {
+  margin-top: var(--pf-t--global--spacer--md, 16px);
+}

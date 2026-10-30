@@ -95,5 +95,7 @@
   "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade.": "This tile tracks storefront updates. When a new version is available, use the Update button on the Management hub to upgrade.",
   "Catalog checked {{time}}": "Catalog checked {{time}}",
   "Catalog not checked yet": "Catalog not checked yet",
-  "Check for updates": "Check for updates"
+  "Check for updates": "Check for updates",
+  "The OpenShift console restarts to load the new plugin": "The OpenShift console restarts to load the new plugin",
+  "You may be logged out and need to log in again after Install.": "You may be logged out and need to log in again after Install."
 }
