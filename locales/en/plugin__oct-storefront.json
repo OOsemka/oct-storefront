@@ -97,5 +97,9 @@
   "Catalog not checked yet": "Catalog not checked yet",
   "Check for updates": "Check for updates",
   "The OpenShift console restarts to load the new plugin": "The OpenShift console restarts to load the new plugin",
-  "You may be logged out and need to log in again after Install.": "You may be logged out and need to log in again after Install."
+  "You may be logged out and need to log in again after Install.": "You may be logged out and need to log in again after Install.",
+  "Download counts and anonymous star ratings are collected to improve the catalog. No personal data or cluster identifiers are stored.": "Download counts and anonymous star ratings are collected to improve the catalog. No personal data or cluster identifiers are stored.",
+  "Paste a CommunityTool document. spec.versions (or spec.validatedOn) is required, for example versions: [{ version: \"1.0.0\", channel: \"stable\", openshift: [\"4.22\"], image: \"quay.io/example/oct-tool:1.0.0-ocp4.22\" }].": "Paste a CommunityTool document. spec.versions (or spec.validatedOn) is required, for example versions: [{ version: \"1.0.0\", channel: \"stable\", openshift: [\"4.22\"], image: \"quay.io/example/oct-tool:1.0.0-ocp4.22\" }].",
+  "{{version}} available; update the storefront first": "{{version}} available; update the storefront first",
+  "Remove from catalog": "Remove from catalog"
 }

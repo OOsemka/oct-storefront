@@ -47,7 +47,9 @@ Navigation uses `useNavigate` from `react-router-dom-v5-compat` (React Router v6
 
 **Add can succeed while the plugin never becomes Ready** (Open then 404s). Confirm the plugin Deployment is Running. Canonical checklist: [docs/extension-standard.md](docs/extension-standard.md).
 
-## Contributing — cluster-portable code
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md): setup, `yarn verify`, testing on your own cluster, the project rules and what maintainers do at release.
 
 Do **not** hardcode environment-specific values (StorageClass names, VLANs/CIDRs, lab domains, node names, cluster URLs). Omit the field for the cluster default, read the live object, or use the value chosen at **Add**. Agents: `.cursor/rules/oct-no-env-hardcoding.mdc`.
 
