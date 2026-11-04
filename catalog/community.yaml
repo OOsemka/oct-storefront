@@ -103,6 +103,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-network-bond:0.2.1-ocp4.22
       gitRef: v0.2.1
+    - version: "0.2.2"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-network-bond:0.2.2-ocp4.21
+      gitRef: v0.2.2
+    - version: "0.2.2"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-network-bond:0.2.2-ocp4.22
+      gitRef: v0.2.2
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -840,6 +850,18 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-storefront:1.5.13-ocp4.22
       gitRef: v1.5.13
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.14"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.14-ocp4.21
+      gitRef: v1.5.14
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.14"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.14-ocp4.22
+      gitRef: v1.5.14
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
