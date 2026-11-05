@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`catalog deploy bundles > derives a profile for every bundle (levels snapshot) 1`] = `
+{
+  "oct-banner.yaml": "plugin",
+  "oct-baremetal.yaml": "privileged",
+  "oct-hello-world.yaml": "plugin",
+  "oct-network-bond.yaml": "plugin",
+  "oct-network-bridge.yaml": "plugin",
+  "oct-network-dhcp.yaml": "plugin",
+  "oct-network-vlan.yaml": "plugin",
+  "oct-odf-macvlans.yaml": "plugin",
+  "oct-shift-on-shift-virt.yaml": "privileged",
+  "oct-storage-bench.yaml": "privileged",
+  "oct-windows-builder.yaml": "cluster-write",
+}
+`;

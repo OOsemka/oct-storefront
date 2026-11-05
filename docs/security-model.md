@@ -1,0 +1,74 @@
+# OCT security model
+
+This page explains how Community Tools thinks about security, what is enforced today, and what is advisory. It is the reference for contributors, cluster admins and reviewers. The full proposal is in [rfc-security-framework.md](rfc-security-framework.md).
+
+## What can go wrong
+
+OCT installs community extensions into a cluster with the clicking user's credentials, which in practice is a cluster admin. An extension can therefore bring:
+
+- **RBAC**: ClusterRoles bound cluster-wide. These may include reading every Secret, exec into any pod, creating workloads anywhere, or changing RBAC.
+- **Privileged runtime access**: SCC use, host networking or paths, added Linux capabilities.
+- **Network exposure**: a Route that publishes a backend outside the cluster, or a backend reachable by any pod.
+- **A backend** behind the console proxy that acts with its own ServiceAccount on behalf of whoever calls it.
+- **Images** from any registry, by mutable tag.
+
+The model below makes these visible, lets admins set limits, and gives contributors a clear way to say what their extension needs and why.
+
+## Declare → Derive → Decide
+
+1. **Declare.** A contributor may describe what the extension needs in `spec.security` (see [extension-standard.md](extension-standard.md)). This is intent plus a reason per permission. It is optional: a missing declaration shows as "Not declared".
+2. **Derive.** The storefront (at install time) and CI (at pull-request time) compute the **actual** profile from the manifests that would really be applied. The code is the same in both places: `src/utils/security-profile.ts`. **The derived profile is the source of truth**, so a missing or wrong declaration can never hide what a bundle does.
+3. **Decide.** A cluster-admin policy is evaluated against the derived profile: allow, warn, review or block, with the reasons shown.
+
+## Privilege levels
+
+Every bundle gets a derived level, the highest that applies:
+
+| Level | Meaning |
+|---|---|
+| `plugin` | Only the console plugin (Namespace, Deployment, Service, ConsolePlugin, ConfigMap). |
+| `namespaced` | Also a ServiceAccount, Role/RoleBinding, PVC or Secret in its own namespace. A ClusterRole bound by a RoleBinding counts here. |
+| `cluster-read` | Also CRDs, or ClusterRoles bound cluster-wide with only get/list/watch, excluding Secrets. |
+| `cluster-write` | Cluster-wide write verbs. |
+| `privileged` | Any of: SCC use or definition, hostNetwork/hostPID/hostIPC/hostPath, privileged containers, added capabilities, RBAC wildcards, escalate/bind/impersonate, cluster-wide Secret read, cluster-wide pods/exec, cluster-wide workload creation, cluster-wide RBAC writes, Node writes, or a cluster-wide binding to cluster-admin/admin/edit. |
+
+**A ClusterRole defined but not bound in the bundle is treated as cluster-wide**, because it may be bound at runtime.
+
+## Findings
+
+Besides the level, the profile lists findings, each with a stable id:
+
+| Area | Finding ids |
+|---|---|
+| RBAC | `rbac-wildcard`, `rbac-escalate`, `rbac-bind`, `rbac-impersonate`, `rbac-cluster-secrets-read`, `rbac-cluster-pods-exec`, `rbac-cluster-workload-create`, `rbac-cluster-rbac-write`, `rbac-cluster-nodes-write`, `rbac-cluster-namespaces-delete`, `rbac-binds-cluster-admin`, `rbac-binds-builtin-*`, `rbac-binds-external-role`, `rbac-unbound-clusterrole` |
+| SCC and host access | `scc-use`, `scc-defined`, `host-hostNetwork`, `host-hostPID`, `host-hostIPC`, `host-path`, `container-privileged`, `capability-*` |
+| Network | `route-exposed`, `route-exposed-plain-http`, `service-exposed`, `backend-no-networkpolicy` |
+| Backend identity | `proxy-no-user-token` (the ConsolePlugin proxy doesn't forward the user's identity with `authorization: UserToken`) |
+| Secrets | `secret-with-data` (credentials shipped inside the bundle) |
+| Images | `image-mutable-tag` (no tag or `:latest`) |
+| Hardening (info only) | `workload-hardening` (missing allowPrivilegeEscalation: false / readOnlyRootFilesystem: true / non-root) |
+
+## CI: report and ratchet
+
+`yarn security-check` derives the profile of every bundle in `catalog/deploy/` and compares the findings with [`catalog/security-baseline.json`](../catalog/security-baseline.json):
+
+- Findings already in the baseline are **tolerated**. They are the known issues of existing tools.
+- **New** findings are reported. With `--strict`, CI fails on them.
+- When a tool is fixed, the report lists findings that are "no longer present". Remove them from the baseline with `yarn security-check --update-baseline` and review the diff.
+
+The goal is an empty baseline. Today CI runs the report in non-blocking mode.
+
+## Advisory vs. enforced
+
+- **Storefront policy is advisory.** The storefront applies manifests with the logged-in user's own token, so it can show reasons, ask for review, or refuse to click Install, but it cannot stop a cluster admin from applying the same YAML by hand.
+- **Hard enforcement** comes from Kubernetes itself: RBAC, and an opt-in ValidatingAdmissionPolicy pack that cluster admins apply themselves.
+- **Extension backends** must check every caller's permissions themselves. The console sends requests straight to the backend, not through the storefront. The shared `backend-security-kit` does this: user identity from the console proxy, a SelfSubjectAccessReview per route, and off/audit/enforce modes.
+
+## Installing safely: what the storefront already guarantees
+
+- **No half-installs.** Every document's kind is checked before the first object is created. A bundle with a kind this storefront can't apply fails cleanly, and nothing is applied.
+- **Digest-pinned images keep working.** Version detection reads the tag of `image:tag@sha256:...` references, so pinning by digest doesn't break update checks.
+
+## Reporting a vulnerability
+
+Please don't open a public issue for a security problem. Contact the maintainers privately, through GitHub security advisories on the affected repository.

@@ -1,0 +1,61 @@
+{
+  "comment": "Known security findings per bundle (scripts/security-check.ts). CI tolerates these and flags new ones. Remove entries as tools are fixed; an empty file is the goal.",
+  "tools": {
+    "oct-banner": [
+      "workload-hardening Deployment/oct-banner"
+    ],
+    "oct-baremetal": [
+      "backend-no-networkpolicy bundle",
+      "proxy-no-user-token ConsolePlugin/oct-baremetal",
+      "rbac-cluster-secrets-read ClusterRole/discovery-service-image-cache",
+      "rbac-cluster-secrets-read ClusterRole/oct-baremetal",
+      "route-exposed-plain-http Route/image-cache",
+      "workload-hardening Deployment/discovery-service",
+      "workload-hardening Deployment/oct-baremetal"
+    ],
+    "oct-hello-world": [
+      "workload-hardening Deployment/oct-hello-world"
+    ],
+    "oct-network-bond": [
+      "workload-hardening Deployment/oct-network-bond"
+    ],
+    "oct-network-bridge": [
+      "workload-hardening Deployment/oct-network-bridge"
+    ],
+    "oct-network-dhcp": [
+      "workload-hardening Deployment/oct-network-dhcp"
+    ],
+    "oct-network-vlan": [
+      "workload-hardening Deployment/oct-network-vlan"
+    ],
+    "oct-odf-macvlans": [
+      "workload-hardening Deployment/oct-odf-macvlans"
+    ],
+    "oct-shift-on-shift-virt": [
+      "backend-no-networkpolicy bundle",
+      "proxy-no-user-token ConsolePlugin/oct-shift-on-shift-virt",
+      "rbac-cluster-namespaces-delete ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-pods-exec ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-rbac-write ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-secrets-read ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-workload-create ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "scc-use ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "workload-hardening Deployment/oct-shift-on-shift-virt",
+      "workload-hardening Deployment/sos-orchestrator"
+    ],
+    "oct-storage-bench": [
+      "backend-no-networkpolicy bundle",
+      "proxy-no-user-token ConsolePlugin/oct-storage-bench",
+      "rbac-cluster-secrets-read ClusterRole/oct-storage-bench",
+      "rbac-cluster-workload-create ClusterRole/oct-storage-bench",
+      "workload-hardening Deployment/benchmark-runner",
+      "workload-hardening Deployment/oct-storage-bench"
+    ],
+    "oct-windows-builder": [
+      "backend-no-networkpolicy bundle",
+      "proxy-no-user-token ConsolePlugin/oct-windows-builder",
+      "workload-hardening Deployment/oct-windows-builder",
+      "workload-hardening Deployment/windows-builder"
+    ]
+  }
+}
