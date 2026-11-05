@@ -887,6 +887,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.5.16-ocp4.22
       gitRef: v1.5.16
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.17"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.17-ocp4.21
+      gitRef: v1.5.17
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.17"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.17-ocp4.22
+      gitRef: v1.5.17
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -1243,3 +1255,13 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-shift-on-shift-virt:0.3.1-ocp4.22
       gitRef: v0.3.1
+    - version: "0.3.2"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.3.2-ocp4.21
+      gitRef: v0.3.2
+    - version: "0.3.2"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.3.2-ocp4.22
+      gitRef: v0.3.2
