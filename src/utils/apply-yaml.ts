@@ -97,6 +97,19 @@ function sortDocsForApply(docs: K8sResourceCommon[]): K8sResourceCommon[] {
   });
 }
 
+/**
+ * Kinds in `docs` that this storefront cannot apply (not in KIND_MODELS).
+ * Checked for the whole bundle before anything is created, so an install
+ * either applies completely or does not start: a newer catalog row with a kind
+ * this storefront doesn't know must not leave half the objects behind.
+ */
+export function unsupportedKinds(docs: K8sResourceCommon[]): string[] {
+  const missing = docs
+    .filter((d) => !modelForKind(d.kind || ''))
+    .map((d) => `${d.kind || 'Unknown'} (${d.metadata?.name || '(unnamed)'})`);
+  return Array.from(new Set(missing));
+}
+
 function alreadyExists(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   const obj = err as { json?: { reason?: string; code?: number }; message?: string };
@@ -113,14 +126,17 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
     throw new Error('No Kubernetes documents found in YAML.');
   }
   docs = sortDocsForApply(docs.map((d) => withPvcStorageClass(d, opts.storageClassName)));
+  const unsupported = unsupportedKinds(docs);
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Unsupported kind ${unsupported.join(', ')}. Nothing was applied. Include it in the storefront kind map or use a supported plugin manifest.`,
+    );
+  }
   const log: string[] = [];
   for (const doc of docs) {
     const kind = doc.kind || 'Unknown';
     const name = doc.metadata?.name || '(unnamed)';
-    const model = modelForKind(kind);
-    if (!model) {
-      throw new Error(`Unsupported kind ${kind} (${name}). Include it in the storefront kind map or use a supported plugin manifest.`);
-    }
+    const model = modelForKind(kind) as K8sModel;
     try {
       await k8sCreate({ model, data: doc });
       log.push(`created ${kind}/${name}`);

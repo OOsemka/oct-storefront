@@ -1,10 +1,16 @@
 import { loadAll } from 'js-yaml';
 import { compareSemver } from './catalog-types';
 
-/** `quay.io/org/oct-x:1.2.3-ocp4.22` -> `1.2.3`. */
+/**
+ * `quay.io/org/oct-x:1.2.3-ocp4.22` -> `1.2.3`.
+ * A digest-pinned reference keeps its tag for humans and tooling
+ * (`quay.io/org/oct-x:1.2.3-ocp4.22@sha256:...` -> `1.2.3`); a digest with no
+ * tag (`quay.io/org/oct-x@sha256:...`) has no version and returns undefined.
+ */
 export function semverFromImage(image: string): string | undefined {
-  if (image.includes('@') || image.lastIndexOf(':') <= image.lastIndexOf('/')) return undefined;
-  const tag = image.slice(image.lastIndexOf(':') + 1);
+  const ref = image.split('@')[0];
+  if (ref.lastIndexOf(':') <= ref.lastIndexOf('/')) return undefined;
+  const tag = ref.slice(ref.lastIndexOf(':') + 1);
   const m = tag.match(/^v?(\d+\.\d+\.\d+)(?:-ocp\d+\.\d+)?$/);
   return m ? m[1] : undefined;
 }
