@@ -193,6 +193,21 @@ spec:
                     dnsIP:
                       type: string
                       description: IP address of the in-cluster CoreDNS pod on the cUDN (optional, auto-collected if DeployDNS phase runs).
+                    networkType:
+                      type: string
+                      description: >-
+                        Network plugin of the nested cluster. OVNKubernetes (default) or the
+                        open-source Calico or Cilium (OpenShift 4.22 or later). Fixed at install time.
+                      enum:
+                        - OVNKubernetes
+                        - Calico
+                        - Cilium
+                    cniVersion:
+                      type: string
+                      description: >-
+                        Calico or Cilium release (for example v3.33.0, v1.20.4); empty means the
+                        newest one the orchestrator offers. Must be empty for OVNKubernetes.
+                      pattern: '^(v[0-9]+\.[0-9]+\.[0-9]+)?$'
                 externalAccess:
                   type: object
                   required:
@@ -221,6 +236,9 @@ spec:
                     gateway:
                       type: string
                       description: Gateway of the external VLAN. The bastion answers clients outside the VLAN through it (replies from the API/Ingress addresses use it). Required for new clusters.
+                    hostRoutes:
+                      type: boolean
+                      description: Publish the nested API and console through Routes on the host cluster (host *.apps names), so they work without DNS records for the nested domain. Needs the bastion load balancer and external addresses reachable from the host nodes.
                     ipPool:
                       type: string
                       description: Optional IPPool (same namespace) the external addresses were picked from; the API checks they match it.
@@ -310,6 +328,12 @@ spec:
             status:
               type: object
               properties:
+                hostConsoleURL:
+                  type: string
+                  description: Nested console through a host Route (externalAccess.hostRoutes).
+                hostAPIURL:
+                  type: string
+                  description: Nested API through a host Route (externalAccess.hostRoutes).
                 loadBalancer:
                   type: string
                   description: '"bastion" when the API/Ingress load balancer runs on the bastion VM; empty for clusters that use HAProxy pods.'
@@ -335,6 +359,7 @@ spec:
                     - WaitBootstrap
                     - WaitInstall
                     - PostInstall
+                    - PublishRoutes
                     - ConfigureStorage
                     - ConfigureVirtualization
                     - Ready
@@ -783,6 +808,16 @@ rules:
   - create
   - delete
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+- apiGroups:
   - route.openshift.io
   resources:
   - routes
@@ -934,7 +969,7 @@ spec:
     spec:
       containers:
       - name: plugin
-        image: quay.io/cjanisze/oct-shift-on-shift-virt:0.3.2-ocp4.22
+        image: quay.io/cjanisze/oct-shift-on-shift-virt:0.4.0-ocp4.22
         ports:
         - containerPort: 9443
           protocol: TCP
@@ -1006,7 +1041,7 @@ spec:
       serviceAccountName: sos-orchestrator
       containers:
       - name: orchestrator
-        image: quay.io/cjanisze/oct-shift-on-shift-virt-orchestrator:0.3.2-ocp4.22
+        image: quay.io/cjanisze/oct-shift-on-shift-virt-orchestrator:0.4.0-ocp4.22
         imagePullPolicy: Always
         ports:
         - name: https
