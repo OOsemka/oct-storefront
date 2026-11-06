@@ -1,4 +1,5 @@
 /** CommunityTool YAML / JSON schema. Keep in sync with docs/extension-standard.md and AGENTS.md. */
+import type { SecurityLevel } from './security-profile';
 import type { SecuritySpec } from './security-spec';
 
 export const COMMUNITY_TOOL_API = 'communitytools.io/v1alpha1';
@@ -169,6 +170,13 @@ export type CatalogItem = {
   updateBlocked?: { version: string; reason: string };
   /** Distinct compatible semvers for this cluster, newest first. */
   compatibleSemvers?: string[];
+  /**
+   * Derived privilege level of the default install manifest, when it is known
+   * without fetching (bundled or inline YAML). Advisory, for the tile label.
+   */
+  securityLevel?: SecurityLevel;
+  /** From the public catalog only, not in this storefront's bundled catalog. */
+  publicOnly?: boolean;
 };
 
 export const CATEGORIES: ToolCategory[] = ['compute', 'storage', 'network', 'management'];

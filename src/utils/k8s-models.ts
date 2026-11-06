@@ -170,6 +170,17 @@ export const RouteModel: K8sModel = {
   namespaced: true,
 };
 
+export const NetworkPolicyModel: K8sModel = {
+  apiGroup: 'networking.k8s.io',
+  apiVersion: 'v1',
+  kind: 'NetworkPolicy',
+  abbr: 'NP',
+  label: 'NetworkPolicy',
+  labelPlural: 'NetworkPolicies',
+  plural: 'networkpolicies',
+  namespaced: true,
+};
+
 export const KIND_MODELS: Record<string, K8sModel> = {
   ConfigMap: ConfigMapModel,
   Namespace: NamespaceModel,
@@ -186,6 +197,9 @@ export const KIND_MODELS: Record<string, K8sModel> = {
   RoleBinding: RoleBindingModel,
   PersistentVolumeClaim: PersistentVolumeClaimModel,
   Route: RouteModel,
+  // From storefront 1.6. Catalog rows whose manifest has a NetworkPolicy set
+  // versions[].minStorefront so older storefronts refuse them cleanly.
+  NetworkPolicy: NetworkPolicyModel,
 };
 
 export function modelForKind(kind: string): K8sModel | undefined {

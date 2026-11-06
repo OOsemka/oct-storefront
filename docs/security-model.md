@@ -94,6 +94,17 @@ How it behaves:
 
 ## Installing safely: what the storefront already guarantees
 
+- **Review before install.** Every Add, Update, version change and external add first resolves the exact manifests, derives their profile and evaluates the policy. Under the defaults, plugin-only community tools still install in one click. Everything else opens the review screen, which shows:
+  - the level, the declaration and the policy reasons;
+  - cluster-wide permissions, each with the contributor's "why" when declared;
+  - privileged access, network exposure, images and findings;
+  - on Update, the permissions added or removed compared with the Roles and ClusterRoles **currently on the cluster**.
+
+  The storefront then applies exactly the YAML that was reviewed. In `enforce` mode, a blocked install can't be confirmed.
+- **Labels on tiles:** the derived level (when the manifest is known without fetching), "Not declared", and "Public-only" for tools that came only from the public catalog.
+- **Ownership label.** Objects the storefront creates get `communitytools.io/extension: <tool id>`. Namespaces and the Console config are never labelled, because they can be shared.
+- **Telemetry.** Only Add counts as a download; updates and version changes don't. The policy's `telemetry` setting controls what is sent to api.octools.net.
+- **NetworkPolicy** is an installable kind from this release. A catalog row whose manifest contains one must set `versions[].minStorefront`, so older storefronts refuse it cleanly instead of failing the preflight.
 - **No half-installs.** Every document's kind is checked before the first object is created. A bundle with a kind this storefront can't apply fails cleanly, and nothing is applied.
 - **Digest-pinned images keep working.** Version detection reads the tag of `image:tag@sha256:...` references, so pinning by digest doesn't break update checks.
 

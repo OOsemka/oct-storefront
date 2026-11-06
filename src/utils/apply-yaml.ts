@@ -14,7 +14,23 @@ export type ApplyYamlOpts = {
    * `''` omits spec.storageClassName so the cluster default StorageClass is used.
    */
   storageClassName?: string;
+  /** Catalog id stamped on created objects as `communitytools.io/extension`. */
+  extensionId?: string;
 };
+
+/** Label naming the catalog tool that created an object. */
+export const EXTENSION_LABEL = 'communitytools.io/extension';
+/** Kinds that may be shared between tools or are cluster config: never labelled. */
+const UNLABELLED_KINDS = new Set(['Namespace', 'Console']);
+
+/** `doc` with the extension label added (a copy); unchanged for shared kinds or no id. */
+export function withExtensionLabel(doc: K8sResourceCommon, extensionId: string | undefined): K8sResourceCommon {
+  if (!extensionId || UNLABELLED_KINDS.has(doc.kind || '')) return doc;
+  return {
+    ...doc,
+    metadata: { ...doc.metadata, labels: { ...(doc.metadata?.labels || {}), [EXTENSION_LABEL]: extensionId } },
+  };
+}
 
 type PvcDoc = K8sResourceCommon & {
   spec?: {
@@ -38,6 +54,7 @@ const APPLY_KIND_ORDER: Record<string, number> = {
   PersistentVolumeClaim: 80,
   Service: 90,
   Route: 100,
+  NetworkPolicy: 105,
   Deployment: 110,
   ConsolePlugin: 120,
 };
@@ -125,7 +142,9 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
   if (docs.length === 0) {
     throw new Error('No Kubernetes documents found in YAML.');
   }
-  docs = sortDocsForApply(docs.map((d) => withPvcStorageClass(d, opts.storageClassName)));
+  docs = sortDocsForApply(
+    docs.map((d) => withExtensionLabel(withPvcStorageClass(d, opts.storageClassName), opts.extensionId)),
+  );
   const unsupported = unsupportedKinds(docs);
   if (unsupported.length > 0) {
     throw new Error(

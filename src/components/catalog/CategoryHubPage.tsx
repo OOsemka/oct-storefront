@@ -41,6 +41,7 @@ import { useCatalog } from './useCatalog';
 import ExtensionTile from './ExtensionTile';
 import { AddExternalModal } from './AddExternalModal';
 import { AddExtensionModal, AddExtensionModalState } from './AddExtensionModal';
+import { InstallReviewModal } from './InstallReviewModal';
 import './catalog.css';
 
 const I18N = 'plugin__oct-storefront';
@@ -200,6 +201,13 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
               </Alert>
             </StackItem>
           ) : null}
+          {catalog.policyState?.warnings.length ? (
+            <StackItem>
+              <Alert isInline variant="warning" title={t('Cluster policy')}>
+                {catalog.policyState.warnings.join(' ')}
+              </Alert>
+            </StackItem>
+          ) : null}
           {catalog.error ? (
             <StackItem>
               <Alert isInline variant="danger" title={t('Action failed')}>
@@ -319,6 +327,11 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
         }
         onClose={() => setAddConfirm(null)}
         onConfirm={confirmAdd}
+      />
+      <InstallReviewModal
+        prep={catalog.review?.prep || null}
+        onConfirm={() => catalog.review?.confirm()}
+        onCancel={catalog.cancelReview}
       />
     </>
   );

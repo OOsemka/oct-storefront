@@ -16,7 +16,7 @@ import bridgeDeployYaml from '../../catalog/deploy/oct-network-bridge.yaml';
 import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
-import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel } from './k8s-models';
+import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel, modelForKind } from './k8s-models';
 import { bundleBlocker, semverFromImage, storefrontBlocker } from './bundle-check';
 import {
   CACHE_CONFIGMAP,
@@ -27,6 +27,7 @@ import {
   ExtensionStats,
   InstalledMap,
   InstalledRecord,
+  PublicCatalogExtension,
   StatsMap,
   STOREFRONT_NS,
   STOREFRONT_VERSION,
@@ -41,7 +42,18 @@ import {
   toolFromPublic,
 } from './parse-tools';
 import { applyYaml, applyVersionImage, generatePluginManifests } from './apply-yaml';
-import { DEFAULT_POLICY, parsePolicy, Policy, POLICY_CONFIGMAP, POLICY_KEY } from './policy';
+import {
+  DEFAULT_POLICY,
+  Decision,
+  evaluate,
+  parsePolicy,
+  Policy,
+  POLICY_CONFIGMAP,
+  POLICY_KEY,
+  telemetryAllows,
+} from './policy';
+import { deriveProfile, parseBundle, rbacDiff, SecurityProfile } from './security-profile';
+import type { SecuritySpec } from './security-spec';
 import { fetchDeployYaml, fetchPublicCatalog, postPublicDownload, postPublicRating } from './public-catalog';
 import {
   ensureProvisioningWatchAllNamespaces,
@@ -239,6 +251,15 @@ const SYNC_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /** force skips the SYNC_TTL_MS wait (the hub's "Check for updates"). */
 export async function refreshPublicCatalogIntoCache(force = false): Promise<SyncStatus> {
+  const { policy } = await loadPolicy();
+  if (policy.publicCatalog === 'off') {
+    return {
+      ok: true,
+      source: 'cache',
+      checkedAt: new Date().toISOString(),
+      message: 'Public catalog sync is turned off by the cluster policy.',
+    };
+  }
   // Skip sync if the last successful check is younger than SYNC_TTL_MS
   try {
     if (force) throw new Error('forced');
@@ -272,7 +293,8 @@ export async function refreshPublicCatalogIntoCache(force = false): Promise<Sync
   }
 
   const byId = new Map(bundledCommunityTools().map((t) => [t.metadata.name, t]));
-  for (const ext of result.catalog.extensions || []) {
+  for (const raw of result.catalog.extensions || []) {
+    const ext = policy.publicCatalog === 'metadata-only' ? withoutRemoteManifests(raw) : raw;
     const id = ext.id || ext.consolePlugin;
     if (!id) continue;
     const existing = byId.get(id);
@@ -317,16 +339,21 @@ async function patchStats(mutator: (stats: StatsMap) => void): Promise<void> {
   await writeConfigMap(CACHE_CONFIGMAP, { 'stats.json': JSON.stringify(stats) });
 }
 
+/**
+ * Count an Add (never an Update). The public counter only gets community tools,
+ * and only when the cluster policy's telemetry setting allows it.
+ */
 export async function incrementDownloads(
   id: string,
   source: 'community' | 'external',
+  policy: Policy = DEFAULT_POLICY,
 ): Promise<void> {
   await patchStats((stats) => {
     const cur = stats[id] || emptyStats();
     cur.downloads = (cur.downloads || 0) + 1;
     stats[id] = cur;
   });
-  if (source === 'community') {
+  if (source === 'community' && telemetryAllows(policy, 'download')) {
     void postPublicDownload(id);
   }
 }
@@ -336,6 +363,7 @@ export async function setClusterRating(
   rating: number,
   source: 'community' | 'external',
   clusterHash?: string,
+  policy: Policy = DEFAULT_POLICY,
 ): Promise<void> {
   const stars = Math.min(5, Math.max(1, Math.round(rating)));
   await patchStats((stats) => {
@@ -349,7 +377,7 @@ export async function setClusterRating(
     cur.clusterRating = stars;
     stats[id] = cur;
   });
-  if (source === 'community' && clusterHash) {
+  if (source === 'community' && clusterHash && telemetryAllows(policy, 'rating')) {
     void postPublicRating(id, stars, clusterHash);
   }
 }
@@ -449,6 +477,119 @@ export function peekDeployYaml(tool: CommunityTool, version?: ToolVersion): stri
   return BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin] || '';
 }
 
+/** Public catalog entry without remote install manifests (policy publicCatalog: metadata-only). */
+function withoutRemoteManifests(ext: PublicCatalogExtension): PublicCatalogExtension {
+  return {
+    ...ext,
+    versions: (ext.versions || []).map((v) => {
+      const row = { ...(v as ToolVersion & { deployUrl?: string }) };
+      delete row.deployURL;
+      delete row.deployYAML;
+      delete row.deployUrl;
+      return row;
+    }),
+  };
+}
+
+/** Everything the install review screen shows, and the YAML that will be applied. */
+export type PreparedInstall = {
+  tool: CommunityTool;
+  version?: ToolVersion;
+  action: 'add' | 'update';
+  /** Exactly what will be applied after review. */
+  yaml: string;
+  profile: SecurityProfile;
+  declared?: SecuritySpec;
+  decision: Decision;
+  policy: Policy;
+  policyWarnings: string[];
+  /** Rules added or removed compared with the Roles/ClusterRoles on the cluster (updates). */
+  rbacChanges: { role: string; added: string[]; removed: string[] }[];
+  /** Set when the cluster's current RBAC couldn't be read for the comparison. */
+  rbacCompareError?: string;
+  publicOnly: boolean;
+};
+
+/**
+ * The Roles and ClusterRoles from `yaml` as they exist on the cluster now, as a
+ * YAML stream (JSON documents), so rbacDiff can compare them with the bundle.
+ * Roles that don't exist yet are left out, so all of their rules count as added.
+ */
+async function liveRbacYaml(yaml: string): Promise<string> {
+  const docs: string[] = [];
+  for (const d of parseBundle(yaml)) {
+    if (d.kind !== 'ClusterRole' && d.kind !== 'Role') continue;
+    const model = modelForKind(d.kind);
+    if (!model || !d.metadata?.name) continue;
+    try {
+      const live = (await k8sGet({ model, name: d.metadata.name, ns: d.metadata.namespace })) as K8sResourceCommon;
+      docs.push(JSON.stringify(live));
+    } catch (e) {
+      const err = e as { json?: { code?: number }; code?: number };
+      if (err?.json?.code === 404 || err?.code === 404) continue;
+      throw e;
+    }
+  }
+  return docs.join('\n---\n');
+}
+
+/**
+ * Resolve the manifests an install would apply, derive their security profile and
+ * evaluate the cluster policy. Nothing is applied. Pass the result's `yaml` to
+ * addExtension as `reviewedYaml` so the user gets exactly what they reviewed.
+ */
+export async function prepareInstall(
+  tool: CommunityTool,
+  version: ToolVersion | undefined,
+  clusterMinor: string,
+  action: 'add' | 'update',
+): Promise<PreparedInstall> {
+  const [{ policy, warnings: policyWarnings }, yaml] = await Promise.all([
+    loadPolicy(),
+    resolveDeployYaml(tool, version, clusterMinor),
+  ]);
+  const profile = deriveProfile(yaml);
+  const declared = version?.security || tool.spec.security;
+  const ownManifest = Boolean(version?.deployYAML?.trim() || (!version?.deployYAML && tool.spec.deployYAML?.trim()));
+  const deployURL = ownManifest ? undefined : version?.deployURL || tool.spec.deployURL;
+  const bundledIds = new Set(bundledCommunityTools().map((t) => t.metadata.name));
+  const publicOnly = tool.spec.source === 'community' && !bundledIds.has(tool.metadata.name);
+
+  let rbacChanges: PreparedInstall['rbacChanges'] = [];
+  let rbacCompareError: string | undefined;
+  if (action === 'update') {
+    try {
+      rbacChanges = rbacDiff(await liveRbacYaml(yaml), yaml);
+    } catch (e) {
+      rbacCompareError = e instanceof Error ? e.message : String(e);
+    }
+  }
+  const decision = evaluate(policy, {
+    toolId: tool.metadata.name,
+    source: tool.spec.source,
+    publicOnly,
+    action,
+    profile,
+    declared,
+    deployURL,
+    rbacAdded: rbacChanges.map((r) => ({ role: r.role, added: r.added })),
+  });
+  return {
+    tool,
+    version,
+    action,
+    yaml,
+    profile,
+    declared,
+    decision,
+    policy,
+    policyWarnings,
+    rbacChanges,
+    rbacCompareError,
+    publicOnly,
+  };
+}
+
 export type AddExtensionOpts = {
   storageClassName?: string;
   /**
@@ -457,6 +598,12 @@ export type AddExtensionOpts = {
    * When false, still install the plugin and return a warning.
    */
   enableWatchAllNamespaces?: boolean;
+  /** Apply exactly this YAML (what the user reviewed) instead of resolving it again. */
+  reviewedYaml?: string;
+  /** add counts a download; update doesn't. Default add. */
+  action?: 'add' | 'update';
+  /** Cluster policy, for the telemetry setting. */
+  policy?: Policy;
 };
 
 export type AddExtensionResult = {
@@ -483,12 +630,14 @@ export async function addExtension(
     }
   }
   const image = imageForRow(version, clusterMinor, tool.spec.image);
-  const yaml = await resolveDeployYaml(tool, version, clusterMinor);
+  const yaml = opts.reviewedYaml || (await resolveDeployYaml(tool, version, clusterMinor));
   const storageClassName =
     opts.storageClassName !== undefined ? opts.storageClassName : tool.spec.storageClassName;
-  const log = await applyYaml(yaml, { storageClassName });
+  const log = await applyYaml(yaml, { storageClassName, extensionId: tool.metadata.name });
   await setPluginEnabled(tool.spec.consolePlugin, true);
-  await incrementDownloads(tool.metadata.name, tool.spec.source);
+  if ((opts.action || 'add') === 'add') {
+    await incrementDownloads(tool.metadata.name, tool.spec.source, opts.policy);
+  }
   await recordInstalled(tool.metadata.name, {
     version: version?.version || '',
     channel: version?.channel || tool.spec.defaultChannel || DEFAULT_CHANNEL,
