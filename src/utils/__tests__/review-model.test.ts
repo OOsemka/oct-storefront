@@ -25,6 +25,15 @@ describe('whyFor', () => {
     expect(whyFor(rule, [{ apiGroups: ['apps'], resources: ['nodes'], verbs: ['get'], why: 'x' }])).toBeUndefined();
     expect(whyFor(rule, undefined)).toBeUndefined();
   });
+  it('covers subresources with the parent resource', () => {
+    const sub = { role: 'ClusterRole/x', scope: 'cluster', verbs: ['create'], resources: ['virtualmachines/start'], apiGroups: ['subresources.kubevirt.io'] };
+    expect(whyFor(sub, [{ apiGroups: ['subresources.kubevirt.io'], resources: ['virtualmachines'], verbs: ['create'], why: 'power VMs' }])).toBe('power VMs');
+  });
+  it('treats "" as the core group, not as any group', () => {
+    const pods = { role: 'ClusterRole/x', scope: 'cluster', verbs: ['get'], resources: ['pods'], apiGroups: [''] };
+    expect(whyFor(pods, [{ apiGroups: ['', 'apps'], resources: ['pods'], verbs: ['get'], why: 'logs' }])).toBe('logs');
+    expect(whyFor(pods, [{ apiGroups: ['apps'], resources: ['pods'], verbs: ['get'], why: 'x' }])).toBeUndefined();
+  });
 });
 
 describe('buildReview', () => {

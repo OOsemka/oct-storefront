@@ -79,6 +79,10 @@ function str(v: unknown): string | undefined {
 function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => (x == null ? '' : String(x).trim())).filter(Boolean) : [];
 }
+/** Like strList, but keeps "" (the core API group in RBAC rules). */
+function groupList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x) => x != null).map((x) => String(x).trim()) : [];
+}
 function oneOf<T extends string>(v: unknown, allowed: readonly T[]): T | undefined {
   const s = str(v);
   return s && (allowed as readonly string[]).includes(s) ? (s as T) : undefined;
@@ -128,7 +132,7 @@ export function parseSecurity(v: unknown, warnings: string[] = []): SecuritySpec
   if (isObj(v.rbac)) {
     spec.rbac = {
       rules: (Array.isArray(v.rbac.rules) ? v.rbac.rules : []).filter(isObj).map((r) => {
-        const rule: DeclaredRule = { apiGroups: strList(r.apiGroups), resources: strList(r.resources), verbs: strList(r.verbs) };
+        const rule: DeclaredRule = { apiGroups: groupList(r.apiGroups), resources: strList(r.resources), verbs: strList(r.verbs) };
         if (strList(r.resourceNames).length) rule.resourceNames = strList(r.resourceNames);
         if (str(r.why)) rule.why = str(r.why);
         return rule;

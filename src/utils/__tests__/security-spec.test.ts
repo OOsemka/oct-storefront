@@ -72,6 +72,11 @@ describe('parseSecurity', () => {
     expect(w.join(' ')).toMatch(/16 KB/);
   });
 
+  it('keeps "" (the core API group) in declared rules', () => {
+    const s = parseSecurity({ rbac: { rules: [{ apiGroups: ['', 'apps'], resources: ['pods'], verbs: ['get'] }] } });
+    expect(s?.rbac?.rules[0].apiGroups).toEqual(['', 'apps']);
+  });
+
   it('warns on a newer schema but keeps the block', () => {
     const w: string[] = [];
     expect(parseSecurity({ schema: 2, level: 'plugin' }, w)?.level).toBe('plugin');

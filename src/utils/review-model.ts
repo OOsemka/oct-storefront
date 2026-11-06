@@ -54,13 +54,20 @@ export function ruleText(r: { verbs: string[]; resources: string[]; apiGroups: s
   return `${r.verbs.join(', ')} on ${r.resources.join(', ') || '(none)'}${names}${groupLabel(r.apiGroups)}`;
 }
 
-/** The contributor's reason for a derived rule: a declared rule sharing a resource and API group. */
+/**
+ * The contributor's reason for a derived rule: a declared rule sharing a resource and
+ * API group. A declared resource also covers its subresources (`virtualmachines`
+ * explains `virtualmachines/start`).
+ */
 export function whyFor(rule: ScopedRule, declared: DeclaredRule[] | undefined): string | undefined {
   if (!declared?.length) return undefined;
+  const parents = rule.resources.map((r) => r.split('/')[0]);
   const hit = declared.find(
     (d) =>
       d.why &&
-      d.resources.some((res) => res === '*' || rule.resources.includes(res) || rule.resources.includes('*')) &&
+      d.resources.some(
+        (res) => res === '*' || rule.resources.includes(res) || parents.includes(res) || rule.resources.includes('*'),
+      ) &&
       (d.apiGroups.length === 0 || d.apiGroups.some((g) => g === '*' || rule.apiGroups.includes(g) || rule.apiGroups.includes('*'))),
   );
   return hit?.why;
