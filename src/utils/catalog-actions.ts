@@ -41,6 +41,7 @@ import {
   toolFromPublic,
 } from './parse-tools';
 import { applyYaml, applyVersionImage, generatePluginManifests } from './apply-yaml';
+import { DEFAULT_POLICY, parsePolicy, Policy, POLICY_CONFIGMAP, POLICY_KEY } from './policy';
 import { fetchDeployYaml, fetchPublicCatalog, postPublicDownload, postPublicRating } from './public-catalog';
 import {
   ensureProvisioningWatchAllNamespaces,
@@ -134,6 +135,38 @@ async function getConfigMap(name: string): Promise<ConfigMapKind | null> {
     return (await k8sGet({ model: ConfigMapModel, name, ns: STOREFRONT_NS })) as ConfigMapKind;
   } catch {
     return null;
+  }
+}
+
+export type PolicyState = {
+  policy: Policy;
+  /** default: no policy ConfigMap; configmap: read it; error: couldn't read it (defaults apply). */
+  source: 'default' | 'configmap' | 'error';
+  /** Problems to show in a banner (unreadable policy, invalid values). */
+  warnings: string[];
+};
+
+/**
+ * Read the cluster policy. Fails open: any problem yields the defaults plus a
+ * warning, never an exception, so a broken policy can't take the catalog down.
+ */
+export async function loadPolicy(): Promise<PolicyState> {
+  try {
+    const cm = (await k8sGet({ model: ConfigMapModel, name: POLICY_CONFIGMAP, ns: STOREFRONT_NS })) as ConfigMapKind;
+    const warnings: string[] = [];
+    const policy = parsePolicy(cm?.data?.[POLICY_KEY], warnings);
+    return { policy, source: 'configmap', warnings };
+  } catch (err) {
+    const e = err as { json?: { code?: number; reason?: string }; code?: number; message?: string };
+    if (e?.json?.code === 404 || e?.json?.reason === 'NotFound' || e?.code === 404) {
+      return { policy: { ...DEFAULT_POLICY }, source: 'default', warnings: [] };
+    }
+    const why = e?.message || String(err);
+    return {
+      policy: { ...DEFAULT_POLICY },
+      source: 'error',
+      warnings: [`Could not read the cluster policy (${why}); using the defaults.`],
+    };
   }
 }
 

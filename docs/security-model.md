@@ -58,6 +58,34 @@ Besides the level, the profile lists findings, each with a stable id:
 
 The goal is an empty baseline. Today CI runs the report in non-blocking mode.
 
+## Cluster policy
+
+Cluster admins can tune what the storefront offers with the optional ConfigMap `community-tools-policy` (namespace `oct-storefront`, key `policy.yaml`). The storefront never creates it, so **no policy means the defaults**. A commented copy with every setting at its default is in [`deploy/policy/`](../deploy/policy/).
+
+| Setting | Values (default first) | Effect |
+|---|---|---|
+| `mode` | `warn`, `off`, `enforce` | `warn` shows reasons on the review screen; `enforce` blocks; `off` ignores every rule. |
+| `review` | `elevated`, `never`, `always` | When the install review screen appears. `elevated` means: level above `plugin`, a Route, an external or public-only tool, or an update that adds RBAC. |
+| `maxLevel` | unset, or a level | Highest derived level allowed. |
+| `external` / `externalMaxLevel` | `allow`, `review`, `block` / unset | Tools users paste in with Add external. |
+| `publicCatalog` | `full`, `metadata-only`, `off` | What is taken from the public catalog API. |
+| `rbacWidening` | `warn`, `allow`, `review`, `block` | Updates that add RBAC permissions. |
+| `allowRoutes` | `true`, `false` | Bundles that create Routes. |
+| `requireNetworkPolicy` | `false`, `true` | Backends must ship a NetworkPolicy. |
+| `allowedRegistries` | `[]` (any) | Image registry prefixes allowed, e.g. `quay.io/cjanisze`. |
+| `requireDigest` | `none`, `community`, `all` | Images must be pinned by digest. |
+| `allowedDeployHosts` | `[]` (any) | Hosts a `deployURL` may point at. |
+| `telemetry` | `full`, `ratings-only`, `off` | What is sent to api.octools.net. |
+| `backends.<extension>.authMode` | `audit`, `enforce` | Temporary runtime override for an extension backend (read by `backend-security-kit`). `off` is not accepted. |
+| `perTool.<extension>` | overrides | Per-tool exceptions for `maxLevel`, `allowRoutes`, `requireNetworkPolicy`, `allowedRegistries`, `requireDigest`, `review`. |
+
+How it behaves:
+
+- **Everyone can read it, only admins can change it.** A Role in `install.yaml` lets `system:authenticated` `get` this one ConfigMap, because the storefront UI and extension backends need it. Don't put secrets in it. To let non-admins use the storefront without editing the policy, see `deploy/policy/storefront-user-role.yaml`.
+- **Fails open.** An unreadable policy or an invalid value falls back to the default for that setting, and the storefront shows a banner explaining why.
+- **The declaration never relaxes a rule.** Rules are checked against the derived profile. A declared level lower than the derived one adds an "exceeds declaration" warning.
+- The code is `src/utils/policy.ts` (pure, unit-tested); the storefront reads the ConfigMap with `loadPolicy()`.
+
 ## Advisory vs. enforced
 
 - **Storefront policy is advisory.** The storefront applies manifests with the logged-in user's own token, so it can show reasons, ask for review, or refuse to click Install, but it cannot stop a cluster admin from applying the same YAML by hand.
