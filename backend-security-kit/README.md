@@ -54,16 +54,19 @@ Handlers can call the API **as the caller** with `auth.UserToken(r.Context())` a
 | `audit` | allowed, logged | allowed, logged | allowed, logged | allowed, logged |
 | `off` | not checked (local development only; warns at start) | | | |
 
-**Rollout for an existing backend:** ship one release with `AUTH_MODE=audit`, read the logs for "would be denied", fix the table or the RBAC, then switch to `enforce`. New backends start in `enforce`.
+**Which mode to ship:**
+
+- **New backends** ship `AUTH_MODE=enforce` (the kit's default).
+- **Existing backends** adopting the kit ship `AUTH_MODE=audit` and **stay in audit until a cluster admin turns on enforce** for them in the cluster policy (below). Read the logs for "would be denied" and fix the table or the RBAC, so that switching to enforce is safe. Don't change an existing backend's shipped default to enforce yourself.
 
 ## Admin override at runtime
 
-If an enforced backend blocks something it shouldn't, a cluster admin can drop just that extension to audit, without redeploying, in the cluster policy (`community-tools-policy` ConfigMap in `oct-storefront`):
+A cluster admin sets each extension's mode in the cluster policy (`community-tools-policy` ConfigMap in `oct-storefront`), without redeploying. This is how an existing extension that ships in audit is switched to enforce, and how an enforced one can be dropped to audit if it blocks something it shouldn't:
 
 ```yaml
 backends:
   oct-baremetal:
-    authMode: audit
+    authMode: enforce   # or audit
 ```
 
 Backends pick it up within about a minute; removing it restores the Deployment's mode. Only `audit` and `enforce` are accepted: **an override can never turn checks off.** Everyone may read the policy ConfigMap, so the backend's ServiceAccount needs no extra RBAC for this.

@@ -83,7 +83,7 @@ Cluster admins can tune what the storefront offers with the optional ConfigMap `
 | `requireDigest` | `none`, `community`, `all` | Images must be pinned by digest. |
 | `allowedDeployHosts` | `[]` (any) | Hosts a `deployURL` may point at. |
 | `telemetry` | `full`, `ratings-only`, `off` | What is sent to api.octools.net. |
-| `backends.<extension>.authMode` | `audit`, `enforce` | Temporary runtime override for an extension backend (read by `backend-security-kit`). `off` is not accepted. |
+| `backends.<extension>.authMode` | `audit`, `enforce` | Per-extension backend mode, read at runtime by `backend-security-kit`. Existing extensions ship in `audit`: set `enforce` here to turn checking on for them. For a new (enforce) extension, `audit` is a temporary workaround. `off` is not accepted. |
 | `perTool.<extension>` | overrides | Per-tool exceptions for `maxLevel`, `allowRoutes`, `requireNetworkPolicy`, `allowedRegistries`, `requireDigest`, `review`. |
 
 How it behaves:
@@ -97,6 +97,7 @@ How it behaves:
 
 - **Storefront policy is advisory.** The storefront applies manifests with the logged-in user's own token, so it can show reasons, ask for review, or refuse to click Install, but it cannot stop a cluster admin from applying the same YAML by hand.
 - **Hard enforcement** comes from Kubernetes itself: RBAC, and an opt-in ValidatingAdmissionPolicy pack that cluster admins apply themselves.
+- **Backend modes:** new extensions ship in `enforce`. Existing extensions, when they adopt the kit, ship in `audit` and **stay there until a cluster admin switches them to `enforce`** in the policy (`backends.<extension>.authMode`). Audit lets every request through and logs what enforce would refuse, so adopting the kit never breaks a working tool.
 - **Extension backends** must check every caller's permissions themselves. The console sends requests straight to the backend, not through the storefront. The shared `backend-security-kit` does this: user identity from the console proxy, a SelfSubjectAccessReview per route, and off/audit/enforce modes.
 
 ## Installing safely: what the storefront already guarantees

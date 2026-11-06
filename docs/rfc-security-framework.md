@@ -76,7 +76,7 @@ allowedRegistries: ["*"]
 requireDigest: false
 telemetry: full           # full | ratings-only | off
 backends:                 # runtime override per extension backend
-  oct-baremetal: { authMode: audit }   # temporary workaround; set back to enforce later
+  oct-baremetal: { authMode: enforce }   # existing extensions ship in audit; the admin turns on enforce
 ```
 
 How the policy is read and protected:
@@ -131,7 +131,7 @@ Long-running work (provisioning, image builds) keeps using the backend's Service
 1. **Groundwork, no behaviour change:** preflight, digest-safe version parsing, tests, profile derivation, report-only CI.
 2. **Framework knobs:** declarations, policy (warn / elevated review), review screen, labels, telemetry knob, the kit (v0.1), templates, docs. Declarations are added to all catalog rows.
 3. **Opt-in enforcement:** enforce mode, the admission-policy pack, the policy page, `UserToken` on every bundled proxy.
-4. **Migrate extensions one at a time** (audit release, then enforce), in risk order: Bare Metal → Storage Bench → Shift-on-Shift → Windows Builder → Network DHCP → catalog-service → browser-only tools and templates.
+4. **Migrate extensions one at a time.** Each adopts the kit in **audit**, and stays in audit until a cluster admin enables enforce for it in the policy (new extensions ship in enforce). Risk order: Bare Metal → Storage Bench → Shift-on-Shift → Windows Builder → Network DHCP → catalog-service → browser-only tools and templates.
 5. **Strict defaults** in a major release; `mode: off` restores the old behaviour.
 
 All of this is being developed and tested in forks (`dsorrentino/*`) on a disposable nested OpenShift 4.22 cluster. It will be offered as one tested set of PRs, with a test report. Version bumps, image tags, catalog rows and API seeding stay with the maintainer at merge.

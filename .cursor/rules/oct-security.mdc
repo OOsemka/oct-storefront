@@ -29,7 +29,8 @@ trusted code. Keep what it can do small and say why it needs it. Reference:
   the caller needs. Never expose a route that acts with the ServiceAccount on behalf of
   an unchecked caller. Public routes only for things that must work without a user.
 - The ConsolePlugin proxy sets `authorization: UserToken`.
-- New backends ship `AUTH_MODE=enforce`. Migrated backends ship one release in audit.
+- New backends ship `AUTH_MODE=enforce`. Existing backends adopting the kit ship `AUTH_MODE=audit`
+  and stay there until a cluster admin enables enforce in the policy; don't flip them yourself.
 - Validate every caller-supplied name, namespace, path and argument (`validate`).
   Never run `sh -c` with caller input; pass the program and arguments directly.
 - Verify TLS (no `InsecureSkipVerify`), no CORS headers, HTTPS with the service-ca cert.

@@ -57,12 +57,14 @@ data:
     # (an anonymous cluster hash with ratings; download counts on Add)
     telemetry: full
 
-    # Temporary runtime override of an extension backend's auth mode
-    # (audit | enforce; read by backend-security-kit within about a minute).
-    # Use audit only as a workaround while a permission problem is fixed.
+    # Per-extension backend auth mode (audit | enforce), read by
+    # backend-security-kit within about a minute. Existing extensions ship in
+    # audit (requests allowed, would-be denials logged): set enforce to turn
+    # checking on. New extensions ship in enforce; audit for one of them is a
+    # temporary workaround while a permission problem is fixed.
     backends: {}
     #   oct-baremetal:
-    #     authMode: audit
+    #     authMode: enforce
 
     # Per-tool exceptions. Keys: maxLevel, allowRoutes, requireNetworkPolicy,
     # allowedRegistries, requireDigest, review.
