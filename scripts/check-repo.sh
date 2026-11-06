@@ -22,7 +22,7 @@ private=$(git grep -nIE "(/home/[a-z][a-z0-9_-]+/|/Users/[A-Za-z][A-Za-z0-9_-]+/
 [ -n "$private" ] && report "private data (home paths, tokens or keys) in tracked files:" "$private"
 
 # --- Security patterns -------------------------------------------------------
-# Markdown, tests and this script are excluded (they describe the patterns). Local
+# Markdown, Cursor rules, tests and this script are excluded (they describe the patterns). Local
 # dev servers (webpack.config.js) may use CORS *: the console on :9000 loads the
 # plugin from :9001. What ships (nginx.conf, Go servers) must not.
 security_warn() {
@@ -37,7 +37,7 @@ security_warn() {
   fi
   return 0
 }
-sec() { git grep -nIE "$1" -- "${@:2}" ':!*.md' ':!scripts/check-repo.sh' ':!yarn.lock' ':!.yarn/*' ':!*_test.go' ':!*/__tests__/*' || true; }
+sec() { git grep -nIE "$1" -- "${@:2}" ':!*.md' ':!*.mdc' ':!scripts/check-repo.sh' ':!yarn.lock' ':!.yarn/*' ':!*_test.go' ':!*/__tests__/*' || true; }
 Q="[\"']"   # either quote character
 SH='"(/bin/)?(ba|z|da|k)?sh"'
 
