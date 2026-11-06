@@ -1,0 +1,25 @@
+# ConsolePlugin proxy that forwards the logged-in user's identity to the backend.
+# Without `authorization: UserToken` the backend can't tell who is calling, and
+# backend-security-kit answers 401 in enforce mode.
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: oct-example
+spec:
+  displayName: Example
+  backend:
+    type: Service
+    service:
+      name: oct-example
+      namespace: oct-example
+      port: 9443
+      basePath: /
+  proxy:
+    - alias: backend
+      authorization: UserToken
+      endpoint:
+        type: Service
+        service:
+          name: oct-example-backend
+          namespace: oct-example
+          port: 9443

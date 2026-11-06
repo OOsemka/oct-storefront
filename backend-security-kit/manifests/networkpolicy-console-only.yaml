@@ -1,0 +1,30 @@
+# Only the console (and kubelet probes) may reach the backend; no other pod can
+# call it directly and bypass the console proxy. Requires storefront 1.6+ to apply
+# from a catalog row (set versions[].minStorefront: "1.6.0").
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oct-example-backend-console-only
+  namespace: oct-example
+spec:
+  podSelector:
+    matchLabels:
+      app: oct-example-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - protocol: TCP
+          port: 9443
+    # Plain health port for kubelet probes (host network on OpenShift).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              policy-group.network.openshift.io/host-network: ""
+      ports:
+        - protocol: TCP
+          port: 8080
