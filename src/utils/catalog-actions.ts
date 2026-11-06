@@ -17,7 +17,7 @@ import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
 import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel } from './k8s-models';
-import { bundleBlocker, semverFromImage } from './bundle-check';
+import { bundleBlocker, semverFromImage, storefrontBlocker } from './bundle-check';
 import {
   CACHE_CONFIGMAP,
   CommunityTool,
@@ -363,7 +363,10 @@ export async function setPluginEnabled(pluginName: string, enabled: boolean): Pr
  * and plugin-only tools are unaffected.
  */
 export function installBlocker(tool: CommunityTool, version?: ToolVersion): string {
-  if (!version || version.deployYAML?.trim() || version.deployURL) return '';
+  if (!version) return '';
+  const tooOld = storefrontBlocker(tool.spec.displayName, STOREFRONT_VERSION, version.minStorefront);
+  if (tooOld) return tooOld;
+  if (version.deployYAML?.trim() || version.deployURL) return '';
   const bundled = BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin];
   return bundled ? bundleBlocker(tool.spec.displayName, tool.spec.consolePlugin, bundled, version.version) : '';
 }

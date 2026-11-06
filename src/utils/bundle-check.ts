@@ -62,3 +62,14 @@ export function bundleBlocker(displayName: string, pluginName: string, bundled: 
   if (!have || compareSemver(version, have) <= 0) return '';
   return `${displayName} ${version} needs a newer Community Tools Storefront: this one only has the ${have} manifests. Update the storefront first.`;
 }
+
+/**
+ * Why this storefront is too old for a catalog row that sets `minStorefront`, or ''.
+ * Rows use it when their manifest needs something only newer storefronts can apply
+ * (for example a NetworkPolicy). Older storefronts ignore the field entirely.
+ */
+export function storefrontBlocker(displayName: string, running: string, minStorefront?: string): string {
+  const min = (minStorefront || '').trim();
+  if (!min || compareSemver(running, min) >= 0) return '';
+  return `${displayName} needs storefront ${min} or newer (this is ${running}). Update the storefront first.`;
+}

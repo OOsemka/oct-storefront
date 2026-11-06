@@ -1,4 +1,5 @@
 /** CommunityTool YAML / JSON schema. Keep in sync with docs/extension-standard.md and AGENTS.md. */
+import type { SecuritySpec } from './security-spec';
 
 export const COMMUNITY_TOOL_API = 'communitytools.io/v1alpha1';
 /** @deprecated alias — same value as COMMUNITY_TOOL_API */
@@ -60,6 +61,16 @@ export type CommunityToolSpec = {
    * still pick another compatible semver in the tile version menu.
    */
   versions?: ToolVersion[];
+  /**
+   * Optional security declaration (docs/security-model.md). Advisory: the storefront
+   * derives the real profile from the manifests. Missing means "Not declared".
+   */
+  security?: SecuritySpec;
+  /**
+   * In memory only, never serialized: set when the catalog is read if the tool is
+   * not in this storefront's bundled catalog (it came only from the public API).
+   */
+  publicOnly?: boolean;
 };
 
 export type ToolVersion = {
@@ -75,6 +86,10 @@ export type ToolVersion = {
   gitRef?: string;
   deployURL?: string;
   deployYAML?: string;
+  /** Oldest storefront that can install this row (e.g. it needs a newer kind). */
+  minStorefront?: string;
+  /** Per-version security declaration; replaces spec.security for this row. */
+  security?: SecuritySpec;
 };
 
 export type CommunityTool = {
@@ -129,6 +144,8 @@ export type PublicCatalogExtension = {
   pinVersion?: string;
   storageClassName?: string;
   versions?: ToolVersion[];
+  /** Raw declaration from the API; parsed with parseSecurity before use. */
+  security?: unknown;
   downloads?: number;
   rating?: { average?: number; count?: number };
 };
