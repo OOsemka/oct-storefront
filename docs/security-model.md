@@ -56,7 +56,14 @@ Besides the level, the profile lists findings, each with a stable id:
 - **New** findings are reported. With `--strict`, CI fails on them.
 - When a tool is fixed, the report lists findings that are "no longer present". Remove them from the baseline with `yarn security-check --update-baseline` and review the diff.
 
-The goal is an empty baseline. Today CI runs the report in non-blocking mode.
+The goal is an empty baseline. Besides the ratchet, two **hard rules** fail CI for any new occurrence:
+
+- a Secret with data inside a bundle;
+- a catalog row whose inline `deployYAML` contains a NetworkPolicy without `versions[].minStorefront: "1.6.0"` or newer.
+
+The report also warns when a declaration understates the bundle (declared level below the derived one, or a Route not listed in `spec.security.network.routes`) and lists tools with no declaration.
+
+`yarn check-repo`, which every OCT repository runs, warns on risky patterns in source and manifests: CORS `*` in shipped config, disabled TLS verification, `chmod 777`, `sh -c` in Go, `:latest` images, deploy URLs on `main`, RBAC wildcards, and code that creates SCCs. `CHECK_REPO_SECURITY=error` turns the warnings into failures.
 
 ## Cluster policy
 

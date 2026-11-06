@@ -84,6 +84,11 @@ checked instead. A maintainer tests it before the release.
   URLs or tokens in code, catalog entries or docs.
 - **Add and Update apply manifests with the signed-in user's credentials.** Do not
   give the storefront or the catalog service broader cluster permissions.
+- **Security:** declare what an extension needs in `spec.security`, keep RBAC
+  minimal, and use `backend-security-kit` for backends. See
+  [docs/security-model.md](docs/security-model.md) and the Security section of
+  [docs/extension-standard.md](docs/extension-standard.md). Report vulnerabilities
+  privately ([SECURITY.md](SECURITY.md)), not in public issues.
 - **Stats fail open:** download counts and ratings must never block browsing or installing.
 - **Wording:** this is a community project; do not describe it as official Red Hat software.
 - [AGENTS.md](AGENTS.md) describes the design in detail. It is also the guide

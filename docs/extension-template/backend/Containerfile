@@ -1,0 +1,10 @@
+FROM docker.io/library/golang:1.22 AS build
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /backend .
+
+# Pin by digest for releases (ubi9/ubi-micro:9.8@sha256:...).
+FROM registry.access.redhat.com/ubi9/ubi-micro:9.8
+COPY --from=build /backend /backend
+USER 1001
+ENTRYPOINT ["/backend"]

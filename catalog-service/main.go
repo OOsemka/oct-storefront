@@ -34,7 +34,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/stats/download", handlePublicStat("download"))
 	mux.HandleFunc("POST /api/v1/stats/rating", handlePublicStat("rating"))
 
-	handler := withCORS(mux)
+	handler := noCORS(mux)
 
 	go func() {
 		addr := ":" + *httpPort
@@ -220,13 +220,12 @@ func writeJSON(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func withCORS(next http.Handler) http.Handler {
+// noCORS refuses browser preflights. The storefront reaches catalog-service only
+// through the console's plugin proxy (same origin), so no CORS headers are needed.
+func noCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			http.Error(w, "CORS is not supported", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)

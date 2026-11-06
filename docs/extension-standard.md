@@ -168,6 +168,19 @@ Key implications:
 - The `catalog-service` image rarely changes (only when the Go proxy logic changes). Restarting the storefront does **not** restart catalog-service.
 - After redeploying `oct-storefront`, delete the cache ConfigMap (see "Cache behavior" above).
 
+## Security
+
+Every extension is installed with a cluster admin's credentials, so keep what it can do small and explain why it needs it. The full model, including privilege levels and the cluster policy, is in [security-model.md](security-model.md).
+
+- **Declare** what the tool needs in `spec.security`: `level`, `summary`, a security `contact`, and a `why` for every RBAC rule, Route, egress host and runtime-created object. The schema with comments is in [`extension-template/catalog-tool.yaml`](extension-template/catalog-tool.yaml). It's optional, but undeclared tools show "Not declared" in the storefront.
+- **Least privilege:** prefer a Role in the tool's namespace over a ClusterRole. No wildcards, `escalate`/`bind`/`impersonate`, cluster-wide Secret reads, or bindings to cluster-admin/admin/edit.
+- **Backends** use [`backend-security-kit`](../backend-security-kit/README.md): every route is checked with the caller's permissions, and the ConsolePlugin proxy sets `authorization: UserToken`. Start from [`extension-template/backend/`](extension-template/backend/). New backends ship `AUTH_MODE=enforce`.
+- **Network:** console-only by default. A Route exposes only the path that needs it and is declared with a reason. Ship a console-only NetworkPolicy (`backend-security-kit/manifests/`); catalog rows whose inline manifest contains one set `versions[].minStorefront: "1.6.0"`.
+- **No credentials** in manifests, images, logs or catalog entries. CI fails on a Secret with data in a bundle.
+- **Containers:** non-root, no privilege escalation, drop ALL capabilities, read-only root filesystem with emptyDir scratch space, no service-account token when the pod doesn't call the API, no `chmod 777`. Version-tagged images (never `:latest`), pinned by digest for releases.
+- **Checks:** `yarn check-repo` warns on risky patterns (CORS `*` in shipped config, disabled TLS verification, `chmod 777`, `sh -c` in Go, `:latest`, deploy URLs on `main`, RBAC wildcards, runtime SCC creation); set `CHECK_REPO_SECURITY=error` to make them fail. In the storefront, `yarn security-check` derives every bundle's profile and compares it with the baseline and the declarations.
+- **Vulnerabilities** are reported privately through GitHub security advisories ([SECURITY.md](../SECURITY.md)); copy SECURITY.md into your repo.
+
 ## Pre-ship validation
 
 Run `scripts/validate-catalog.sh` before every commit that touches `catalog/community.yaml` or `catalog/deploy/*.yaml`:
@@ -182,10 +195,11 @@ It checks: OCP minor completeness, tag suffix correctness, registry tag existenc
 ## Checklist for a new extension repo
 
 1. Repo / plugin ID / image: `oct-<name>`. Copy `docs/extension-template/`.
-2. AGENTS.md + README. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc`, `oct-no-env-hardcoding.mdc`, `oct-release-checklist.mdc` (`alwaysApply: true`).
+2. AGENTS.md + README + SECURITY.md. Cursor rules: `oct-naming.mdc`, `oct-ocp-versions.mdc`, `oct-semver.mdc`, `oct-docs.mdc`, `oct-extension-add.mdc`, `oct-no-env-hardcoding.mdc`, `oct-release-checklist.mdc`, `oct-security.mdc` (`alwaysApply: true`).
 3. Tool routes only (no Community Tools four-hub nav). Community disclaimer.
 4. PatternFly major matches the OCP branch. No PatternFly CSS import.
 5. PR a tile into storefront `catalog/community.yaml` with `spec.versions[]` (`version`, `channel`, `openshift`, **public combined** `image` whose **tag exists**). Set `spec.href` to a `console-extensions.json` route. Add an original SVG at `src/assets/tiles/oct-<name>.svg`, register it in `src/utils/tile-icons.ts`, set `spec.icon: tiles/oct-<name>.svg` in `community.yaml` **and** `deploy/install.yaml`.
 6. If the plugin needs more than Namespace/Deployment/Service/ConsolePlugin, add `catalog/deploy/oct-<name>.yaml` (complete volumes/RBAC/Services **and required PVCs**) and register it in `BUNDLED_DEPLOY`. Omit PVC `storageClassName` for the cluster default; Add can override.
 7. `yarn build` in the extension and the storefront. Run `scripts/validate-catalog.sh`. Do not treat storefront **Add** success as Ready — confirm the plugin Deployment is Running. Do not `oc apply` unless asked.
 8. If the extension has sidecars, add a "Companion images" section to `AGENTS.md` listing every image the deploy bundle references beyond the main plugin image. Follow `oct-release-checklist.mdc` for all version bumps.
+9. Add `spec.security` to the catalog entry (see [Security](#security)). A backend uses `backend-security-kit` with `authorization: UserToken` on its proxy and a console-only NetworkPolicy.

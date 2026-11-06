@@ -28,7 +28,7 @@ jobs:
         run: yarn check-repo
       - name: Unit tests
         run: yarn test
-      - name: Security report (non-blocking; see docs/security-model.md)
+      - name: Security report (fails only on hard rules; see docs/security-model.md)
         run: yarn security-check
       - name: Build
         run: yarn build
@@ -69,6 +69,9 @@ jobs:
         run: go vet ./...
       - name: go test (race)
         run: go test -race ./...
+      - name: build the extension-template backend starter
+        working-directory: docs/extension-template/backend
+        run: go vet ./... && go build ./...
       - name: fuzz (short)
         run: |
           go test -run=XXX -fuzz=FuzzParseBackendOverrides -fuzztime=20s ./auth

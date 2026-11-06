@@ -178,6 +178,17 @@ Canonical checklist: `docs/extension-standard.md`. Do not `oc apply` unless aske
 
 Never bake in a lab StorageClass, VLAN, CIDR, hostname, or similar. Omit the field (cluster default), read the live cluster, or use the value chosen at Add. Rule: `.cursor/rules/oct-no-env-hardcoding.mdc`.
 
+## Security
+
+Model and reasoning: `docs/security-model.md`. Rule: `.cursor/rules/oct-security.mdc`.
+
+- **Declare → Derive → Decide.** `spec.security` (parsed by `src/utils/security-spec.ts`) is the contributor's intent. `src/utils/security-profile.ts` derives the real profile from manifests, used by both the storefront and CI; it is the source of truth. `src/utils/policy.ts` evaluates the cluster policy (ConfigMap `community-tools-policy`, read with `loadPolicy()`; absent means defaults). A declaration never relaxes a rule.
+- **Every install goes through `prepareInstall()` and the review gate in `useCatalog`.** Never call `addExtension` without `reviewedYaml` from a prepared install, and never add a path that applies YAML around the gate.
+- **Keep the kind allow-list tight** (`k8s-models.ts` `KIND_MODELS`). No SCCs, admission policies or webhooks. A new kind needs `versions[].minStorefront` on rows that use it.
+- **Telemetry:** only Add counts a download; public posts go through `telemetryAllows(policy, …)`.
+- **Backends** use `backend-security-kit/` (stdlib only; its own CI job). Keep it free of dependencies.
+- **CI:** `yarn security-check` fails on hard rules (Secret with data in a bundle, NetworkPolicy row without `minStorefront`) and reports new findings against `catalog/security-baseline.json`. When a tool is fixed, shrink the baseline with `--update-baseline`; never add to it to make CI pass without saying why in the PR.
+
 ## Stats / fail-open
 
 Add / Remove never call the public server. Downloads/ratings: local always; public POST best-effort for community ids.

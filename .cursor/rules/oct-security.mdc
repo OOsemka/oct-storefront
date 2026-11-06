@@ -1,0 +1,56 @@
+---
+description: Security rules for OCT extensions (permissions, backends, network, secrets, images)
+alwaysApply: true
+---
+
+# Security for OCT extensions
+
+OCT installs extensions with a cluster admin's credentials, so every extension is
+trusted code. Keep what it can do small and say why it needs it. Reference:
+`oct-storefront/docs/security-model.md`.
+
+## Declare
+
+- Add `spec.security` to the catalog entry: `level`, `summary`, and a `why` for each
+  RBAC rule, Route, egress host and runtime-created object. The install review shows
+  these reasons; CI warns when the manifests do more than the declaration says.
+
+## Permissions
+
+- Ask for the least RBAC that works. Prefer a Role in the tool's namespace over a
+  ClusterRole. No `*` verbs, resources or API groups. No `escalate`, `bind`,
+  `impersonate`, cluster-wide Secret reads, or bindings to cluster-admin/admin/edit.
+- Creating an SCC or other cluster-scoped security object at runtime must be declared
+  in `spec.security.privileged.runtimeCreates` with how it is cleaned up.
+
+## Backends
+
+- Use `backend-security-kit`: one `auth.Route` per handler, each with the permission
+  the caller needs. Never expose a route that acts with the ServiceAccount on behalf of
+  an unchecked caller. Public routes only for things that must work without a user.
+- The ConsolePlugin proxy sets `authorization: UserToken`.
+- New backends ship `AUTH_MODE=enforce`. Migrated backends ship one release in audit.
+- Validate every caller-supplied name, namespace, path and argument (`validate`).
+  Never run `sh -c` with caller input; pass the program and arguments directly.
+- Verify TLS (no `InsecureSkipVerify`), no CORS headers, HTTPS with the service-ca cert.
+
+## Network
+
+- Default to console-only. A Route publishes a service outside the cluster: expose
+  only the path that needs it, on its own listener, and declare why.
+- Ship a NetworkPolicy that admits only the console (and probes) to the backend;
+  catalog rows with one set `versions[].minStorefront: "1.6.0"`.
+
+## Secrets and images
+
+- Never put credentials in a manifest, image, ConfigMap, log or catalog entry.
+  Reference a Secret the admin creates, or create it at runtime from user input.
+- Public images with version tags (never `:latest`); pin by digest for releases.
+- Containers: non-root, `allowPrivilegeEscalation: false`, drop ALL capabilities,
+  `readOnlyRootFilesystem: true` with emptyDir scratch space, and
+  `automountServiceAccountToken: false` when the pod doesn't call the API. No `chmod 777`.
+
+## Check
+
+- `yarn check-repo` (security patterns; `CHECK_REPO_SECURITY=error` to fail on them)
+  and, in oct-storefront, `yarn security-check`.
