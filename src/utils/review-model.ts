@@ -40,6 +40,7 @@ export type ReviewModel = {
 };
 
 const GATE_ORDER: Record<string, number> = { block: 0, review: 1, warn: 2, allow: 3 };
+const SEVERITY_ORDER: Record<string, number> = { high: 0, warn: 1, info: 2 };
 
 function groupLabel(groups: string[]): string {
   const named = groups.filter((g) => g && g !== '*');
@@ -129,7 +130,12 @@ export function buildReview(input: {
     privileged,
     network,
     images: profile.images.map((i) => ({ ref: i.ref, note: imageNote(i) })),
-    findings: profile.findings.filter((f) => f.severity !== 'info'),
+    // Highest severity first; original order within a severity.
+    findings: profile.findings
+      .filter((f) => f.severity !== 'info')
+      .map((f, i) => ({ f, i }))
+      .sort((a, b) => SEVERITY_ORDER[a.f.severity] - SEVERITY_ORDER[b.f.severity] || a.i - b.i)
+      .map(({ f }) => f),
     rbacAdded: added,
     rbacRemoved: removed,
     runtimeCreates: (declared?.privileged?.runtimeCreates || []).map(

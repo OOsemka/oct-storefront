@@ -73,6 +73,8 @@ export const InstallReviewModal: FC<{
   const { tool, version, action } = prep;
   const name = `${tool.spec.displayName}${version?.version ? ` ${version.version}` : ''}`;
   const verb = action === 'update' ? t('Update') : t('Install');
+  const hasPermissionDetails =
+    m.clusterRules.length > 0 || m.namespacedRules.length > 0 || m.privileged.length > 0 || m.runtimeCreates.length > 0;
 
   return (
     <Modal isOpen onClose={onCancel} variant="medium" aria-labelledby="ct-review-title">
@@ -122,6 +124,53 @@ export const InstallReviewModal: FC<{
             {m.summary ? <p>{m.summary}</p> : null}
           </StackItem>
 
+          <Section title={t('Capabilities Findings')}>
+            {m.findings.length ? (
+              <List isPlain className="ct-review-list">
+                {m.findings.map((f, i) => (
+                  <ListItem key={`${f.id}-${i}`}>
+                    <Label isCompact color={f.severity === 'high' ? 'red' : 'orange'}>
+                      {f.severity}
+                    </Label>{' '}
+                    {f.message} <span className="ct-review-muted">({f.object})</span>
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <p className="ct-review-muted">{t('No findings.')}</p>
+            )}
+          </Section>
+          {hasPermissionDetails ? (
+            <StackItem>
+              <ExpandableSection toggleText={t('See Permission Details')}>
+                <Stack hasGutter>
+                  {m.clusterRules.length ? (
+                    <Section title={t('Cluster-wide permissions')}>
+                      <Rules rules={m.clusterRules} />
+                    </Section>
+                  ) : null}
+                  {m.privileged.length || m.runtimeCreates.length ? (
+                    <Section title={t('Privileged access')}>
+                      <List isPlain className="ct-review-list">
+                        {m.privileged.map((p) => (
+                          <ListItem key={p}>{p}</ListItem>
+                        ))}
+                        {m.runtimeCreates.map((p) => (
+                          <ListItem key={p}>{t('Creates at runtime: {{object}}', { object: p })}</ListItem>
+                        ))}
+                      </List>
+                    </Section>
+                  ) : null}
+                  {m.namespacedRules.length ? (
+                    <Section title={t('Namespaced permissions')}>
+                      <Rules rules={m.namespacedRules} />
+                    </Section>
+                  ) : null}
+                </Stack>
+              </ExpandableSection>
+            </StackItem>
+          ) : null}
+
           {action === 'update' ? (
             <Section title={t('Permission changes in this update')}>
               {prep.rbacCompareError ? (
@@ -147,23 +196,6 @@ export const InstallReviewModal: FC<{
             </Section>
           ) : null}
 
-          {m.clusterRules.length ? (
-            <Section title={t('Cluster-wide permissions')}>
-              <Rules rules={m.clusterRules} />
-            </Section>
-          ) : null}
-          {m.privileged.length || m.runtimeCreates.length ? (
-            <Section title={t('Privileged access')}>
-              <List isPlain className="ct-review-list">
-                {m.privileged.map((p) => (
-                  <ListItem key={p}>{p}</ListItem>
-                ))}
-                {m.runtimeCreates.map((p) => (
-                  <ListItem key={p}>{t('Creates at runtime: {{object}}', { object: p })}</ListItem>
-                ))}
-              </List>
-            </Section>
-          ) : null}
           {m.network.length ? (
             <Section title={t('Network')}>
               <List isPlain className="ct-review-list">
@@ -184,20 +216,6 @@ export const InstallReviewModal: FC<{
               </List>
             </Section>
           ) : null}
-          {m.findings.length ? (
-            <Section title={t('Findings')}>
-              <List isPlain className="ct-review-list">
-                {m.findings.map((f, i) => (
-                  <ListItem key={`${f.id}-${i}`}>
-                    <Label isCompact color={f.severity === 'high' ? 'red' : 'orange'}>
-                      {f.severity}
-                    </Label>{' '}
-                    {f.message} <span className="ct-review-muted">({f.object})</span>
-                  </ListItem>
-                ))}
-              </List>
-            </Section>
-          ) : null}
           <StackItem>
             <ExpandableSection toggleText={t('Everything this creates ({{count}} kinds)', { count: m.kinds.length })}>
               <List isPlain className="ct-review-list">
@@ -205,14 +223,6 @@ export const InstallReviewModal: FC<{
                   <ListItem key={k}>{k}</ListItem>
                 ))}
               </List>
-              {m.namespacedRules.length ? (
-                <>
-                  <Title headingLevel="h4" size="md">
-                    {t('Namespaced permissions')}
-                  </Title>
-                  <Rules rules={m.namespacedRules} />
-                </>
-              ) : null}
             </ExpandableSection>
           </StackItem>
           <StackItem>

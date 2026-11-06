@@ -130,5 +130,8 @@
   "Namespaced permissions": "Namespaced permissions",
   "Show the YAML that will be applied": "Show the YAML that will be applied",
   "Security contact: {{contact}}": "Security contact: {{contact}}",
-  "Security": "Security"
+  "Security": "Security",
+  "Capabilities Findings": "Capabilities Findings",
+  "No findings.": "No findings.",
+  "See Permission Details": "See Permission Details"
 }

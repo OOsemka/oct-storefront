@@ -37,6 +37,9 @@ describe('buildReview', () => {
     expect(m.network.some((n) => n.startsWith('Route '))).toBe(true);
     expect(m.images.length).toBeGreaterThan(0);
     expect(m.findings.every((f) => f.severity !== 'info')).toBe(true);
+    const sev = m.findings.map((f) => f.severity);
+    expect(sev).toEqual([...sev].sort((a, b) => (a === b ? 0 : a === 'high' ? -1 : 1)));
+    expect(sev[0]).toBe('high');
     expect(m.kinds.some((k) => k.endsWith('× Deployment'))).toBe(true);
   });
 
