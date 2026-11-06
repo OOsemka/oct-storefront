@@ -140,7 +140,7 @@
 
 /* Security labels on tiles and the install review screen */
 .ct-tile__labels {
-  flex-shrink: 0;
+  margin-top: calc(-1 * var(--pf-t--global--spacer--xs, 4px));
 }
 .ct-review-list {
   margin-top: var(--pf-t--global--spacer--xs);

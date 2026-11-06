@@ -67,25 +67,25 @@ export const ExtensionTile: FC<{
           ) : null}
           <h3 className="ct-tile__title">{tool.spec.displayName}</h3>
         </div>
-        <LabelGroup className="ct-tile__labels" numLabels={4}>
-          <Label color={tool.spec.source === 'external' ? 'orange' : 'blue'}>{badge}</Label>
-          {item.publicOnly ? (
-            <Label color="purple" title={t('From the public catalog; not in this storefront release.')}>
-              {t('Public-only')}
-            </Label>
-          ) : null}
-          {item.securityLevel ? (
-            <Label isCompact color={LEVEL_COLOR[item.securityLevel]} title={t('Access level derived from the install manifests')}>
-              {item.securityLevel}
-            </Label>
-          ) : null}
-          {!tool.spec.security ? (
-            <Label isCompact variant="outline" color="grey" title={t('The tool does not declare what it needs (spec.security).')}>
-              {t('Not declared')}
-            </Label>
-          ) : null}
-        </LabelGroup>
+        <Label color={tool.spec.source === 'external' ? 'orange' : 'blue'}>{badge}</Label>
       </header>
+      <LabelGroup className="ct-tile__labels" numLabels={3} aria-label={t('Security')}>
+        {item.securityLevel ? (
+          <Label isCompact color={LEVEL_COLOR[item.securityLevel]} title={t('Access level derived from the install manifests')}>
+            {item.securityLevel}
+          </Label>
+        ) : null}
+        {!tool.spec.security ? (
+          <Label isCompact variant="outline" title={t('The tool does not declare what it needs (spec.security).')}>
+            {t('Not declared')}
+          </Label>
+        ) : null}
+        {item.publicOnly ? (
+          <Label isCompact color="purple" title={t('From the public catalog; not in this storefront release.')}>
+            {t('Public-only')}
+          </Label>
+        ) : null}
+      </LabelGroup>
       <p className="ct-tile__desc">{tool.spec.description}</p>
       <p className="ct-tile__meta">{t('Validated on OpenShift {{versions}}', { versions })}</p>
       {item.installedVersion ? (
