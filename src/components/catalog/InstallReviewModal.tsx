@@ -73,6 +73,7 @@ export const InstallReviewModal: FC<{
   const { tool, version, action } = prep;
   const name = `${tool.spec.displayName}${version?.version ? ` ${version.version}` : ''}`;
   const verb = action === 'update' ? t('Update') : t('Install');
+  const cannotInstall = m.blocked || prep.problems.length > 0;
   const hasPermissionDetails =
     m.clusterRules.length > 0 || m.namespacedRules.length > 0 || m.privileged.length > 0 || m.runtimeCreates.length > 0;
 
@@ -89,6 +90,17 @@ export const InstallReviewModal: FC<{
               <Alert isInline isPlain variant="warning" title={w} />
             </StackItem>
           ))}
+          {prep.problems.length ? (
+            <StackItem>
+              <Alert isInline variant="danger" title={t('This cannot be installed on this cluster')}>
+                <List>
+                  {prep.problems.map((p) => (
+                    <ListItem key={p}>{p}</ListItem>
+                  ))}
+                </List>
+              </Alert>
+            </StackItem>
+          ) : null}
           {m.reasons.length ? (
             <StackItem>
               <Alert
@@ -236,7 +248,7 @@ export const InstallReviewModal: FC<{
         </Stack>
       </ModalBody>
       <ModalFooter>
-        <Button variant={m.blocked ? 'secondary' : 'primary'} onClick={onConfirm} isDisabled={m.blocked}>
+        <Button variant={cannotInstall ? 'secondary' : 'primary'} onClick={onConfirm} isDisabled={cannotInstall}>
           {verb}
         </Button>
         <Button variant="link" onClick={onCancel}>

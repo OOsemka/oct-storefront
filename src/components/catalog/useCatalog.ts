@@ -331,7 +331,7 @@ export function useCatalog(category: ToolCategory) {
           },
           okMessage,
         );
-      if (!prep.decision.review && prep.decision.outcome !== 'block') {
+      if (!prep.decision.review && prep.decision.outcome !== 'block' && prep.problems.length === 0) {
         await go();
         return;
       }

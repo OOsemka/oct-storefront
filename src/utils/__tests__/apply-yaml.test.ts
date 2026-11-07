@@ -13,7 +13,8 @@ vi.mock('@openshift-console/dynamic-plugin-sdk', () => ({
   k8sUpdate: vi.fn(),
 }));
 
-import { applyYaml, EXTENSION_LABEL, splitYamlDocs, unsupportedKinds } from '../apply-yaml';
+import { k8sGet } from '@openshift-console/dynamic-plugin-sdk';
+import { applyYaml, EXTENSION_LABEL, missingNamespaces, splitYamlDocs, unsupportedKinds } from '../apply-yaml';
 
 const GOOD = `
 apiVersion: v1
@@ -86,5 +87,42 @@ spec: { template: { spec: { containers: [{ name: p, image: quay.io/x/y:1.0.0 }] 
   it('adds no label without an extension id', async () => {
     await applyYaml(GOOD);
     expect(labels['ConfigMap/cm']).toBeUndefined();
+  });
+});
+
+describe('namespace preflight', () => {
+  const ELSEWHERE = `${GOOD}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: bench, namespace: openshift-storage }
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: cluster-wide }
+rules: []
+`;
+
+  it('lists namespaces the bundle needs but neither creates nor finds', async () => {
+    const exists = async (ns: string) => ns !== 'openshift-storage';
+    expect(await missingNamespaces(splitYamlDocs(ELSEWHERE), exists)).toEqual(['openshift-storage']);
+    expect(await missingNamespaces(splitYamlDocs(GOOD), async () => false)).toEqual([]); // oct-x is created by the bundle
+  });
+
+  it('applies nothing when a needed namespace is missing', async () => {
+    created.length = 0;
+    vi.mocked(k8sGet).mockImplementation((async ({ name }: { name: string }) => {
+      if (name === 'openshift-storage') throw Object.assign(new Error('not found'), { json: { code: 404 } });
+      return {};
+    }) as never);
+    await expect(applyYaml(ELSEWHERE)).rejects.toThrow(/Namespace openshift-storage does not exist.*Nothing was applied/);
+    expect(created).toEqual([]);
+    vi.mocked(k8sGet).mockReset();
+  });
+
+  it('does not block on errors other than not found (e.g. forbidden)', async () => {
+    const exists = async () => true;
+    expect(await missingNamespaces(splitYamlDocs(ELSEWHERE), exists)).toEqual([]);
   });
 });

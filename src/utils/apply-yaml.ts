@@ -1,6 +1,6 @@
 import { loadAll, dump } from 'js-yaml';
 import { k8sCreate, k8sGet, k8sPatch, k8sUpdate, K8sModel, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
-import { DeploymentModel, modelForKind } from './k8s-models';
+import { DeploymentModel, modelForKind, NamespaceModel } from './k8s-models';
 
 /** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. Never a lab class name in YAML. */
 export const PVC_STORAGE_CLASS_ANNOTATION = 'communitytools.io/storage-class';
@@ -127,6 +127,40 @@ export function unsupportedKinds(docs: K8sResourceCommon[]): string[] {
   return Array.from(new Set(missing));
 }
 
+/**
+ * Namespaces that namespaced objects in `docs` need but that neither the bundle
+ * creates nor the cluster has (for example a Role in openshift-storage on a cluster
+ * without ODF). Checked before anything is applied, so a bundle that can't work on
+ * this cluster fails cleanly instead of leaving half its objects behind.
+ */
+export async function missingNamespaces(
+  docs: K8sResourceCommon[],
+  exists: (ns: string) => Promise<boolean> = namespaceExists,
+): Promise<string[]> {
+  const created = new Set(docs.filter((d) => d.kind === 'Namespace').map((d) => d.metadata?.name || ''));
+  const needed = new Set<string>();
+  for (const d of docs) {
+    const ns = d.metadata?.namespace;
+    if (ns && !created.has(ns) && modelForKind(d.kind || '')?.namespaced) needed.add(ns);
+  }
+  const missing: string[] = [];
+  for (const ns of Array.from(needed).sort()) {
+    if (!(await exists(ns))) missing.push(ns);
+  }
+  return missing;
+}
+
+async function namespaceExists(ns: string): Promise<boolean> {
+  try {
+    await k8sGet({ model: NamespaceModel, name: ns });
+    return true;
+  } catch (e) {
+    const err = e as { json?: { code?: number }; code?: number };
+    // Only "not found" means missing; forbidden or other errors let the apply try (and report) as before.
+    return !(err?.json?.code === 404 || err?.code === 404);
+  }
+}
+
 function alreadyExists(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   const obj = err as { json?: { reason?: string; code?: number }; message?: string };
@@ -149,6 +183,12 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
   if (unsupported.length > 0) {
     throw new Error(
       `Unsupported kind ${unsupported.join(', ')}. Nothing was applied. Include it in the storefront kind map or use a supported plugin manifest.`,
+    );
+  }
+  const missing = await missingNamespaces(docs);
+  if (missing.length > 0) {
+    throw new Error(
+      `Namespace ${missing.join(', ')} does not exist on this cluster, and this bundle puts objects there (it may need an operator, such as ODF, installed first). Nothing was applied.`,
     );
   }
   const log: string[] = [];

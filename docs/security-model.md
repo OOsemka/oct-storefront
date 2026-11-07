@@ -113,7 +113,7 @@ How it behaves:
 - **Ownership label.** Objects the storefront creates get `communitytools.io/extension: <tool id>`. Namespaces and the Console config are never labelled, because they can be shared.
 - **Telemetry.** Only Add counts as a download; updates and version changes don't. The policy's `telemetry` setting controls what is sent to api.octools.net.
 - **NetworkPolicy** is an installable kind from this release. A catalog row whose manifest contains one must set `versions[].minStorefront`, so older storefronts refuse it cleanly instead of failing the preflight.
-- **No half-installs.** Every document's kind is checked before the first object is created. A bundle with a kind this storefront can't apply fails cleanly, and nothing is applied.
+- **No half-installs.** Before the first object is created, every document's kind is checked, and every namespace the bundle puts objects in must exist or be created by the bundle. A bundle with a kind this storefront can't apply, or that needs a namespace this cluster doesn't have (for example `openshift-storage` without ODF), fails cleanly: the review screen says why, and nothing is applied.
 - **Digest-pinned images keep working.** Version detection reads the tag of `image:tag@sha256:...` references, so pinning by digest doesn't break update checks.
 
 ## Reporting a vulnerability

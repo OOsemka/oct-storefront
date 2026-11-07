@@ -41,7 +41,7 @@ import {
   toCommunityYaml,
   toolFromPublic,
 } from './parse-tools';
-import { applyYaml, applyVersionImage, generatePluginManifests } from './apply-yaml';
+import { applyYaml, applyVersionImage, generatePluginManifests, missingNamespaces, splitYamlDocs } from './apply-yaml';
 import {
   DEFAULT_POLICY,
   Decision,
@@ -507,6 +507,8 @@ export type PreparedInstall = {
   rbacChanges: { role: string; added: string[]; removed: string[] }[];
   /** Set when the cluster's current RBAC couldn't be read for the comparison. */
   rbacCompareError?: string;
+  /** Why this can't be installed on this cluster at all (independent of policy). */
+  problems: string[];
   publicOnly: boolean;
 };
 
@@ -564,6 +566,13 @@ export async function prepareInstall(
       rbacCompareError = e instanceof Error ? e.message : String(e);
     }
   }
+  const problems: string[] = [];
+  const missing = await missingNamespaces(splitYamlDocs(yaml));
+  if (missing.length) {
+    problems.push(
+      `Namespace ${missing.join(', ')} does not exist on this cluster, and this tool puts objects there. It may need an operator (for example ODF) installed first.`,
+    );
+  }
   const decision = evaluate(policy, {
     toolId: tool.metadata.name,
     source: tool.spec.source,
@@ -586,6 +595,7 @@ export async function prepareInstall(
     policyWarnings,
     rbacChanges,
     rbacCompareError,
+    problems,
     publicOnly,
   };
 }

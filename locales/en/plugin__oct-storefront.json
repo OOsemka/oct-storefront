@@ -133,5 +133,6 @@
   "Security": "Security",
   "Capabilities Findings": "Capabilities Findings",
   "No findings.": "No findings.",
-  "See Permission Details": "See Permission Details"
+  "See Permission Details": "See Permission Details",
+  "This cannot be installed on this cluster": "This cannot be installed on this cluster"
 }
