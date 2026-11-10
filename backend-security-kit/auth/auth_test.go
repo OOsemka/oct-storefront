@@ -45,6 +45,7 @@ func newSetup(t *testing.T, mode auth.Mode, policy *auth.PolicySource) setup {
 	app.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-User", auth.Username(r.Context()))
 		w.Header().Set("X-Has-Token", map[bool]string{true: "yes", false: "no"}[auth.UserToken(r.Context()) != ""])
+		w.Header().Set("X-Raw-Authorization", map[bool]string{true: "yes", false: "no"}[r.Header.Get("Authorization") != ""])
 		w.WriteHeader(200)
 	})
 	return setup{api: api, a: a, h: a.Middleware(app), logs: logs}
@@ -94,6 +95,25 @@ func TestEnforce(t *testing.T) {
 	}
 	if w := do(s.h, "GET", "/api/v1/nodes", "dev"); !strings.Contains(w.Body.String(), "needs list nodes (core) cluster-wide") {
 		t.Fatalf("403 body should explain the missing permission: %s", w.Body.String())
+	}
+}
+
+func TestHandlerNeverSeesTheRawToken(t *testing.T) {
+	for _, mode := range []auth.Mode{auth.Enforce, auth.Audit, auth.Off} {
+		s := newSetup(t, mode, nil)
+		s.api.Allow["admin"] = []string{"*"}
+		for _, path := range []string{"/api/v1/nodes", "/images/rhcos.iso"} {
+			w := do(s.h, "GET", path, "admin")
+			if w.Code != 200 {
+				t.Fatalf("%s %s: got %d", mode, path, w.Code)
+			}
+			if got := w.Header().Get("X-Raw-Authorization"); got != "no" {
+				t.Fatalf("%s %s: handler saw the Authorization header", mode, path)
+			}
+			if got := w.Header().Get("X-Has-Token"); got != "yes" {
+				t.Fatalf("%s %s: UserToken(ctx) should still return the token", mode, path)
+			}
+		}
 	}
 }
 

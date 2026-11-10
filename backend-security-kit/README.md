@@ -16,7 +16,7 @@ The shared security library for OpenShift Community Tools extension backends. It
 
 ## Adopting it
 
-1. **Forward the user's identity.** Add `authorization: UserToken` to your ConsolePlugin proxy (see `manifests/consoleplugin-proxy.yaml`).
+1. **Forward the user's identity.** Add `authorization: UserToken` to your ConsolePlugin proxy (see `manifests/consoleplugin-proxy.yaml`). Your backend then receives every caller's OpenShift token. The middleware removes the `Authorization` header before your handler runs, so it can't be logged or copied onto another request by accident. To call the Kubernetes API as the caller (as the template does), read it explicitly with `auth.UserToken(r.Context())`. Never log or store the token, and never send it anywhere except the cluster's Kubernetes API.
 2. **Write the permission table**, one entry per route, using the same pattern strings as your `ServeMux`:
 
    ```go

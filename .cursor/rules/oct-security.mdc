@@ -28,7 +28,9 @@ trusted code. Keep what it can do small and say why it needs it. Reference:
 - Use `backend-security-kit`: one `auth.Route` per handler, each with the permission
   the caller needs. Never expose a route that acts with the ServiceAccount on behalf of
   an unchecked caller. Public routes only for things that must work without a user.
-- The ConsolePlugin proxy sets `authorization: UserToken`.
+- The ConsolePlugin proxy sets `authorization: UserToken`. The backend then receives users' tokens:
+  never log or store them, and send them only to the cluster's Kubernetes API. The kit strips the
+  `Authorization` header before handlers run; get the token with `auth.UserToken(ctx)`.
 - New backends ship `AUTH_MODE=enforce`. Existing backends adopting the kit ship `AUTH_MODE=audit`
   and stay there until a cluster admin enables enforce in the policy; don't flip them yourself.
 - Validate every caller-supplied name, namespace, path and argument (`validate`).

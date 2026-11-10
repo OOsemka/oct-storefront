@@ -215,6 +215,13 @@ func (a *Authorizer) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mode := a.EffectiveMode()
 		token := bearer(r)
+		// The handler never sees the raw header, so it can't log it or copy it onto
+		// another request by accident. Code that calls the Kubernetes API as the
+		// caller gets the token explicitly from UserToken(ctx).
+		if r.Header.Get("Authorization") != "" {
+			r = r.Clone(r.Context())
+			r.Header.Del("Authorization")
+		}
 		if token != "" {
 			r = r.WithContext(context.WithValue(r.Context(), tokenKey, token))
 		}
