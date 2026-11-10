@@ -1,0 +1,61 @@
+# Admission policy pack for Community Tools
+
+Optional ValidatingAdmissionPolicies that the **API server** enforces, so they also apply to YAML applied by hand, not only to installs through the storefront. A cluster admin applies them; the storefront never does. Background: [docs/security-model.md](../../../docs/security-model.md).
+
+## Apply
+
+```sh
+oc create -f deploy/policy/vap/params.yaml   # settings, once (create never overwrites)
+oc apply -k deploy/policy/vap                # Warn + Audit: nothing is blocked
+```
+
+Warnings appear in `oc` output and API warnings; audit annotations go to the API audit log. When the warnings look right:
+
+```sh
+oc apply -k deploy/policy/vap/enforce        # Deny + Audit: violations are rejected
+oc apply -k deploy/policy/vap                # back to warn
+oc delete -k deploy/policy/vap               # remove the policies (the settings ConfigMap stays)
+```
+
+Switching between warn and enforce never touches the settings, because `params.yaml` is not part of either kustomization.
+
+## What counts as a Community Tools request
+
+A request is checked if **either**:
+
+- the object carries the `communitytools.io/extension` label (everything the storefront installs, on create, update or when the label is removed), or
+- it comes from a service account in a namespace whose name starts with `oct-` (objects an extension creates at runtime, such as Shift-on-Shift's Routes and RoleBindings).
+
+Everything else on the cluster is ignored. If unrelated software on your cluster also uses `oct-*` namespaces, its service accounts are checked too.
+
+## The policies
+
+| Policy | Rule | Settings |
+|---|---|---|
+| `oct-no-broad-role-bindings` | No RoleBinding or ClusterRoleBinding to the `cluster-admin`, `admin` or `edit` ClusterRole. | none, always active |
+| `oct-image-rules` | Pods, Deployments, DaemonSets, StatefulSets, ReplicaSets, Jobs and CronJobs: images (including init containers) must come from `allowedRegistries`, and be pinned by digest when `requireDigest` is `"true"`. | `allowedRegistries`, `requireDigest` |
+| `oct-route-approval` | Only extensions listed in `approvedRoutes` may create or change Routes. | `approvedRoutes` |
+| `oct-scc-changes` | Only extensions listed in `approvedSCCs` may create, change or delete SecurityContextConstraints. | `approvedSCCs` |
+
+The extension id in messages and approval lists is the `communitytools.io/extension` label, or for runtime requests the service account's namespace (for example `oct-baremetal`).
+
+## Settings (`params.yaml`, ConfigMap `oct-storefront/oct-admission-params`)
+
+| Key | Example | Meaning |
+|---|---|---|
+| `allowedRegistries` | `quay.io/cjanisze,registry.redhat.io` | Comma-separated prefixes. An entry matches at a path boundary: `registry.redhat.io` allows `registry.redhat.io/ubi9/...`, not `registry.redhat.io.example.com/...`. Empty: any registry. |
+| `requireDigest` | `"true"` | Every image must contain `@sha256:`. |
+| `approvedRoutes` | `oct-baremetal` | Extensions allowed to manage Routes. `*` approves all. Empty: none. |
+| `approvedSCCs` | `oct-network-dhcp` | Extensions allowed to manage SCCs. `*` approves all. Empty: none. |
+
+Edit with `oc -n oct-storefront edit configmap oct-admission-params`; changes apply within seconds.
+
+**If the ConfigMap is missing,** the image, Route and SCC rules are skipped (they fail open). This is deliberate: Kubernetes evaluates a binding's missing parameters before the policy's match conditions, so failing closed would block every Pod and Deployment on the cluster, not just Community Tools. The role-binding rule needs no settings and stays active.
+
+## Expected warnings with today's catalog
+
+- **Bare Metal** creates the `image-cache` Route: add `oct-baremetal` to `approvedRoutes` if you allow it.
+- **Shift-on-Shift** creates Routes at runtime when `externalAccess.hostRoutes` (or `publishAppRoutes`) is on: add `oct-shift-on-shift-virt` to `approvedRoutes` if you allow it.
+- With `allowedRegistries` set, add every registry your installed tools use (the review screen in the storefront lists their images).
+
+No catalog tool binds `cluster-admin`, `admin` or `edit`, or ships an SCC.

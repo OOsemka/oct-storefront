@@ -96,7 +96,13 @@ How it behaves:
 ## Advisory vs. enforced
 
 - **Storefront policy is advisory.** The storefront applies manifests with the logged-in user's own token, so it can show reasons, ask for review, or refuse to click Install, but it cannot stop a cluster admin from applying the same YAML by hand.
-- **Hard enforcement** comes from Kubernetes itself: RBAC, and an opt-in ValidatingAdmissionPolicy pack that cluster admins apply themselves.
+- **Hard enforcement** comes from Kubernetes itself: RBAC, and an opt-in ValidatingAdmissionPolicy pack that cluster admins apply themselves ([`deploy/policy/vap/`](../deploy/policy/vap/README.md)). It ships in Warn + Audit; `oc apply -k deploy/policy/vap/enforce` makes it reject violations. It checks objects with the `communitytools.io/extension` label and requests from service accounts in `oct-*` namespaces:
+  - no RoleBinding or ClusterRoleBinding to `cluster-admin`, `admin` or `edit`;
+  - images only from `allowedRegistries`, pinned by digest if `requireDigest` is on;
+  - Routes only for extensions listed in `approvedRoutes`;
+  - SCC changes only for extensions listed in `approvedSCCs`.
+
+  Its settings live in their own ConfigMap (`oct-admission-params`), separate from the storefront policy, because admission policies can't parse the YAML inside `community-tools-policy`. If that ConfigMap is missing, the settings-based rules are skipped rather than blocking the cluster.
 - **Backend modes:** new extensions ship in `enforce`. Existing extensions, when they adopt the kit, ship in `audit` and **stay there until a cluster admin switches them to `enforce`** in the policy (`backends.<extension>.authMode`). Audit lets every request through and logs what enforce would refuse, so adopting the kit never breaks a working tool.
 - **Extension backends** must check every caller's permissions themselves. The console sends requests straight to the backend, not through the storefront. The shared `backend-security-kit` does this: user identity from the console proxy, a SelfSubjectAccessReview per route, and off/audit/enforce modes.
 

@@ -1,0 +1,9 @@
+# Community Tools admission policies: Warn + Audit (nothing is blocked).
+#   oc create -f deploy/policy/vap/params.yaml   # settings, once (never overwritten)
+#   oc apply -k deploy/policy/vap                # warn and audit
+#   oc apply -k deploy/policy/vap/enforce        # block (Deny + Audit)
+#   oc delete -k deploy/policy/vap               # remove (the settings ConfigMap stays)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - base
