@@ -242,6 +242,9 @@ spec:
                     hostRoutes:
                       type: boolean
                       description: Publish the nested API and console through Routes on the host cluster (host *.apps names), so they work without DNS records for the nested domain. Needs the bastion load balancer and external addresses reachable from the host nodes.
+                    publishAppRoutes:
+                      type: boolean
+                      description: Publish every route of the nested cluster outside openshift-* and kube-* namespaces under the host's *.apps (needs hostRoutes). A route opts out with the annotation sos.octools.io/publish-host-route=false.
                     ipPool:
                       type: string
                       description: Optional IPPool (same namespace) the external addresses were picked from; the API checks they match it.
@@ -345,6 +348,16 @@ spec:
             status:
               type: object
               properties:
+                appRoutes:
+                  type: array
+                  description: Nested routes published under the host's *.apps (annotation sos.octools.io/publish-host-route).
+                  items:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                      url:
+                        type: string
                 master:
                   type: object
                   description: Set once the cluster was turned into a master (Express); clones are created from its snapshots.
@@ -1029,7 +1042,7 @@ spec:
     spec:
       containers:
       - name: plugin
-        image: quay.io/cjanisze/oct-shift-on-shift-virt:0.5.0-ocp4.22
+        image: quay.io/cjanisze/oct-shift-on-shift-virt:0.5.1-ocp4.22
         ports:
         - containerPort: 9443
           protocol: TCP
@@ -1101,7 +1114,7 @@ spec:
       serviceAccountName: sos-orchestrator
       containers:
       - name: orchestrator
-        image: quay.io/cjanisze/oct-shift-on-shift-virt-orchestrator:0.5.0-ocp4.22
+        image: quay.io/cjanisze/oct-shift-on-shift-virt-orchestrator:0.5.1-ocp4.22
         imagePullPolicy: Always
         ports:
         - name: https
