@@ -1431,7 +1431,7 @@ spec:
   security:
     schema: 1
     level: privileged
-    summary: Deploys standalone OpenShift clusters on KubeVirt VMs. Each nested cluster gets its own namespace, network, VMs, disks and helper services, managed by an orchestrator through the NestedCluster API.
+    summary: Deploys standalone OpenShift clusters on KubeVirt VMs, by installing them or by cloning a master cluster's disk snapshots (Express). Each nested cluster gets its own namespace, network, VMs, disks and helper services, managed by an orchestrator through the NestedCluster API.
     backend:
       services: [sos-orchestrator]
       auth: none
@@ -1446,7 +1446,7 @@ spec:
         - { apiGroups: [security.openshift.io], resources: [securitycontextconstraints], resourceNames: [anyuid], verbs: [use], why: Helper pods (HAProxy, DNS) that run as a fixed UID. }
         - { apiGroups: [""], resources: [secrets, configmaps, services, serviceaccounts, endpoints, persistentvolumeclaims, resourcequotas], verbs: [get, list, watch, create, update, patch, delete], why: "Each nested cluster's pull secret, kubeconfig and install config, the Services for its API and ingress, and a quota for its namespace." }
         - { apiGroups: ["", apps, batch, discovery.k8s.io], resources: [pods, pods/exec, pods/log, deployments, jobs, endpointslices], verbs: [get, list, watch, create, update, patch, delete], why: "Helper deployments and install jobs; reads install logs and runs the network self-test (exec)." }
-        - { apiGroups: [route.openshift.io, config.openshift.io, operator.openshift.io], resources: [routes, infrastructures, dnses, ingresscontrollers], verbs: [get, list, watch, create, update, patch, delete], why: Optionally publishes the nested API and console through host Routes; reads the host domain. }
+        - { apiGroups: [route.openshift.io, config.openshift.io, operator.openshift.io], resources: [routes, infrastructures, dnses, ingresscontrollers], verbs: [get, list, watch, create, update, patch, delete], why: "Optionally publishes the nested API and console, and with publishAppRoutes the nested cluster's own app routes, through host Routes; reads the host domain." }
         - { apiGroups: [rbac.authorization.k8s.io], resources: [clusterroles, clusterrolebindings, roles, rolebindings], verbs: [get, list, create, update, patch, delete], why: RBAC for components it deploys for each nested cluster (for example the KubeVirt CSI driver's access to its namespace on the host). }
         - { apiGroups: [octools.io], resources: [nestedclusters, nestedclusters/status, ippools], verbs: [get, list, watch, create, update, patch, delete], why: Its own NestedCluster API and IP pools. }
         - { apiGroups: [""], resources: [nodes, persistentvolumes], verbs: [get, list], why: Check host capacity and volume binding. }
@@ -1456,7 +1456,7 @@ spec:
       runtimeCreates:
         - { kind: Namespace, name: per nested cluster, cleanup: Deleted with the nested cluster (only namespaces it created)., why: Isolates each nested cluster. }
         - { kind: ClusterUserDefinedNetwork, name: per nested cluster, why: The nested cluster's internal network. }
-        - { kind: Route, name: per nested cluster (optional), why: Publishes the nested API and console on the host's apps domain when externalAccess.hostRoutes is on. }
+        - { kind: Route, name: per nested cluster (optional), why: "Publishes the nested API and console on the host's apps domain when externalAccess.hostRoutes is on. With externalAccess.publishAppRoutes it also publishes every route of the nested cluster outside openshift-* and kube-* namespaces under the host's *.apps (a route opts out with the annotation sos.octools.io/publish-host-route=false)." }
     secrets: { access: cluster, why: Nested clusters' pull secrets and kubeconfigs in their namespaces (granted cluster-wide today). }
   versions:
     - version: "0.1.0"
