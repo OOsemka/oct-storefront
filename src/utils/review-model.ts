@@ -62,13 +62,15 @@ export function ruleText(r: { verbs: string[]; resources: string[]; apiGroups: s
 export function whyFor(rule: ScopedRule, declared: DeclaredRule[] | undefined): string | undefined {
   if (!declared?.length) return undefined;
   const parents = rule.resources.map((r) => r.split('/')[0]);
+  // A wildcard only explains a wildcard: a declared "*" must not lend its reason to
+  // every derived rule (Secret reads included), and a specific declared resource
+  // does not explain a derived "*".
   const hit = declared.find(
     (d) =>
       d.why &&
-      d.resources.some(
-        (res) => res === '*' || rule.resources.includes(res) || parents.includes(res) || rule.resources.includes('*'),
-      ) &&
-      (d.apiGroups.length === 0 || d.apiGroups.some((g) => g === '*' || rule.apiGroups.includes(g) || rule.apiGroups.includes('*'))),
+      d.resources.some((res) => (res === '*' ? rule.resources.includes('*') : rule.resources.includes(res) || parents.includes(res))) &&
+      (d.apiGroups.length === 0 ||
+        d.apiGroups.some((g) => (g === '*' ? rule.apiGroups.includes('*') : rule.apiGroups.includes(g)))),
   );
   return hit?.why;
 }

@@ -43,8 +43,11 @@
     ],
     "oct-storage-bench": [
       "backend-no-networkpolicy bundle",
+      "object-in-platform-namespace Role/oct-storage-bench-rados@openshift-storage",
+      "object-in-platform-namespace RoleBinding/oct-storage-bench-rados@openshift-storage",
       "rbac-cluster-secrets-read ClusterRole/oct-storage-bench",
       "rbac-cluster-workload-create ClusterRole/oct-storage-bench",
+      "rbac-cluster-workload-create Role/oct-storage-bench-rados",
       "workload-hardening Deployment/benchmark-runner",
       "workload-hardening Deployment/oct-storage-bench"
     ],

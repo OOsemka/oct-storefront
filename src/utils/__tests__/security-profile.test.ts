@@ -217,3 +217,138 @@ describe('catalog deploy bundles', () => {
     }
   });
 });
+
+describe('review findings 2026-11-10: privilege derivation gaps', () => {
+  const ids = (yaml: string) => deriveProfile(yaml).findings.map((f) => f.id);
+  const lvl = (yaml: string) => deriveProfile(yaml).level;
+  const crb = (role: string) => `
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: ${role} }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: ${role} }
+subjects: [{ kind: ServiceAccount, name: sa, namespace: oct-x }]`;
+  const clusterRole = (name: string, rules: string) => `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: ${name} }
+rules: ${rules}${crb(name)}`;
+
+  it('flags writing the storefront policy or admission settings as privileged', () => {
+    const y = `
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: community-tools-policy, namespace: oct-storefront }
+data: { policy.yaml: "mode: off" }`;
+    expect(ids(y)).toContain('object-in-storefront-namespace');
+    expect(lvl(y)).toBe('privileged');
+  });
+
+  it('flags objects in platform namespaces and in namespaces the bundle does not create', () => {
+    const plat = `
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: user-ca-bundle, namespace: openshift-config }`;
+    expect(ids(plat)).toContain('object-in-platform-namespace');
+    expect(lvl(plat)).toBe('privileged');
+    const foreign = `
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: cm, namespace: someone-else }`;
+    expect(ids(foreign)).toContain('object-outside-own-namespace');
+    expect(lvl(foreign)).toBe('cluster-write');
+    const own = `
+apiVersion: v1
+kind: Namespace
+metadata: { name: oct-x }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: cm, namespace: oct-x }`;
+    expect(lvl(own)).toBe('plugin');
+  });
+
+  it('flags namespaces that skip pod security', () => {
+    const y = `
+apiVersion: v1
+kind: Namespace
+metadata: { name: oct-x, labels: { openshift.io/run-level: "0" } }`;
+    expect(ids(y)).toContain('namespace-privileged');
+    expect(lvl(y)).toBe('privileged');
+  });
+
+  it('treats aggregationRule and aggregate-to labels as privileged', () => {
+    const agg = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: agg }
+aggregationRule: { clusterRoleSelectors: [{ matchLabels: { rbac.authorization.k8s.io/aggregate-to-admin: "true" } }] }
+rules: []${crb('agg')}`;
+    expect(ids(agg)).toContain('rbac-aggregation-rule');
+    expect(lvl(agg)).toBe('privileged');
+    const into = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: into, labels: { rbac.authorization.k8s.io/aggregate-to-edit: "true" } }
+rules: [{ apiGroups: [""], resources: [configmaps], verbs: [create] }]`;
+    expect(ids(into)).toContain('rbac-aggregates-into-builtin');
+    expect(lvl(into)).toBe('privileged');
+  });
+
+  it('judges RBAC in platform namespaces like cluster-wide RBAC', () => {
+    const y = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: r, namespace: openshift-config }
+rules: [{ apiGroups: [""], resources: [secrets], verbs: [get] }]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: r, namespace: openshift-config }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: r }
+subjects: [{ kind: ServiceAccount, name: sa, namespace: oct-x }]`;
+    const p = deriveProfile(y);
+    expect(p.findings.find((f) => f.id === 'rbac-cluster-secrets-read')?.object).toBe('Role/r');
+    expect(p.level).toBe('privileged');
+    const adminInKubeSystem = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: b, namespace: kube-system }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: admin }
+subjects: [{ kind: ServiceAccount, name: sa, namespace: oct-x }]`;
+    expect(lvl(adminInKubeSystem)).toBe('privileged');
+  });
+
+  it.each([
+    ['pods/* exec', '[{ apiGroups: [""], resources: ["*/exec"], verbs: [create] }]', 'rbac-cluster-pods-exec'],
+    ['serviceaccount tokens', '[{ apiGroups: [""], resources: [serviceaccounts/token], verbs: [create] }]', 'rbac-cluster-sa-token'],
+    ['SCC update', '[{ apiGroups: [security.openshift.io], resources: [securitycontextconstraints], verbs: [patch] }]', 'rbac-scc-write'],
+    ['webhooks', '[{ apiGroups: [admissionregistration.k8s.io], resources: [mutatingwebhookconfigurations], verbs: [create] }]', 'rbac-cluster-admission-write'],
+    ['VAP binding delete', '[{ apiGroups: [admissionregistration.k8s.io], resources: [validatingadmissionpolicybindings], verbs: [delete] }]', 'rbac-cluster-admission-write'],
+    ['PV create', '[{ apiGroups: [""], resources: [persistentvolumes], verbs: [create] }]', 'rbac-cluster-pv-create'],
+    ['workload patch', '[{ apiGroups: [apps], resources: [daemonsets], verbs: [patch] }]', 'rbac-cluster-workload-create'],
+    ['ephemeral containers', '[{ apiGroups: [""], resources: [pods/ephemeralcontainers], verbs: [patch] }]', 'rbac-cluster-workload-create'],
+    ['node proxy', '[{ apiGroups: [""], resources: [nodes/proxy], verbs: [get] }]', 'rbac-cluster-nodes-proxy'],
+    ['groups', '[{ apiGroups: [user.openshift.io], resources: [groups], verbs: [update] }]', 'rbac-cluster-identity-write'],
+    ['CSR approval', '[{ apiGroups: [certificates.k8s.io], resources: [certificatesigningrequests/approval], verbs: [update] }]', 'rbac-cluster-csr-approve'],
+  ])('rates %s as privileged', (_name, rules, id) => {
+    const y = clusterRole('r', rules);
+    expect(ids(y)).toContain(id);
+    expect(lvl(y)).toBe('privileged');
+  });
+
+  it('shows new or changed bindings in the update diff', () => {
+    const prev = clusterRole('r', '[{ apiGroups: [""], resources: [configmaps], verbs: [get] }]');
+    const next = `${prev}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: extra }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cluster-admin }
+subjects: [{ kind: ServiceAccount, name: sa, namespace: oct-x }]`;
+    const diff = rbacDiff(prev, next);
+    expect(diff).toEqual([
+      { role: 'ClusterRoleBinding/extra', added: ['grants ClusterRole cluster-admin', 'to ServiceAccount oct-x/sa'], removed: [] },
+    ]);
+  });
+});

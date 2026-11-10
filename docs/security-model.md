@@ -29,10 +29,10 @@ Every bundle gets a derived level, the highest that applies:
 | `plugin` | Only the console plugin (Namespace, Deployment, Service, ConsolePlugin, ConfigMap). |
 | `namespaced` | Also a ServiceAccount, Role/RoleBinding, PVC or Secret in its own namespace. A ClusterRole bound by a RoleBinding counts here. |
 | `cluster-read` | Also CRDs, or ClusterRoles bound cluster-wide with only get/list/watch, excluding Secrets. |
-| `cluster-write` | Cluster-wide write verbs. |
-| `privileged` | Any of: SCC use or definition, hostNetwork/hostPID/hostIPC/hostPath, privileged containers, added capabilities, RBAC wildcards, escalate/bind/impersonate, cluster-wide Secret read, cluster-wide pods/exec, cluster-wide workload creation, cluster-wide RBAC writes, Node writes, or a cluster-wide binding to cluster-admin/admin/edit. |
+| `cluster-write` | Cluster-wide write verbs, or objects and RBAC in a namespace the bundle doesn't create. |
+| `privileged` | Any of: SCC use or definition, hostNetwork/hostPID/hostIPC/hostPath, privileged containers, added capabilities, RBAC wildcards, escalate/bind/impersonate, cluster-wide Secret read, cluster-wide pods/exec (or attach, port-forward), cluster-wide workload creation or change (including ephemeral containers), cluster-wide RBAC writes, Node writes or the node proxy, ServiceAccount token creation, SCC writes, admission webhook or policy writes, PersistentVolume creation, user/group/identity writes, certificate approval, `aggregationRule` or adding rules to the built-in admin/edit/view roles, a cluster-wide binding to cluster-admin/admin/edit, any object in `oct-storefront` or a platform namespace (`openshift`, `openshift-*`, `kube-*`, `default`), or a Namespace that skips pod security (`openshift.io/run-level`, pod-security `privileged`). |
 
-**A ClusterRole defined but not bound in the bundle is treated as cluster-wide**, because it may be bound at runtime.
+**A ClusterRole defined but not bound in the bundle is treated as cluster-wide**, because it may be bound at runtime. **RBAC inside a platform namespace is judged like cluster-wide RBAC**, because its ServiceAccounts and configuration are cluster-critical. **Objects in `oct-storefront` are always privileged**: that is where the cluster policy, the admission settings and the storefront's caches live, so a bundle that writes there could switch the checks off.
 
 ## Findings
 
@@ -40,7 +40,8 @@ Besides the level, the profile lists findings, each with a stable id:
 
 | Area | Finding ids |
 |---|---|
-| RBAC | `rbac-wildcard`, `rbac-escalate`, `rbac-bind`, `rbac-impersonate`, `rbac-cluster-secrets-read`, `rbac-cluster-pods-exec`, `rbac-cluster-workload-create`, `rbac-cluster-rbac-write`, `rbac-cluster-nodes-write`, `rbac-cluster-namespaces-delete`, `rbac-binds-cluster-admin`, `rbac-binds-builtin-*`, `rbac-binds-external-role`, `rbac-unbound-clusterrole` |
+| RBAC | `rbac-wildcard`, `rbac-escalate`, `rbac-bind`, `rbac-impersonate`, `rbac-cluster-secrets-read`, `rbac-cluster-pods-exec`, `rbac-cluster-workload-create`, `rbac-cluster-rbac-write`, `rbac-cluster-nodes-write`, `rbac-cluster-namespaces-delete`, `rbac-cluster-sa-token`, `rbac-cluster-admission-write`, `rbac-cluster-pv-create`, `rbac-cluster-nodes-proxy`, `rbac-cluster-identity-write`, `rbac-cluster-csr-approve`, `rbac-scc-write`, `rbac-aggregation-rule`, `rbac-aggregates-into-builtin`, `rbac-binds-cluster-admin`, `rbac-binds-builtin-*`, `rbac-binds-external-role`, `rbac-unbound-clusterrole` |
+| Placement | `object-in-storefront-namespace`, `object-in-platform-namespace`, `object-outside-own-namespace`, `namespace-privileged` |
 | SCC and host access | `scc-use`, `scc-defined`, `host-hostNetwork`, `host-hostPID`, `host-hostIPC`, `host-path`, `container-privileged`, `capability-*` |
 | Network | `route-exposed`, `route-exposed-plain-http`, `service-exposed`, `backend-no-networkpolicy` |
 | Backend identity | `proxy-no-user-token` (the ConsolePlugin proxy doesn't forward the user's identity with `authorization: UserToken`) |

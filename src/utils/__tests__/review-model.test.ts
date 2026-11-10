@@ -75,3 +75,17 @@ describe('buildReview', () => {
     expect(m.runtimeCreates[0]).toMatch(/SecurityContextConstraints\/x.*cleanup: on remove/);
   });
 });
+
+describe('whyFor (review finding: wildcard reasons)', () => {
+  const rule = (resources: string[], apiGroups: string[] = ['']) => ({ apiGroups, resources, verbs: ['get'], role: 'r', scope: 'cluster' });
+  it('a declared wildcard explains only a derived wildcard', () => {
+    const declared = [{ apiGroups: ['*'], resources: ['*'], verbs: ['*'], why: 'everything' }];
+    expect(whyFor(rule(['secrets']), declared)).toBeUndefined();
+    expect(whyFor(rule(['*'], ['*']), declared)).toBe('everything');
+  });
+  it('a specific declared resource explains itself and its subresources, not a wildcard', () => {
+    const declared = [{ apiGroups: ['kubevirt.io'], resources: ['virtualmachines'], verbs: ['get'], why: 'VMs' }];
+    expect(whyFor(rule(['virtualmachines/start'], ['kubevirt.io']), declared)).toBe('VMs');
+    expect(whyFor(rule(['*'], ['kubevirt.io']), declared)).toBeUndefined();
+  });
+});

@@ -117,6 +117,31 @@ const BUILTIN_ROLE_LEVEL: Record<string, SecurityLevel> = {
   'system:auth-delegator': 'cluster-read',
 };
 const SCC_ROLE_PREFIX = 'system:openshift:scc:';
+const WRITE_VERBS = ['create', 'update', 'patch', 'delete', 'deletecollection'];
+const AGGREGATE_LABEL_PREFIX = 'rbac.authorization.k8s.io/aggregate-to-';
+
+/**
+ * Namespaces a community tool should never put objects in: the storefront's own
+ * (policy, admission settings, caches) and the platform's. RBAC granted inside them
+ * is judged like cluster-wide RBAC, because their ServiceAccounts and config are
+ * cluster-critical.
+ */
+export function isProtectedNamespace(ns: string): boolean {
+  return ns === 'oct-storefront' || ns === 'default' || ns === 'openshift' || ns.startsWith('openshift-') || ns.startsWith('kube-');
+}
+
+/** `pods/exec` matches `pods/exec`, `pods/*`, `* /exec` (without the space) and `*`. */
+function resMatch(resources: string[], target: string): boolean {
+  const [base, sub] = target.split('/');
+  return resources.some((r) => r === '*' || r === target || (!!sub && (r === `${base}/*` || r === `*/${sub}`)));
+}
+function verbMatch(verbs: string[], wanted: string[]): boolean {
+  return verbs.some((v) => v === '*' || wanted.includes(v));
+}
+function groupMatch(apiGroups: string[], wanted: string[]): boolean {
+  const groups = apiGroups.length ? apiGroups : [''];
+  return groups.some((g) => g === '*' || wanted.includes(g));
+}
 
 function asArray<T = string>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
@@ -151,10 +176,10 @@ function isReadOnly(rule: RbacRule): boolean {
 }
 
 /** Findings for a single rule at a scope. `cluster` scope is what makes most of these dangerous. */
-function ruleFindings(rule: ScopedRule): ProfileFinding[] {
+function ruleFindings(rule: ScopedRule, asCluster = false): ProfileFinding[] {
   const out: ProfileFinding[] = [];
   const obj = `${rule.scope === 'cluster' ? 'ClusterRole' : 'Role'}/${rule.role}`;
-  const cluster = rule.scope === 'cluster';
+  const cluster = rule.scope === 'cluster' || asCluster;
   const has = (list: string[], v: string) => list.includes(v) || list.includes('*');
   const wildcard = rule.verbs.includes('*') || rule.resources.includes('*') || rule.apiGroups.includes('*');
 
@@ -170,22 +195,53 @@ function ruleFindings(rule: ScopedRule): ProfileFinding[] {
     const names = rule.resourceNames?.length ? rule.resourceNames.join(', ') : 'any SCC';
     out.push({ id: 'scc-use', severity: 'high', object: obj, level: 'privileged', message: `Can use SecurityContextConstraints: ${names}.` });
   }
+  if (groupMatch(rule.apiGroups, ['security.openshift.io']) && resMatch(rule.resources, 'securitycontextconstraints') && verbMatch(rule.verbs, WRITE_VERBS)) {
+    out.push({ id: 'rbac-scc-write', severity: 'high', object: obj, level: 'privileged', message: 'Can create, change or delete SecurityContextConstraints.' });
+  }
   if (!cluster) return out;
 
   if (has(rule.resources, 'secrets') && rule.verbs.some((v) => READ_VERBS.has(v) || v === '*') && !rule.resourceNames?.length) {
     out.push({ id: 'rbac-cluster-secrets-read', severity: 'high', object: obj, level: 'privileged', message: 'Can read Secrets in every namespace.' });
   }
-  if (rule.resources.includes('pods/exec') && has(rule.verbs, 'create')) {
-    out.push({ id: 'rbac-cluster-pods-exec', severity: 'high', object: obj, level: 'privileged', message: 'Can exec into pods in every namespace.' });
+  if (['pods/exec', 'pods/attach', 'pods/portforward'].some((t) => resMatch(rule.resources, t)) && verbMatch(rule.verbs, ['create', 'get'])) {
+    out.push({ id: 'rbac-cluster-pods-exec', severity: 'high', object: obj, level: 'privileged', message: 'Can exec into, attach to or port-forward pods in every namespace.' });
   }
-  if (rule.resources.some((r) => WORKLOAD_RESOURCES.has(r)) && has(rule.verbs, 'create')) {
+  if (
+    (rule.resources.some((r) => r === '*' || WORKLOAD_RESOURCES.has(r)) && verbMatch(rule.verbs, ['create', 'update', 'patch'])) ||
+    (resMatch(rule.resources, 'pods/ephemeralcontainers') && verbMatch(rule.verbs, ['update', 'patch']))
+  ) {
     out.push({
       id: 'rbac-cluster-workload-create',
       severity: 'high',
       object: obj,
       level: 'privileged',
-      message: 'Can create pods or workloads in every namespace (can run as any ServiceAccount).',
+      message: 'Can create or change pods or workloads in every namespace (can run as any ServiceAccount).',
     });
+  }
+  const clusterPrivileged: Array<[string, boolean, string]> = [
+    ['rbac-cluster-sa-token', resMatch(rule.resources, 'serviceaccounts/token') && verbMatch(rule.verbs, ['create']), 'Can create tokens for any ServiceAccount.'],
+    [
+      'rbac-cluster-admission-write',
+      groupMatch(rule.apiGroups, ['admissionregistration.k8s.io']) &&
+        ['mutatingwebhookconfigurations', 'validatingwebhookconfigurations', 'validatingadmissionpolicies', 'validatingadmissionpolicybindings', 'mutatingadmissionpolicies', 'mutatingadmissionpolicybindings'].some((r) => resMatch(rule.resources, r)) &&
+        verbMatch(rule.verbs, WRITE_VERBS),
+      'Can create, change or delete admission webhooks or policies (can intercept or switch off checks).',
+    ],
+    ['rbac-cluster-pv-create', groupMatch(rule.apiGroups, ['']) && resMatch(rule.resources, 'persistentvolumes') && verbMatch(rule.verbs, ['create', 'update', 'patch']), 'Can create PersistentVolumes (hostPath reaches node disks).'],
+    ['rbac-cluster-nodes-proxy', resMatch(rule.resources, 'nodes/proxy') && verbMatch(rule.verbs, ['get', 'create']), 'Can use the node proxy (kubelet API on every node).'],
+    [
+      'rbac-cluster-identity-write',
+      groupMatch(rule.apiGroups, ['user.openshift.io']) && ['users', 'groups', 'identities', 'useridentitymappings'].some((r) => resMatch(rule.resources, r)) && verbMatch(rule.verbs, WRITE_VERBS),
+      'Can create or change users, groups or identities.',
+    ],
+    [
+      'rbac-cluster-csr-approve',
+      groupMatch(rule.apiGroups, ['certificates.k8s.io']) && (resMatch(rule.resources, 'certificatesigningrequests/approval') || resMatch(rule.resources, 'signers')) && verbMatch(rule.verbs, ['update', 'patch', 'approve']),
+      'Can approve certificate signing requests.',
+    ],
+  ];
+  for (const [id, hit, message] of clusterPrivileged) {
+    if (hit) out.push({ id, severity: 'high', object: obj, level: 'privileged', message });
   }
   if (rule.resources.some((r) => r === 'clusterroles' || r === 'clusterrolebindings' || r === 'roles' || r === 'rolebindings') && rule.verbs.some((v) => !READ_VERBS.has(v))) {
     out.push({ id: 'rbac-cluster-rbac-write', severity: 'high', object: obj, level: 'privileged', message: 'Can create or change RBAC.' });
@@ -312,9 +368,34 @@ export function deriveProfile(yaml: string): SecurityProfile {
   };
 
   const roles = new Map<string, RbacRule[]>(); // "ClusterRole/x" or "Role/ns/x"
+  const ownNamespaces = new Set(docs.filter((d) => d.kind === 'Namespace' && d.metadata?.name).map((d) => String(d.metadata.name)));
   for (const doc of docs) {
     profile.kinds[doc.kind] = (profile.kinds[doc.kind] || 0) + 1;
-    if (doc.kind === 'ClusterRole') roles.set(`ClusterRole/${doc.metadata?.name}`, asArray<Obj>(doc.rules).map(normalizeRule));
+    if (doc.kind === 'ClusterRole') {
+      roles.set(`ClusterRole/${doc.metadata?.name}`, asArray<Obj>(doc.rules).map(normalizeRule));
+      if (doc.aggregationRule) {
+        findings.push({
+          id: 'rbac-aggregation-rule',
+          severity: 'high',
+          object: objName(doc),
+          level: 'privileged',
+          message: 'ClusterRole uses aggregationRule: it collects the rules of every ClusterRole matching its selector, which can be anything.',
+        });
+      }
+      const into = Object.keys(doc.metadata?.labels || {})
+        .filter((k) => k.startsWith(AGGREGATE_LABEL_PREFIX) && String(doc.metadata.labels[k]) === 'true')
+        .map((k) => k.slice(AGGREGATE_LABEL_PREFIX.length));
+      if (into.length) {
+        const rules = asArray<Obj>(doc.rules).map(normalizeRule);
+        findings.push({
+          id: 'rbac-aggregates-into-builtin',
+          severity: 'high',
+          object: objName(doc),
+          level: rules.every(isReadOnly) ? 'cluster-read' : 'privileged',
+          message: `ClusterRole adds its rules to the built-in ${into.join(', ')} role(s), so everyone who has them gets these permissions.`,
+        });
+      }
+    }
     if (doc.kind === 'Role') roles.set(`Role/${doc.metadata?.namespace || ''}/${doc.metadata?.name}`, asArray<Obj>(doc.rules).map(normalizeRule));
   }
 
@@ -338,13 +419,24 @@ export function deriveProfile(yaml: string): SecurityProfile {
       }
       const builtin = BUILTIN_ROLE_LEVEL[refName];
       if (builtin) {
+        // In its own namespace even admin/edit stay there. In a platform namespace they
+        // reach cluster-critical ServiceAccounts and config; in a namespace the bundle
+        // doesn't create they reach someone else's workloads.
+        const where = scope === 'cluster' ? 'cluster' : isProtectedNamespace(scope) ? 'protected' : ownNamespaces.has(scope) ? 'own' : 'foreign';
+        const lvl: SecurityLevel =
+          where === 'cluster' || where === 'protected'
+            ? builtin
+            : where === 'foreign'
+              ? builtin === 'privileged'
+                ? 'cluster-write'
+                : 'cluster-read'
+              : 'namespaced';
         findings.push({
           id: refName === 'cluster-admin' ? 'rbac-binds-cluster-admin' : `rbac-binds-builtin-${refName.replace(/[^a-z0-9]+/g, '-')}`,
-          severity: scope === 'cluster' && builtin === 'privileged' ? 'high' : 'warn',
+          severity: (where === 'cluster' || where === 'protected') && builtin === 'privileged' ? 'high' : 'warn',
           object: bindingObj,
-          // Bound in one namespace, even admin/edit only reach that namespace.
-          level: scope === 'cluster' ? builtin : 'namespaced',
-          message: `Binds built-in ClusterRole ${refName}${scope === 'cluster' ? ' cluster-wide' : ` in ${scope}`}.`,
+          level: lvl,
+          message: `Binds built-in ClusterRole ${refName}${scope === 'cluster' ? ' cluster-wide' : ` in ${scope}${where === 'protected' ? ' (a platform namespace)' : where === 'foreign' ? ' (a namespace this bundle does not create)' : ''}`}.`,
         });
         return;
       }
@@ -369,8 +461,14 @@ export function deriveProfile(yaml: string): SecurityProfile {
   });
 
   for (const rule of [...profile.clusterRules, ...profile.namespacedRules]) {
-    findings.push(...ruleFindings(rule));
-    if (rule.scope === 'cluster') raise(isReadOnly(rule) ? 'cluster-read' : 'cluster-write');
+    const protectedNs = rule.scope !== 'cluster' && isProtectedNamespace(rule.scope);
+    const foreignNs = rule.scope !== 'cluster' && !protectedNs && !ownNamespaces.has(rule.scope);
+    // RBAC inside a platform namespace is judged like cluster-wide RBAC.
+    const found = ruleFindings(rule, protectedNs);
+    if (protectedNs) found.forEach((f) => (f.message = `${f.message.replace(/ in every namespace/, '')} (in platform namespace ${rule.scope})`));
+    findings.push(...found);
+    if (rule.scope === 'cluster' || protectedNs) raise(isReadOnly(rule) ? 'cluster-read' : 'cluster-write');
+    else if (foreignNs) raise(isReadOnly(rule) ? 'cluster-read' : 'cluster-write');
     else raise('namespaced');
   }
 
@@ -452,6 +550,48 @@ export function deriveProfile(yaml: string): SecurityProfile {
     }
   }
 
+  for (const doc of docs) {
+    const ns: string | undefined = doc.metadata?.namespace;
+    if (doc.kind === 'Namespace') {
+      const labels = doc.metadata?.labels || {};
+      if ('openshift.io/run-level' in labels || labels['pod-security.kubernetes.io/enforce'] === 'privileged') {
+        findings.push({
+          id: 'namespace-privileged',
+          severity: 'high',
+          object: objName(doc),
+          level: 'privileged',
+          message: 'Namespace is labelled to skip or relax pod security (openshift.io/run-level or pod-security enforce: privileged).',
+        });
+      }
+    }
+    if (!ns) continue;
+    if (ns === 'oct-storefront') {
+      findings.push({
+        id: 'object-in-storefront-namespace',
+        severity: 'high',
+        object: objName(doc),
+        level: 'privileged',
+        message: 'Puts an object in oct-storefront, where the storefront keeps its policy, admission settings and caches.',
+      });
+    } else if (isProtectedNamespace(ns)) {
+      findings.push({
+        id: 'object-in-platform-namespace',
+        severity: 'high',
+        object: `${objName(doc)}@${ns}`,
+        level: 'privileged',
+        message: `Puts an object in platform namespace ${ns}.`,
+      });
+    } else if (!ownNamespaces.has(ns)) {
+      findings.push({
+        id: 'object-outside-own-namespace',
+        severity: 'warn',
+        object: `${objName(doc)}@${ns}`,
+        level: 'cluster-write',
+        message: `Puts an object in namespace ${ns}, which this bundle does not create.`,
+      });
+    }
+  }
+
   if (profile.proxies.length > 0 && profile.networkPolicies.length === 0) {
     findings.push({ id: 'backend-no-networkpolicy', severity: 'warn', object: 'bundle', message: 'Bundle has a backend behind the console proxy but no NetworkPolicy.' });
   }
@@ -493,13 +633,29 @@ export function rbacDiff(prevYaml: string, nextYaml: string): { role: string; ad
     }
     return m;
   };
+  const bindings = (yaml: string) => {
+    const m = new Map<string, Set<string>>();
+    for (const d of parseBundle(yaml)) {
+      if (d.kind !== 'ClusterRoleBinding' && d.kind !== 'RoleBinding') continue;
+      const key = `${d.kind}/${d.kind === 'RoleBinding' ? `${d.metadata?.namespace || ''}/` : ''}${d.metadata?.name}`;
+      const atoms = new Set<string>([`grants ${d.roleRef?.kind || '?'} ${d.roleRef?.name || '?'}`]);
+      for (const sub of asArray<Obj>(d.subjects)) atoms.add(`to ${sub.kind || '?'} ${sub.namespace ? `${sub.namespace}/` : ''}${sub.name || '?'}`);
+      m.set(key, atoms);
+    }
+    return m;
+  };
   const prev = collect(prevYaml);
   const next = collect(nextYaml);
+  const prevB = bindings(prevYaml);
+  const nextB = bindings(nextYaml);
   const out: { role: string; added: string[]; removed: string[] }[] = [];
-  const roleNames = Array.from(new Set(Array.from(prev.keys()).concat(Array.from(next.keys())))).sort();
+  const roleNames = Array.from(
+    new Set([...Array.from(prev.keys()), ...Array.from(next.keys()), ...Array.from(prevB.keys()), ...Array.from(nextB.keys())]),
+  ).sort();
   for (const role of roleNames) {
-    const a = ruleAtoms(prev.get(role) || []);
-    const b = ruleAtoms(next.get(role) || []);
+    const isBinding = role.startsWith('ClusterRoleBinding/') || role.startsWith('RoleBinding/');
+    const a = isBinding ? prevB.get(role) || new Set<string>() : ruleAtoms(prev.get(role) || []);
+    const b = isBinding ? nextB.get(role) || new Set<string>() : ruleAtoms(next.get(role) || []);
     const added = Array.from(b).filter((x) => !a.has(x)).sort();
     const removed = Array.from(a).filter((x) => !b.has(x)).sort();
     if (added.length || removed.length) out.push({ role, added, removed });

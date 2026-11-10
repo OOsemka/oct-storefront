@@ -563,7 +563,7 @@ export type PreparedInstall = {
 async function liveRbacYaml(yaml: string): Promise<string> {
   const docs: string[] = [];
   for (const d of parseBundle(yaml)) {
-    if (d.kind !== 'ClusterRole' && d.kind !== 'Role') continue;
+    if (!['ClusterRole', 'Role', 'ClusterRoleBinding', 'RoleBinding'].includes(d.kind)) continue;
     const model = modelForKind(d.kind);
     if (!model || !d.metadata?.name) continue;
     try {
