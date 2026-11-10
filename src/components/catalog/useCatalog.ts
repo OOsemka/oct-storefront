@@ -210,7 +210,10 @@ export function useCatalog(category: ToolCategory) {
     const external = externalToolsFromCache(externalCm);
     const bundledIds = new Set(bundledCommunityTools().map((t) => t.metadata.name));
     const merged = new Map<string, CommunityTool>();
-    for (const t of community) merged.set(t.metadata.name, t);
+    // publicCatalog: off hides tools that came only from the public catalog, even if
+    // an earlier sync left them in the cache.
+    const publicOff = policyState?.policy.publicCatalog === 'off';
+    for (const t of community) if (!(publicOff && !bundledIds.has(t.metadata.name))) merged.set(t.metadata.name, t);
     for (const t of external) merged.set(t.metadata.name, t);
 
     const q = query.trim().toLowerCase();
@@ -275,6 +278,7 @@ export function useCatalog(category: ToolCategory) {
     installedMap,
     detected,
     clusterVersion,
+    policyState,
   ]);
 
   const run = useCallback(async (id: string, fn: () => Promise<unknown>, okMessage: string) => {
@@ -407,7 +411,9 @@ export function useCatalog(category: ToolCategory) {
 
   const rate = useCallback(async (item: CatalogItem, stars: number) => {
     try {
-      await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current, policyState?.policy);
+      // Nothing is sent until the policy is loaded, or when it couldn't be read.
+      const known = policyState && policyState.source !== 'error' ? policyState.policy : undefined;
+      await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current, known);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

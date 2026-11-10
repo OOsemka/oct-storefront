@@ -81,7 +81,7 @@ Cluster admins can tune what the storefront offers with the optional ConfigMap `
 | `review` | `elevated`, `never`, `always` | When the install review screen appears. `elevated` means: level above `plugin`, a Route, an external or public-only tool, or an update that adds RBAC. |
 | `maxLevel` | unset, or a level | Highest derived level allowed. |
 | `external` / `externalMaxLevel` | `allow`, `review`, `block` / unset | Tools users paste in with Add external. |
-| `publicCatalog` | `full`, `metadata-only`, `off` | What is taken from the public catalog API. |
+| `publicCatalog` | `full`, `metadata-only`, `off` | What is taken from the public catalog API. With anything but `full`, versions that aren't in the storefront's bundled catalog can't be installed (blocked in enforce, flagged in warn); `off` also hides tools that came only from the public catalog, even if an earlier sync cached them. |
 | `rbacWidening` | `warn`, `allow`, `review`, `block` | Updates that add RBAC permissions. |
 | `allowRoutes` | `true`, `false` | Bundles that create Routes. |
 | `requireNetworkPolicy` | `false`, `true` | Backends must ship a NetworkPolicy. |
@@ -122,6 +122,8 @@ How it behaves:
   - on Update, the permissions added or removed compared with the Roles and ClusterRoles **currently on the cluster**.
 
   The storefront then applies exactly the YAML that was reviewed. In `enforce` mode, a blocked install can't be confirmed.
+- **Synced rows are reviewed.** The catalog is read from a cache ConfigMap that the optional `storefront-user` role lets non-admins write. A version whose image or manifest differs from the storefront's own bundled catalog (a newer release from the public catalog, or an edited cache) always opens the review screen with the reason "comes from the synced catalog", so nobody can change what a one-click install applies.
+- **Telemetry waits for the policy.** Nothing is sent before the policy has loaded, or when it couldn't be read.
 - **Labels on tiles:** the derived level (when the manifest is known without fetching), "Not declared", and "Public-only" for tools that came only from the public catalog.
 - **Ownership label.** Objects the storefront creates get `communitytools.io/extension: <tool id>`. Namespaces and the Console config are never labelled, because they can be shared.
 - **Telemetry.** Only Add counts as a download; updates and version changes don't. The policy's `telemetry` setting controls what is sent to api.octools.net.

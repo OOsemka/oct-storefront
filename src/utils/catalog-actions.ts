@@ -386,10 +386,13 @@ async function patchStats(mutator: (stats: StatsMap) => void): Promise<void> {
  * Count an Add (never an Update). The public counter only gets community tools,
  * and only when the cluster policy's telemetry setting allows it.
  */
+/** Telemetry is off until the policy is known (a missing policy argument means unknown). */
+const NO_TELEMETRY: Policy = { ...DEFAULT_POLICY, telemetry: 'off' };
+
 export async function incrementDownloads(
   id: string,
   source: 'community' | 'external',
-  policy: Policy = DEFAULT_POLICY,
+  policy: Policy = NO_TELEMETRY,
 ): Promise<void> {
   await patchStats((stats) => {
     const cur = stats[id] || emptyStats();
@@ -406,7 +409,7 @@ export async function setClusterRating(
   rating: number,
   source: 'community' | 'external',
   clusterHash?: string,
-  policy: Policy = DEFAULT_POLICY,
+  policy: Policy = NO_TELEMETRY,
 ): Promise<void> {
   const stars = Math.min(5, Math.max(1, Math.round(rating)));
   await patchStats((stats) => {
@@ -583,6 +586,25 @@ async function liveRbacYaml(yaml: string): Promise<string> {
  * evaluate the cluster policy. Nothing is applied. Pass the result's `yaml` to
  * addExtension as `reviewedYaml` so the user gets exactly what they reviewed.
  */
+/**
+ * Whether what would be installed for this tool and version is exactly what this
+ * storefront's bundled catalog says (same image and manifest fields). The cache
+ * ConfigMap the catalog is read from can be written by non-admins with the optional
+ * storefront-user role, so anything else is treated as unverified.
+ */
+export function matchesBundledRow(tool: CommunityTool, version?: ToolVersion): boolean {
+  const bundled = bundledCommunityTools().find((t) => t.metadata.name === tool.metadata.name);
+  if (!bundled) return false;
+  const same = (a?: string, b?: string) => (a || '').trim() === (b || '').trim();
+  if (!same(tool.spec.image, bundled.spec.image) || !same(tool.spec.deployYAML, bundled.spec.deployYAML) || !same(tool.spec.deployURL, bundled.spec.deployURL)) {
+    return false;
+  }
+  if (!version) return true;
+  const os = (v?: ToolVersion) => ([] as string[]).concat((v?.openshift as unknown as string[] | string) || []).join(',');
+  const row = (bundled.spec.versions || []).find((v) => v.version === version.version && os(v) === os(version));
+  return !!row && same(row.image, version.image) && same(row.deployYAML, version.deployYAML) && same(row.deployURL, version.deployURL);
+}
+
 /** Only the storefront's own catalog entry (never an external tool of the same name) owns oct-storefront. */
 export function ownsStorefrontNamespace(tool: CommunityTool): boolean {
   return tool.metadata.name === 'oct-storefront' && tool.spec.source !== 'external';
@@ -604,6 +626,7 @@ export async function prepareInstall(
   const deployURL = ownManifest ? undefined : version?.deployURL || tool.spec.deployURL;
   const bundledIds = new Set(bundledCommunityTools().map((t) => t.metadata.name));
   const publicOnly = tool.spec.source === 'community' && !bundledIds.has(tool.metadata.name);
+  const unverifiedRow = tool.spec.source === 'community' && !publicOnly && !matchesBundledRow(tool, version);
 
   let rbacChanges: PreparedInstall['rbacChanges'] = [];
   let rbacCompareError: string | undefined;
@@ -629,6 +652,7 @@ export async function prepareInstall(
     profile,
     declared,
     deployURL,
+    unverifiedRow,
     rbacAdded: rbacChanges.map((r) => ({ role: r.role, added: r.added })),
   });
   return {

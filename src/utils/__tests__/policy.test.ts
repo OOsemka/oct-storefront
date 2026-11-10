@@ -198,3 +198,19 @@ describe('telemetryAllows', () => {
     expect(telemetryAllows(policy('telemetry: off'), 'rating')).toBe(false);
   });
 });
+
+describe('review findings B3/B7: rows not from the bundled catalog', () => {
+  const profile = deriveProfile(PLUGIN_ONLY);
+  it('an unverified row is always reviewed, even if plugin-only', () => {
+    const d = evaluate(DEFAULT_POLICY, ctx(profile, { unverifiedRow: true }));
+    expect(d.review).toBe(true);
+    expect(d.reasons.map((r) => r.id)).toContain('synced-row');
+  });
+  it('publicCatalog other than full blocks public-only and unverified rows (enforce)', () => {
+    const p = parsePolicy('mode: enforce\npublicCatalog: metadata-only\n');
+    expect(evaluate(p, ctx(profile, { publicOnly: true })).outcome).toBe('block');
+    expect(evaluate(p, ctx(profile, { unverifiedRow: true })).outcome).toBe('block');
+    expect(evaluate(p, ctx(profile)).outcome).toBe('allow');
+    expect(evaluate(p, ctx(profile, { source: 'external' })).reasons.map((r) => r.id)).not.toContain('public-catalog');
+  });
+});

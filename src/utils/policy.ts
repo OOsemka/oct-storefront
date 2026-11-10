@@ -191,6 +191,12 @@ export type InstallContext = {
   source: 'community' | 'external';
   /** In the public catalog only, not in this storefront's bundled catalog. */
   publicOnly?: boolean;
+  /**
+   * A community tool whose catalog row differs from this storefront's bundled catalog
+   * (image or manifest): it came from the synced cache, which users other than cluster
+   * admins may be allowed to write. Always reviewed; blocked unless publicCatalog: full.
+   */
+  unverifiedRow?: boolean;
   action: 'add' | 'update';
   profile: SecurityProfile;
   declared?: SecuritySpec;
@@ -273,6 +279,15 @@ export function evaluate(basePolicy: Policy, ctx: InstallContext): Decision {
   if (ctx.action === 'update' && widened.length) {
     add('rbac-widening', policy.rbacWidening, `This update adds permissions: ${widened.map((r) => `${r.role} (${r.added.join('; ')})`).join(', ')}.`);
   }
+  if (!external && (ctx.publicOnly || ctx.unverifiedRow) && policy.publicCatalog !== 'full') {
+    add(
+      'public-catalog',
+      'block',
+      `Installs from the public catalog are turned off on this cluster (publicCatalog: ${policy.publicCatalog}); this version is not in the storefront's bundled catalog.`,
+    );
+  } else if (!external && ctx.unverifiedRow) {
+    add('synced-row', 'review', "This version comes from the synced catalog, not from this storefront's bundled catalog: check the image and manifests below.");
+  }
   if (ctx.declared?.level && levelRank(level) > levelRank(ctx.declared.level)) {
     add('exceeds-declaration', 'warn', `The manifests need ${level} access, but the tool declares ${ctx.declared.level}.`);
   }
@@ -293,6 +308,7 @@ export function evaluate(basePolicy: Policy, ctx: InstallContext): Decision {
       profile.routes.length > 0 ||
       external ||
       !!ctx.publicOnly ||
+      !!ctx.unverifiedRow ||
       widened.length > 0;
   }
   return { outcome, review, reasons: effective };
