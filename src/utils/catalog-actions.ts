@@ -1,6 +1,7 @@
 import {
   k8sCreate,
   k8sGet,
+  k8sListItems,
   k8sPatch,
   K8sResourceCommon,
 } from '@openshift-console/dynamic-plugin-sdk';
@@ -16,7 +17,14 @@ import bridgeDeployYaml from '../../catalog/deploy/oct-network-bridge.yaml';
 import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
-import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel, modelForKind } from './k8s-models';
+import {
+  ConfigMapModel,
+  ConsoleOperatorModel,
+  DeploymentModel,
+  modelForKind,
+  ValidatingAdmissionPolicyBindingModel,
+} from './k8s-models';
+import { ADMISSION_PARAMS_CONFIGMAP, AdmissionBinding, AdmissionParams, parseAdmissionParams } from './policy-view';
 import { bundleBlocker, semverFromImage, storefrontBlocker } from './bundle-check';
 import {
   CACHE_CONFIGMAP,
@@ -180,6 +188,41 @@ export async function loadPolicy(): Promise<PolicyState> {
       warnings: [`Could not read the cluster policy (${why}); using the defaults.`],
     };
   }
+}
+
+function httpCode(err: unknown): number | undefined {
+  const e = err as { json?: { code?: number }; code?: number; response?: { status?: number } };
+  return e?.json?.code ?? e?.response?.status ?? (typeof e?.code === 'number' ? e.code : undefined);
+}
+
+export type PolicyView = PolicyState & {
+  /** null when the user may not list ValidatingAdmissionPolicyBindings (cluster-scoped). */
+  admissionBindings: AdmissionBinding[] | null;
+  /** present: settings read; missing: no ConfigMap (rules that need it are skipped); hidden: no access. */
+  admissionParams: { state: 'present' | 'missing' | 'hidden'; params?: AdmissionParams };
+};
+
+/**
+ * Everything the read-only Cluster policy page shows. Like loadPolicy it never
+ * throws: what the user can't read is reported as unknown/hidden.
+ */
+export async function loadPolicyView(): Promise<PolicyView> {
+  const [policyState, bindings, params] = await Promise.all([
+    loadPolicy(),
+    k8sListItems<K8sResourceCommon & { spec?: { policyName?: string; validationActions?: string[] } }>({
+      model: ValidatingAdmissionPolicyBindingModel,
+      queryParams: {},
+    }).then(
+      (items) =>
+        items.map((b) => ({ policyName: b.spec?.policyName || '', validationActions: b.spec?.validationActions || [] })),
+      () => null,
+    ),
+    k8sGet({ model: ConfigMapModel, name: ADMISSION_PARAMS_CONFIGMAP, ns: STOREFRONT_NS }).then(
+      (cm) => ({ state: 'present' as const, params: parseAdmissionParams((cm as ConfigMapKind)?.data) }),
+      (err) => ({ state: httpCode(err) === 404 ? ('missing' as const) : ('hidden' as const) }),
+    ),
+  ]);
+  return { ...policyState, admissionBindings: bindings, admissionParams: params };
 }
 
 async function writeConfigMap(name: string, data: Record<string, string>): Promise<void> {

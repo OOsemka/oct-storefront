@@ -53,7 +53,8 @@
       "StoragePage": "./pages/StoragePage",
       "NetworkPage": "./pages/NetworkPage",
       "ManagementPage": "./pages/ManagementPage",
-      "StorefrontAboutPage": "./components/StorefrontAboutPage"
+      "StorefrontAboutPage": "./components/StorefrontAboutPage",
+      "PolicyPage": "./components/PolicyPage"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

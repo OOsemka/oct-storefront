@@ -18,6 +18,7 @@ import {
   ToolbarItem,
 } from '@patternfly/react-core';
 import { PlusCircleIcon } from '@patternfly/react-icons';
+import { Link } from 'react-router-dom-v5-compat';
 import CommunityDisclaimer from '../CommunityDisclaimer';
 import {
   CatalogItem,
@@ -45,6 +46,7 @@ import { InstallReviewModal } from './InstallReviewModal';
 import './catalog.css';
 
 const I18N = 'plugin__oct-storefront';
+const POLICY_PAGE = '/community-tools/management/policy';
 
 const HUB_COPY: Record<ToolCategory, { title: string; description: string }> = {
   compute: {
@@ -192,6 +194,8 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
             <Button variant="link" isInline onClick={catalog.checkNow} isLoading={catalog.checking} isDisabled={catalog.checking}>
               {t('Check for updates')}
             </Button>
+            {' · '}
+            <Link to={POLICY_PAGE}>{t('Cluster policy')}</Link>
           </StackItem>
           {!catalog.sync.ok ? (
             <StackItem>
@@ -204,7 +208,7 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
           {catalog.policyState?.warnings.length ? (
             <StackItem>
               <Alert isInline variant="warning" title={t('Cluster policy')}>
-                {catalog.policyState.warnings.join(' ')}
+                {catalog.policyState.warnings.join(' ')} <Link to={POLICY_PAGE}>{t('View the cluster policy')}</Link>
               </Alert>
             </StackItem>
           ) : null}

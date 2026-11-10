@@ -1,0 +1,9 @@
+.ct-policy-help {
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: var(--pf-t--global--font--size--sm);
+  font-weight: normal;
+}
+
+.ct-policy-list {
+  --pf-v6-c-description-list--m-horizontal__term--width: 28ch;
+}

@@ -181,6 +181,18 @@ export const NetworkPolicyModel: K8sModel = {
   namespaced: true,
 };
 
+/** Read only: the policy page shows whether the admission policy pack is installed. Not an installable kind. */
+export const ValidatingAdmissionPolicyBindingModel: K8sModel = {
+  apiGroup: 'admissionregistration.k8s.io',
+  apiVersion: 'v1',
+  kind: 'ValidatingAdmissionPolicyBinding',
+  abbr: 'VAPB',
+  label: 'ValidatingAdmissionPolicyBinding',
+  labelPlural: 'ValidatingAdmissionPolicyBindings',
+  plural: 'validatingadmissionpolicybindings',
+  namespaced: false,
+};
+
 export const KIND_MODELS: Record<string, K8sModel> = {
   ConfigMap: ConfigMapModel,
   Namespace: NamespaceModel,
