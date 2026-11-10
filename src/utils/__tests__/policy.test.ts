@@ -170,8 +170,11 @@ describe('evaluate: individual rules (enforce)', () => {
   });
 
   it('requireNetworkPolicy flags proxied backends without one', () => {
+    const wb = deriveProfile(deploy('oct-windows-builder'));
+    expect(evaluate(enforce('requireNetworkPolicy: true'), ctx(wb)).reasons.map((r) => r.id)).toContain('network-policy');
+    // Bare Metal ships NetworkPolicies since its security-framework migration.
     const bm = deriveProfile(deploy('oct-baremetal'));
-    expect(evaluate(enforce('requireNetworkPolicy: true'), ctx(bm)).reasons.map((r) => r.id)).toContain('network-policy');
+    expect(evaluate(enforce('requireNetworkPolicy: true'), ctx(bm)).reasons.map((r) => r.id)).not.toContain('network-policy');
   });
 
   it('rbacWidening applies to updates that add permissions', () => {
