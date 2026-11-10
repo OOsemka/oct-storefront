@@ -1473,3 +1473,45 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-shift-on-shift-virt:0.5.4-ocp4.22
       gitRef: v0.5.4
+---
+apiVersion: communitytools.io/v1alpha1
+kind: CommunityTool
+metadata:
+  name: oct-must-gather
+spec:
+  displayName: Must-Gather
+  description: >-
+    Run oc adm must-gather on this cluster from the console: full,
+    networking, storage, virtualization, serverless, GitOps or Service Mesh,
+    optionally with audit logs and must-gather-clean obfuscation. Downloads
+    the archive with Red Hat's recommended file name, ready to attach to a
+    support case. Runs with your own credentials (cluster-admin). Community
+    project, not officially supported by Red Hat.
+  category: management
+  source: community
+  git: https://github.com/dwaiting/oct-must-gather
+  consolePlugin: oct-must-gather
+  href: /community-tools/management/must-gather
+  icon: tiles/oct-must-gather.svg
+  # The bundle adds the runner Deployment (oc + must-gather-clean), its
+  # Service and ServiceAccount (no RBAC), and the ConsolePlugin proxy with
+  # UserToken authorization. The runner image is built per OCP minor; the
+  # bundle uses the -ocp4.22 runner (oc 4.22 supports 4.21 clusters).
+  defaultChannel: stable
+  channels:
+    stable: {}
+  validatedOn:
+    - "4.21"
+    - "4.22"
+  minOpenShift: "4.21"
+  versions:
+    - version: "0.1.1"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/dwaiting/oct-must-gather:0.1.1-ocp4.21
+      gitRef: v0.1.1
+    - version: "0.1.1"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/dwaiting/oct-must-gather:0.1.1-ocp4.22
+      gitRef: v0.1.1
