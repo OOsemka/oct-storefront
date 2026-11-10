@@ -6,7 +6,6 @@
     ],
     "oct-baremetal": [
       "backend-no-networkpolicy bundle",
-      "proxy-no-user-token ConsolePlugin/oct-baremetal",
       "rbac-cluster-secrets-read ClusterRole/discovery-service-image-cache",
       "rbac-cluster-secrets-read ClusterRole/oct-baremetal",
       "route-exposed-plain-http Route/image-cache",
@@ -33,7 +32,6 @@
     ],
     "oct-shift-on-shift-virt": [
       "backend-no-networkpolicy bundle",
-      "proxy-no-user-token ConsolePlugin/oct-shift-on-shift-virt",
       "rbac-cluster-namespaces-delete ClusterRole/oct-shift-on-shift-virt-orchestrator",
       "rbac-cluster-pods-exec ClusterRole/oct-shift-on-shift-virt-orchestrator",
       "rbac-cluster-rbac-write ClusterRole/oct-shift-on-shift-virt-orchestrator",
@@ -45,7 +43,6 @@
     ],
     "oct-storage-bench": [
       "backend-no-networkpolicy bundle",
-      "proxy-no-user-token ConsolePlugin/oct-storage-bench",
       "rbac-cluster-secrets-read ClusterRole/oct-storage-bench",
       "rbac-cluster-workload-create ClusterRole/oct-storage-bench",
       "workload-hardening Deployment/benchmark-runner",
@@ -53,7 +50,6 @@
     ],
     "oct-windows-builder": [
       "backend-no-networkpolicy bundle",
-      "proxy-no-user-token ConsolePlugin/oct-windows-builder",
       "workload-hardening Deployment/oct-windows-builder",
       "workload-hardening Deployment/windows-builder"
     ]
