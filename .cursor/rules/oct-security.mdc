@@ -56,4 +56,4 @@ trusted code. Keep what it can do small and say why it needs it. Reference:
 ## Check
 
 - `yarn check-repo` (security patterns; `CHECK_REPO_SECURITY=error` to fail on them)
-  and, in oct-storefront, `yarn security-check`.
+  and, in oct-storefront, `yarn security-check --strict` (what CI runs).

@@ -53,8 +53,11 @@ Besides the level, the profile lists findings, each with a stable id:
 `yarn security-check` derives the profile of every bundle in `catalog/deploy/` and compares the findings with [`catalog/security-baseline.json`](../catalog/security-baseline.json):
 
 - Findings already in the baseline are **tolerated**. They are the known issues of existing tools.
-- **New** findings are reported. With `--strict`, CI fails on them.
-- When a tool is fixed, the report lists findings that are "no longer present". Remove them from the baseline with `yarn security-check --update-baseline` and review the diff.
+- CI runs `yarn security-check --strict`, which **fails** on:
+  - a **new** finding. Fix it, or accept it deliberately with `yarn security-check --update-baseline` and say why in the PR;
+  - a **stale** baseline entry: a finding that was fixed, or whose bundle was removed, but is still listed. Remove it with `--update-baseline` and check that the diff only removes lines. This keeps the baseline shrinking: once something is fixed, it can't quietly come back;
+  - a **declaration mismatch**: `spec.security.level` lower than the level the bundle derives, or a Route the declaration doesn't list. A tool without any declaration is only noted (declarations are optional).
+- Without `--strict` (local runs), the same report is printed but only the hard rules below fail.
 
 The goal is an empty baseline. Besides the ratchet, two **hard rules** fail CI for any new occurrence:
 

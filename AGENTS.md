@@ -187,7 +187,7 @@ Model and reasoning: `docs/security-model.md`. Rule: `.cursor/rules/oct-security
 - **Keep the kind allow-list tight** (`k8s-models.ts` `KIND_MODELS`). No SCCs, admission policies or webhooks. A new kind needs `versions[].minStorefront` on rows that use it.
 - **Telemetry:** only Add counts a download; public posts go through `telemetryAllows(policy, …)`.
 - **Backends** use `backend-security-kit/` (stdlib only; its own CI job). Keep it free of dependencies.
-- **CI:** `yarn security-check` fails on hard rules (Secret with data in a bundle, NetworkPolicy row without `minStorefront`) and reports new findings against `catalog/security-baseline.json`. When a tool is fixed, shrink the baseline with `--update-baseline`; never add to it to make CI pass without saying why in the PR.
+- **CI:** `yarn security-check --strict` fails on hard rules (Secret with data in a bundle, NetworkPolicy row without `minStorefront`), on new findings against `catalog/security-baseline.json`, on stale baseline entries (fixed but still listed), and on declarations that don't match their bundle. When a tool is fixed, shrink the baseline with `--update-baseline`; never add to it to make CI pass without saying why in the PR.
 
 ## Stats / fail-open
 

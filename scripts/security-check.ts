@@ -7,7 +7,9 @@
  * are reported as such ("ratchet"), so CI can tighten without breaking current tools.
  *
  *   yarn security-check                    report; exits 1 only on a hard rule (below)
- *   yarn security-check --strict           also exit 1 if any finding is not in the baseline
+ *   yarn security-check --strict           CI mode: also exit 1 on a new finding, a stale baseline
+ *                                          entry (fixed, or its bundle is gone) or a declaration
+ *                                          mismatch, so the baseline only ever shrinks
  *   yarn security-check --update-baseline  rewrite the baseline from current findings
  *   yarn security-check --json             machine-readable output
  *
@@ -15,9 +17,9 @@
  *   - a Secret with data inside a bundle (credentials must never ship in a manifest);
  *   - a catalog row whose inline deployYAML has a NetworkPolicy but no
  *     versions[].minStorefront of at least 1.6.0 (older storefronts can't apply it).
- * Declaration checks (warnings): spec.security.level lower than the derived level,
- * Routes in the bundle that spec.security.network.routes doesn't list, tools with
- * no declaration at all.
+ * Declaration checks: spec.security.level lower than the derived level, Routes in the
+ * bundle that spec.security.network.routes doesn't list (both fail under --strict),
+ * and tools with no declaration at all (always only a note: declarations are optional).
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -65,17 +67,23 @@ const baseline = loadBaseline();
 const hard: string[] = [];
 const declarationWarnings: string[] = [];
 let newCount = 0;
+let staleCount = 0;
 const report = Object.entries(profiles).map(([tool, p]) => {
   const known = new Set(baseline.tools[tool] || []);
   const keys = findingKeys(p);
   const fresh = keys.filter((k) => !known.has(k));
   const fixed = [...known].filter((k) => !keys.includes(k));
   newCount += fresh.length;
+  staleCount += fixed.length;
   fresh
     .filter((k) => HARD_FINDINGS.has(k.split(' ')[0]))
     .forEach((k) => hard.push(`${tool}: ${k} (never ship credentials in a manifest; create the Secret at runtime or reference an existing one)`));
   return { tool, level: p.level, findings: p.findings, newFindings: fresh, fixedFindings: fixed };
 });
+
+// Baseline entries for bundles that no longer exist.
+const goneTools = Object.keys(baseline.tools).filter((tool) => !profiles[tool] && (baseline.tools[tool] || []).length);
+goneTools.forEach((tool) => (staleCount += baseline.tools[tool].length));
 
 // Catalog rows: declarations and inline manifests.
 const tools = existsSync(CATALOG) ? parseToolList(readFileSync(CATALOG, 'utf8'), 'community') : [];
@@ -107,7 +115,7 @@ for (const t of tools) {
 }
 
 if (asJson) {
-  console.log(JSON.stringify({ tools: report, hard, declarationWarnings, undeclared }, null, 2));
+  console.log(JSON.stringify({ tools: report, goneTools, hard, declarationWarnings, undeclared, newCount, staleCount }, null, 2));
 } else {
   console.log('Security report (catalog/deploy)\n');
   for (const r of report) {
@@ -120,7 +128,9 @@ if (asJson) {
     for (const k of r.newFindings) console.log(`    + new: ${k}`);
     for (const k of r.fixedFindings) console.log(`    - no longer present (remove from baseline): ${k}`);
   }
+  for (const tool of goneTools) console.log(`${tool.padEnd(26)} bundle removed: delete its ${baseline.tools[tool].length} baseline entr(ies)`);
   console.log(`\n${newCount} new finding(s) not in catalog/security-baseline.json.`);
+  if (staleCount) console.log(`${staleCount} baseline entr(ies) no longer present.`);
   if (declarationWarnings.length) {
     console.log('\nDeclaration warnings:');
     declarationWarnings.forEach((w) => console.log(`  ! ${w}`));
@@ -132,4 +142,11 @@ if (asJson) {
   }
 }
 
-if (hard.length || (strict && newCount > 0)) process.exit(1);
+const strictFailed = strict && (newCount > 0 || staleCount > 0 || declarationWarnings.length > 0);
+if (strictFailed && !asJson) {
+  console.log('\nSTRICT MODE FAILED (the CI ratchet):');
+  if (newCount) console.log('  x New findings. Fix them, or accept them deliberately: yarn security-check --update-baseline, and say why in the PR.');
+  if (staleCount) console.log('  x Fixed findings are still in the baseline. Remove them: yarn security-check --update-baseline (check the diff only removes lines).');
+  if (declarationWarnings.length) console.log('  x A declaration does not match its bundle (see "Declaration warnings"). Fix spec.security in catalog/community.yaml.');
+}
+if (hard.length || strictFailed) process.exit(1);
