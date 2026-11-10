@@ -128,6 +128,12 @@ function sortDocsForApply(docs: K8sResourceCommon[]): K8sResourceCommon[] {
  * either applies completely or does not start: a newer catalog row with a kind
  * this storefront doesn't know must not leave half the objects behind.
  */
+export function unnamedDocs(docs: K8sResourceCommon[]): string[] {
+  return docs
+    .filter((d) => !d.metadata?.name || !String(d.metadata.name).trim())
+    .map((d) => `${d.kind || 'Unknown'}${d.metadata?.generateName ? ` (generateName ${d.metadata.generateName})` : ''}`);
+}
+
 export function unsupportedKinds(docs: K8sResourceCommon[]): string[] {
   const missing = docs
     .filter((d) => !modelForKind(d.kind || ''))
@@ -193,6 +199,12 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
       `Unsupported kind ${unsupported.join(', ')}. Nothing was applied. Include it in the storefront kind map or use a supported plugin manifest.`,
     );
   }
+  const unnamed = unnamedDocs(docs);
+  if (unnamed.length > 0) {
+    throw new Error(
+      `${unnamed.join(', ')} has no metadata.name (generateName is not supported). Every object needs a fixed name. Nothing was applied.`,
+    );
+  }
   const missing = await missingNamespaces(docs);
   if (missing.length > 0) {
     throw new Error(
@@ -200,14 +212,14 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
     );
   }
   const log: string[] = [];
-  const created: { model: K8sModel; doc: K8sResourceCommon }[] = [];
+  const created: { model: K8sModel; obj: K8sResourceCommon }[] = [];
   for (const doc of docs) {
     const kind = doc.kind || 'Unknown';
     const name = doc.metadata?.name || '(unnamed)';
     const model = modelForKind(kind) as K8sModel;
     try {
-      await k8sCreate({ model, data: doc });
-      created.push({ model, doc });
+      const obj = (await k8sCreate({ model, data: doc })) as K8sResourceCommon;
+      created.push({ model, obj: obj?.metadata?.name ? obj : doc });
       log.push(`created ${kind}/${name}`);
     } catch (e) {
       if (alreadyExists(e)) {
@@ -232,16 +244,29 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
 async function rolledBack(
   err: unknown,
   failed: string,
-  created: { model: K8sModel; doc: K8sResourceCommon }[],
+  created: { model: K8sModel; obj: K8sResourceCommon }[],
 ): Promise<Error> {
   const why = err instanceof Error ? err.message : String(err);
   const left: string[] = [];
-  for (const { model, doc } of [...created].reverse()) {
+  for (const { model, obj } of [...created].reverse()) {
+    const label = `${obj.kind}/${obj.metadata?.name || '(unnamed)'}`;
+    // Never delete without a name: the SDK would build the collection URL and
+    // Kubernetes would delete every object of that kind (deletecollection).
+    if (!obj.metadata?.name) {
+      left.push(label);
+      continue;
+    }
+    const uid = obj.metadata.uid;
     try {
-      await k8sDelete({ model, resource: doc });
+      await k8sDelete({
+        model,
+        resource: obj,
+        // Only the exact object this attempt created, never a same-named replacement.
+        json: uid ? { kind: 'DeleteOptions', apiVersion: 'v1', preconditions: { uid } } : undefined,
+      });
     } catch (e) {
       const gone = (e as { json?: { code?: number } })?.json?.code === 404;
-      if (!gone) left.push(`${doc.kind}/${doc.metadata?.name}`);
+      if (!gone) left.push(label);
     }
   }
   let note: string;

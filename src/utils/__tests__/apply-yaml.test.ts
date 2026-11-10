@@ -6,7 +6,7 @@ vi.mock('@openshift-console/dynamic-plugin-sdk', () => ({
   k8sCreate: vi.fn(async ({ data }: { data: { kind: string; metadata: { name: string; labels?: Record<string, string> } } }) => {
     created.push(`${data.kind}/${data.metadata.name}`);
     labels[`${data.kind}/${data.metadata.name}`] = data.metadata.labels;
-    return data;
+    return { ...data, metadata: { ...data.metadata, uid: `uid-${data.kind}-${data.metadata.name}` } };
   }),
   k8sDelete: vi.fn(async () => ({})),
   k8sGet: vi.fn(),
@@ -205,5 +205,56 @@ metadata: { name: never, namespace: oct-x }
     } finally {
       restore();
     }
+  });
+});
+
+describe('applyYaml rollback safety (review finding: generateName)', () => {
+  beforeEach(() => {
+    created.length = 0;
+    vi.mocked(k8sDelete).mockClear();
+    vi.mocked(k8sGet).mockImplementation((async () => ({ metadata: { name: 'oct-x' } })) as never);
+  });
+
+  it('refuses bundles with generateName or no name before creating anything', async () => {
+    const bundle = `
+apiVersion: v1
+kind: ConfigMap
+metadata: { generateName: x-, namespace: openshift-config }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: broken, namespace: oct-x }
+`;
+    await expect(applyYaml(bundle)).rejects.toThrow(/ConfigMap \(generateName x-\) has no metadata.name .*Nothing was applied/);
+    expect(created).toEqual([]);
+    expect(vi.mocked(k8sDelete)).not.toHaveBeenCalled();
+  });
+
+  it('deletes the created object by name with a uid precondition', async () => {
+    const real = vi.mocked(k8sCreate).getMockImplementation();
+    vi.mocked(k8sCreate).mockImplementation((async (opts: { data: { kind: string; metadata: { name: string } } }) => {
+      if (opts.data.kind === 'Route') throw Object.assign(new Error('forbidden'), { json: { code: 403 } });
+      return real!(opts as never);
+    }) as never);
+    try {
+      await expect(
+        applyYaml(`apiVersion: v1
+kind: ConfigMap
+metadata: { name: cm, namespace: oct-x }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata: { name: r, namespace: oct-x }
+`),
+      ).rejects.toThrow(/removed again/);
+    } finally {
+      vi.mocked(k8sCreate).mockImplementation(real as never);
+    }
+    const call = vi.mocked(k8sDelete).mock.calls[0][0] as unknown as {
+      resource: { metadata: { name: string; uid: string } };
+      json: { preconditions: { uid: string } };
+    };
+    expect(call.resource.metadata.name).toBe('cm');
+    expect(call.json.preconditions.uid).toBe('uid-ConfigMap-cm');
   });
 });
