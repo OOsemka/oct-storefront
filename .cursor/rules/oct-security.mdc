@@ -56,4 +56,5 @@ trusted code. Keep what it can do small and say why it needs it. Reference:
 ## Check
 
 - `yarn check-repo` (security patterns; `CHECK_REPO_SECURITY=error` to fail on them)
-  and, in oct-storefront, `yarn security-check --strict` (what CI runs).
+  and, in oct-storefront, `yarn security-check --strict` (what CI runs). After changing a bundle in
+  `catalog/deploy/`, re-check its `spec.security` and run `yarn security-check --mark-reviewed <tool>`.
