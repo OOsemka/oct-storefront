@@ -32,12 +32,15 @@ Everything else on the cluster is ignored. If unrelated software on your cluster
 
 | Policy | Rule | Settings |
 |---|---|---|
-| `oct-no-broad-role-bindings` | No RoleBinding or ClusterRoleBinding to the `cluster-admin`, `admin` or `edit` ClusterRole. | none, always active |
-| `oct-image-rules` | Pods, Deployments, DaemonSets, StatefulSets, ReplicaSets, Jobs and CronJobs: images (including init containers) must come from `allowedRegistries`, and be pinned by digest when `requireDigest` is `"true"`. | `allowedRegistries`, `requireDigest` |
-| `oct-route-approval` | Only extensions listed in `approvedRoutes` may create or change Routes. | `approvedRoutes` |
+| `oct-no-broad-role-bindings` | No RoleBinding or ClusterRoleBinding to the `cluster-admin`, `admin` or `edit` ClusterRole, or to an SCC role (`system:openshift:scc:*`). | none, always active |
+| `oct-image-rules` | Pods (including ephemeral debug containers), Deployments, DaemonSets, StatefulSets, ReplicaSets, Jobs and CronJobs: images (including init containers) must come from `allowedRegistries`, and be pinned by digest when `requireDigest` is `"true"`. | `allowedRegistries`, `requireDigest` |
+| `oct-route-approval` | Only extensions listed in `approvedRoutes` may create or change Routes, or Ingresses (the OpenShift router turns them into Routes). | `approvedRoutes` |
 | `oct-scc-changes` | Only extensions listed in `approvedSCCs` may create, change or delete SecurityContextConstraints. | `approvedSCCs` |
+| `oct-protect-security-config` | Extensions (service accounts in `oct-*`) may not change or delete `community-tools-policy`, `oct-admission-params`, or these policies and bindings. Without it, an extension with broad ConfigMap permissions could delete the settings and so switch off the three rules above. | none, always active |
 
-The extension id in messages and approval lists is the `communitytools.io/extension` label, or for runtime requests the service account's namespace (for example `oct-baremetal`).
+The extension id in messages and approval lists is, for a request from an `oct-*` service account, that service account's namespace (for example `oct-baremetal`), whatever labels the object carries, so a label can't borrow another extension's approval. For other requests (an admin installing through the storefront) it is the `communitytools.io/extension` label.
+
+**Updates that don't change what a rule is about are not re-checked**: scaling or relabelling a Deployment, or removing a finalizer, keeps working in enforce mode even for objects created while the pack was in warn. The image rule re-checks when an image changes, the Route rule when the spec changes, the binding rule when the subjects change.
 
 ## Settings (`params.yaml`, ConfigMap `oct-storefront/oct-admission-params`)
 
@@ -59,3 +62,13 @@ Edit with `oc -n oct-storefront edit configmap oct-admission-params`; changes ap
 - With `allowedRegistries` set, add every registry your installed tools use (the review screen in the storefront lists their images).
 
 No catalog tool binds `cluster-admin`, `admin` or `edit`, or ships an SCC.
+
+## What the pack does not cover
+
+It is a guard rail for the common paths, not a sandbox. Known gaps, so you can decide what else you need:
+
+- **Identity laundering.** An extension that may exec into pods or create workloads in other namespaces (several do, see their review screens) can act as a service account outside `oct-*`, whose requests the pack doesn't check. Keep such permissions out of extensions, or bind them only where needed.
+- **Other image carriers.** VirtualMachine container disks, DeploymentConfigs and BuildConfigs aren't checked.
+- **SCC use through RBAC.** Bindings to `system:openshift:scc:*` roles are refused, but a custom or aggregated role with `use` on an SCC is not. The storefront's review screen flags those (`scc-use`, `rbac-aggregation-rule`).
+- **Settings fail open.** If `oct-admission-params` is deleted by an admin, the image, Route and SCC rules are skipped (see above). Extensions themselves can't delete it (`oct-protect-security-config`).
+

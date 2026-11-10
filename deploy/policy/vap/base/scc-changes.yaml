@@ -26,11 +26,14 @@ spec:
           (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
           (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
   variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
     - name: extId
       expression: >-
-        (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
           (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
-          request.userInfo.username.split(':')[2]
+          'unknown'
     - name: approved
       expression: >-
         has(params.data) && 'approvedSCCs' in params.data ?

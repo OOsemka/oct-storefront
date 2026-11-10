@@ -1,5 +1,7 @@
-# Community Tools extensions may only create or change Routes when approved in
-# params.yaml (approvedRoutes).
+# Community Tools extensions may only create or change Routes (or Ingresses, which
+# the OpenShift router turns into Routes) when approved in params.yaml
+# (approvedRoutes). Updates that leave spec alone (labels, finalizers) are not
+# re-checked.
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -17,6 +19,10 @@ spec:
         apiVersions: [v1]
         operations: [CREATE, UPDATE]
         resources: [routes]
+      - apiGroups: [networking.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [ingresses]
   matchConditions:
     - name: from-community-tools
       # Objects the storefront installed (label) or requests from service
@@ -26,19 +32,24 @@ spec:
           (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
           (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
   variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
     - name: extId
       expression: >-
-        (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
           (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
-          request.userInfo.username.split(':')[2]
+          'unknown'
     - name: approved
       expression: >-
         has(params.data) && 'approvedRoutes' in params.data ?
           params.data['approvedRoutes'].split(',').map(s, s.trim()).filter(s, s != '') : []
   validations:
-    - expression: "variables.approved.exists(a, a == '*' || a == variables.extId)"
+    - expression: >-
+        (request.operation == 'UPDATE' && object.spec == oldObject.spec) ||
+        variables.approved.exists(a, a == '*' || a == variables.extId)
       messageExpression: >-
-        'Community Tools extension ' + variables.extId + ' is not approved to create Routes (Route ' +
+        'Community Tools extension ' + variables.extId + ' is not approved to create Routes (' + object.kind + ' ' +
         object.metadata.namespace + '/' + object.metadata.name + '); add it to approvedRoutes in oct-admission-params'
       reason: Forbidden
 ---

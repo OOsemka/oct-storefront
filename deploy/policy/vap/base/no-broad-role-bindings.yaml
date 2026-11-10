@@ -1,4 +1,6 @@
-# No Community Tools object may bind the cluster-admin, admin or edit ClusterRole.
+# No Community Tools object may bind the cluster-admin, admin or edit ClusterRole, or
+# an SCC role (system:openshift:scc:*). Updates that keep the same subjects are not
+# re-checked (roleRef can't change).
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -22,14 +24,20 @@ spec:
           (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
           (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
   variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
     - name: extId
       expression: >-
-        (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
           (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
-          request.userInfo.username.split(':')[2]
+          'unknown'
   validations:
     - expression: >-
-        !(object.roleRef.kind == 'ClusterRole' && object.roleRef.name in ['cluster-admin', 'admin', 'edit'])
+        (request.operation == 'UPDATE' &&
+          (has(object.subjects) ? object.subjects : []) == (has(oldObject.subjects) ? oldObject.subjects : [])) ||
+        !(object.roleRef.kind == 'ClusterRole' &&
+          (object.roleRef.name in ['cluster-admin', 'admin', 'edit'] || object.roleRef.name.startsWith('system:openshift:scc:')))
       messageExpression: >-
         'Community Tools extension ' + variables.extId + ' may not bind the ' + object.roleRef.name +
         ' ClusterRole (' + object.kind + ' ' + object.metadata.name + ')'

@@ -7,3 +7,4 @@ resources:
   - image-rules.yaml
   - route-approval.yaml
   - scc-changes.yaml
+  - protect-security-config.yaml
