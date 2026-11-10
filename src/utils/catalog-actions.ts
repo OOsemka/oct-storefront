@@ -42,6 +42,7 @@ import {
   SyncStatus,
   ToolVersion,
   imageForRow,
+  openshiftList,
 } from './catalog-types';
 import {
   mergePublicIntoTool,
@@ -592,17 +593,25 @@ async function liveRbacYaml(yaml: string): Promise<string> {
  * ConfigMap the catalog is read from can be written by non-admins with the optional
  * storefront-user role, so anything else is treated as unverified.
  */
-export function matchesBundledRow(tool: CommunityTool, version?: ToolVersion): boolean {
+export function matchesBundledRow(tool: CommunityTool, version?: ToolVersion, clusterMinor = ''): boolean {
   const bundled = bundledCommunityTools().find((t) => t.metadata.name === tool.metadata.name);
   if (!bundled) return false;
   const same = (a?: string, b?: string) => (a || '').trim() === (b || '').trim();
-  if (!same(tool.spec.image, bundled.spec.image) || !same(tool.spec.deployYAML, bundled.spec.deployYAML) || !same(tool.spec.deployURL, bundled.spec.deployURL)) {
+  if (!same(tool.spec.deployYAML, bundled.spec.deployYAML) || !same(tool.spec.deployURL, bundled.spec.deployURL)) {
     return false;
   }
-  if (!version) return true;
-  const os = (v?: ToolVersion) => ([] as string[]).concat((v?.openshift as unknown as string[] | string) || []).join(',');
-  const row = (bundled.spec.versions || []).find((v) => v.version === version.version && os(v) === os(version));
-  return !!row && same(row.image, version.image) && same(row.deployYAML, version.deployYAML) && same(row.deployURL, version.deployURL);
+  if (!version) return same(tool.spec.image, bundled.spec.image);
+  // Compare what would be installed on this cluster, not the row's shape: the synced
+  // cache keeps one row per version for several minors, the bundle one per minor.
+  const minor = clusterMinor || openshiftList(version)[0] || '';
+  const candidates = (bundled.spec.versions || []).filter((v) => v.version === version.version);
+  const row = candidates.find((v) => !minor || openshiftList(v).length === 0 || openshiftList(v).includes(minor)) || (minor ? undefined : candidates[0]);
+  if (!row) return false;
+  return (
+    imageForRow(row, minor, bundled.spec.image) === imageForRow(version, minor, tool.spec.image) &&
+    same(row.deployYAML, version.deployYAML) &&
+    same(row.deployURL, version.deployURL)
+  );
 }
 
 /** Only the storefront's own catalog entry (never an external tool of the same name) owns oct-storefront. */
@@ -626,7 +635,7 @@ export async function prepareInstall(
   const deployURL = ownManifest ? undefined : version?.deployURL || tool.spec.deployURL;
   const bundledIds = new Set(bundledCommunityTools().map((t) => t.metadata.name));
   const publicOnly = tool.spec.source === 'community' && !bundledIds.has(tool.metadata.name);
-  const unverifiedRow = tool.spec.source === 'community' && !publicOnly && !matchesBundledRow(tool, version);
+  const unverifiedRow = tool.spec.source === 'community' && !publicOnly && !matchesBundledRow(tool, version, clusterMinor);
 
   let rbacChanges: PreparedInstall['rbacChanges'] = [];
   let rbacCompareError: string | undefined;

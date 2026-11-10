@@ -36,7 +36,15 @@ describe('matchesBundledRow (review finding B3)', () => {
     expect(matchesBundledRow(tool, { ...row, image: 'quay.io/evil/hello:1' })).toBe(false);
     expect(matchesBundledRow(tool, { ...row, deployYAML: 'kind: Namespace' })).toBe(false);
     expect(matchesBundledRow(tool, { ...row, version: '99.0.0' })).toBe(false);
-    expect(matchesBundledRow({ ...tool, spec: { ...tool.spec, image: 'quay.io/evil/x:1' } }, row)).toBe(false);
+    // spec.image only matters when the row has no image of its own (it is the fallback).
+    expect(matchesBundledRow({ ...tool, spec: { ...tool.spec, image: 'quay.io/evil/x:1' } }, { ...row, image: undefined })).toBe(false);
+  });
+  it('accepts the synced cache shape: one row for several minors (real regression on 2026-11-10)', () => {
+    const minors = tool.spec.versions!.filter((v) => v.version === row.version);
+    const merged = { ...minors[0], openshift: ['4.21', '4.22'] as unknown as string[] };
+    expect(matchesBundledRow(tool, merged, '4.22')).toBe(true);
+    expect(matchesBundledRow(tool, merged, '4.21')).toBe(true);
+    expect(matchesBundledRow(tool, { ...merged, image: 'quay.io/evil/hello:1.0.0-ocp4.21' }, '4.22')).toBe(false);
   });
   it('rejects tools that are not bundled at all', () => {
     expect(matchesBundledRow({ ...tool, metadata: { name: 'oct-not-bundled' } }, row)).toBe(false);
