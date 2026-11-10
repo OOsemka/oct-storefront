@@ -1,7 +1,7 @@
 {
   "comment": "Fingerprint of each bundle (catalog/deploy, ignoring image tags, digests and version labels) when its spec.security declaration was last checked. Update with `yarn security-check --mark-reviewed <tool>` after checking the declaration still describes the bundle (scripts/security-check.ts).",
   "tools": {
-    "oct-baremetal": "sha256:597ba6fa76ebb6b014c3563e5b0ada6159a13d378e8cffa52dc523525e44238b",
+    "oct-baremetal": "sha256:503926814cfc06a6361eeb34e8b109e60a51a84cdabdb9b8b4d76c60c7fe0929",
     "oct-network-bond": "sha256:24bf2433dd21963fc1d6fea4af774ecc9dee099e9fbab23300aba2f25b3e3d92",
     "oct-banner": "sha256:9aa74ac1f8e8cea1f966422f7632eafdd4fa396a854b1b2a5a143954d81ac047",
     "oct-windows-builder": "sha256:0538560ded1cfa980abe0370727e1ac40a376f95944185a8974ef6d09f7cb8ab",

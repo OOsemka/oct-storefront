@@ -5,9 +5,7 @@
       "workload-hardening Deployment/oct-banner"
     ],
     "oct-baremetal": [
-      "backend-no-networkpolicy bundle",
       "rbac-cluster-secrets-read ClusterRole/discovery-service-image-cache",
-      "rbac-cluster-secrets-read ClusterRole/oct-baremetal",
       "route-exposed-plain-http Route/image-cache",
       "workload-hardening Deployment/discovery-service",
       "workload-hardening Deployment/oct-baremetal"

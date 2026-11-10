@@ -29,29 +29,29 @@ spec:
   security:
     schema: 1
     level: privileged
-    summary: Inventory for Metal3 BareMetalHosts. Registers hosts with their BMC credentials and serves golden images to Ironic from a cache published by a Route.
+    summary: Inventory for Metal3 BareMetalHosts. Registers hosts with the signed-in user's own credentials and serves golden images to Ironic from a cache; only the image files are published by a Route.
     backend:
       services: [discovery-service]
-      auth: none
+      auth: ssar
+      authModeDefault: audit
       publicPaths: [/api/v1/image-cache/images/]
     network:
       ingress: route
-      networkPolicy: false
+      networkPolicy: true
       routes:
-        - { name: image-cache, paths: [/], why: "Ironic downloads images over plain HTTP without a user. Today the Route publishes the whole discovery-service; only the image path needs to be public (to be narrowed)." }
-      egress: []
+        - { name: image-cache, paths: [/api/v1/image-cache/images/], why: "Ironic downloads golden images over plain HTTP without a user; only the image files are published, the API stays behind the console proxy." }
+      egress:
+        - { host: "BMC addresses entered in the register wizard", why: "Discovery reads hardware details from the BMC (Redfish); only users allowed to create BareMetalHosts in the target namespace can use it." }
     rbac:
       rules:
-        - { apiGroups: [metal3.io], resources: [baremetalhosts], verbs: [get, list, watch, create, patch, update, delete], why: Register, edit and delete hosts from the inventory page. }
-        - { apiGroups: [""], resources: [secrets], verbs: [get, list, create, update, patch], why: "Store and read BMC credentials and the VM export token. Cluster-wide today; to be limited to the hosts' namespaces." }
-        - { apiGroups: [cdi.kubevirt.io], resources: [datasources, dataimportcrons], verbs: [get, list, watch], why: List the golden images that can be deployed. }
-        - { apiGroups: [""], resources: [namespaces], verbs: [get, list], why: Choose the namespace for new hosts. }
-        - { apiGroups: [export.kubevirt.io], resources: [virtualmachineexports], verbs: [get, list, create, delete], why: Export golden images into the image cache. }
+        - { apiGroups: [cdi.kubevirt.io], resources: [datasources], verbs: [get, list], why: Find the golden image to export. }
         - { apiGroups: [snapshot.storage.k8s.io], resources: [volumesnapshots, volumesnapshotclasses], verbs: [get, list], why: Find the snapshot behind a golden image. }
-        - { apiGroups: [""], resources: [persistentvolumeclaims], verbs: [get, list, create, delete], why: Volumes for exported images. }
         - { apiGroups: [storage.k8s.io], resources: [storageclasses], verbs: [get, list], why: Pick a StorageClass for exports. }
+        - { apiGroups: [export.kubevirt.io], resources: [virtualmachineexports], verbs: [get, list, create, delete], why: Export golden images into the image cache. }
+        - { apiGroups: [""], resources: [secrets], verbs: [get], why: "Read the token of the VM export it created. Cluster-wide today; exports are limited to IMAGE_NAMESPACES (default openshift-virtualization-os-images) in code, the Role is to follow." }
+        - { apiGroups: [""], resources: [persistentvolumeclaims], verbs: [get, list, create, delete], why: Volumes for exported images. }
         - { apiGroups: [route.openshift.io], resources: [routes], verbs: [get, list], why: Find the image-cache URL to give Ironic. }
-    secrets: { access: cluster, why: BMC credentials and VM export tokens (see the rbac reasons). }
+    secrets: { access: cluster, why: "VM export tokens (get only). BMC credentials are created by the signed-in user, not by this tool." }
   versions:
     - version: "0.1.1"
       channel: stable
