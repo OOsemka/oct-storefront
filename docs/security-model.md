@@ -92,6 +92,7 @@ How it behaves:
 - **Fails open.** An unreadable policy or an invalid value falls back to the default for that setting, and the storefront shows a banner explaining why.
 - **The declaration never relaxes a rule.** Rules are checked against the derived profile. A declared level lower than the derived one adds an "exceeds declaration" warning.
 - The code is `src/utils/policy.ts` (pure, unit-tested); the storefront reads the ConfigMap with `loadPolicy()`.
+- **Cluster policy page** (Community Tools → any hub → "Cluster policy", or `/community-tools/management/policy`): a read-only view of the effective settings and their defaults, where they come from (defaults, the ConfigMap, or a read error with defaults in effect), parse warnings, per-tool exceptions, backend auth modes, and whether the admission policy pack is installed and in which mode. Users who may not read the admission objects see "not visible" instead of an error.
 
 ## Advisory vs. enforced
 

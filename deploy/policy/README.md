@@ -8,6 +8,8 @@ Optional settings a cluster admin can use to decide what the storefront may inst
 | [`storefront-user-role.yaml`](storefront-user-role.yaml) | Optional Role for non-admin storefront users: they can use the catalog cache and add external tools, but can't change the policy. |
 | [`vap/`](vap/README.md) | Optional admission policy pack (ValidatingAdmissionPolicies) for hard limits enforced by the API server: no bindings to `cluster-admin`/`admin`/`edit`, registry and digest rules, Route approval, SCC changes. Ships in Warn + Audit. |
 
+**See what is in effect** on the storefront's read-only Cluster policy page (a "Cluster policy" link on every Community Tools hub).
+
 **No policy means defaults.** The storefront never creates the policy ConfigMap. Deleting it returns to the defaults.
 
 **Advisory, not a security boundary.** The storefront applies manifests with the logged-in user's own token, so the policy controls what the storefront *offers*, not what that user could apply by hand. For hard limits, use RBAC and the opt-in admission policy pack in [`vap/`](vap/README.md).
