@@ -8,12 +8,13 @@ vi.mock('@openshift-console/dynamic-plugin-sdk', () => ({
     labels[`${data.kind}/${data.metadata.name}`] = data.metadata.labels;
     return data;
   }),
+  k8sDelete: vi.fn(async () => ({})),
   k8sGet: vi.fn(),
   k8sPatch: vi.fn(),
   k8sUpdate: vi.fn(),
 }));
 
-import { k8sGet } from '@openshift-console/dynamic-plugin-sdk';
+import { k8sCreate, k8sDelete, k8sGet } from '@openshift-console/dynamic-plugin-sdk';
 import { applyYaml, EXTENSION_LABEL, missingNamespaces, splitYamlDocs, unsupportedKinds } from '../apply-yaml';
 
 const GOOD = `
@@ -124,5 +125,85 @@ rules: []
   it('does not block on errors other than not found (e.g. forbidden)', async () => {
     const exists = async () => true;
     expect(await missingNamespaces(splitYamlDocs(ELSEWHERE), exists)).toEqual([]);
+  });
+});
+
+describe('applyYaml rollback', () => {
+  const BUNDLE = `
+apiVersion: v1
+kind: Namespace
+metadata: { name: oct-x }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: svc, namespace: oct-x }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata: { name: denied, namespace: oct-x }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: never, namespace: oct-x }
+`;
+  const deny = (kind: string) => {
+    const real = vi.mocked(k8sCreate).getMockImplementation();
+    vi.mocked(k8sCreate).mockImplementation((async (opts: { data: { kind: string; metadata: { name: string } } }) => {
+      if (opts.data.kind === kind) {
+        throw Object.assign(new Error(`${kind.toLowerCase()}s "denied" is forbidden: ValidatingAdmissionPolicy denied request`), {
+          json: { code: 403 },
+        });
+      }
+      return real!(opts as never);
+    }) as never);
+    return () => vi.mocked(k8sCreate).mockImplementation(real as never);
+  };
+
+  beforeEach(() => {
+    created.length = 0;
+    vi.mocked(k8sDelete).mockClear();
+    vi.mocked(k8sGet).mockImplementation((async () => ({ metadata: { name: 'oct-x' } })) as never);
+  });
+
+  it('removes what this attempt created, newest first, and says so', async () => {
+    const restore = deny('Route');
+    try {
+      await expect(applyYaml(BUNDLE)).rejects.toThrow(
+        /Creating Route\/denied failed: .*forbidden.* The 2 object\(s\) this install had created were removed again\./,
+      );
+    } finally {
+      restore();
+    }
+    expect(created).toEqual(['Namespace/oct-x', 'Service/svc']);
+    const deleted = vi.mocked(k8sDelete).mock.calls.map((c) => `${(c[0] as { resource: { kind: string; metadata: { name: string } } }).resource.kind}/${(c[0] as { resource: { metadata: { name: string } } }).resource.metadata.name}`);
+    expect(deleted).toEqual(['Service/svc', 'Namespace/oct-x']);
+  });
+
+  it('never deletes objects that already existed', async () => {
+    const real = vi.mocked(k8sCreate).getMockImplementation();
+    vi.mocked(k8sCreate).mockImplementation((async (opts: { data: { kind: string; metadata: { name: string } } }) => {
+      if (opts.data.kind === 'Namespace') throw Object.assign(new Error('namespaces "oct-x" already exists'), { json: { code: 409 } });
+      if (opts.data.kind === 'Route') throw Object.assign(new Error('forbidden'), { json: { code: 403 } });
+      return real!(opts as never);
+    }) as never);
+    try {
+      await expect(applyYaml(BUNDLE)).rejects.toThrow(/The 1 object\(s\) this install had created were removed again/);
+    } finally {
+      vi.mocked(k8sCreate).mockImplementation(real as never);
+    }
+    const deleted = vi.mocked(k8sDelete).mock.calls.map((c) => (c[0] as { resource: { kind: string } }).resource.kind);
+    expect(deleted).toEqual(['Service']);
+  });
+
+  it('reports objects it could not remove', async () => {
+    const restore = deny('Route');
+    vi.mocked(k8sDelete).mockImplementationOnce((async () => {
+      throw Object.assign(new Error('forbidden'), { json: { code: 403 } });
+    }) as never);
+    try {
+      await expect(applyYaml(BUNDLE)).rejects.toThrow(/Could not remove Service\/svc; delete them by hand before retrying\./);
+    } finally {
+      restore();
+    }
   });
 });

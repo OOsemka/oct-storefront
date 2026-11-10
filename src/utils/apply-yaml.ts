@@ -1,5 +1,13 @@
 import { loadAll, dump } from 'js-yaml';
-import { k8sCreate, k8sGet, k8sPatch, k8sUpdate, K8sModel, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
+import {
+  k8sCreate,
+  k8sDelete,
+  k8sGet,
+  k8sPatch,
+  k8sUpdate,
+  K8sModel,
+  K8sResourceCommon,
+} from '@openshift-console/dynamic-plugin-sdk';
 import { DeploymentModel, modelForKind, NamespaceModel } from './k8s-models';
 
 /** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. Never a lab class name in YAML. */
@@ -192,12 +200,14 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
     );
   }
   const log: string[] = [];
+  const created: { model: K8sModel; doc: K8sResourceCommon }[] = [];
   for (const doc of docs) {
     const kind = doc.kind || 'Unknown';
     const name = doc.metadata?.name || '(unnamed)';
     const model = modelForKind(kind) as K8sModel;
     try {
       await k8sCreate({ model, data: doc });
+      created.push({ model, doc });
       log.push(`created ${kind}/${name}`);
     } catch (e) {
       if (alreadyExists(e)) {
@@ -206,11 +216,41 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
         else if (CONVERGE_KINDS.has(kind)) updated = await convergeToBundle(model, doc, log);
         log.push(`${updated ? 'updated' : 'exists'} ${kind}/${name}`);
       } else {
-        throw e;
+        throw await rolledBack(e, `${kind}/${name}`, created);
       }
     }
   }
   return log;
+}
+
+/**
+ * A create failed part-way through a bundle (for example an admission policy
+ * denied it). Delete what THIS attempt created, newest first, so the install
+ * doesn't stay half-applied. Objects that already existed are never touched.
+ * Returns the error to throw, with what was undone (or left behind) appended.
+ */
+async function rolledBack(
+  err: unknown,
+  failed: string,
+  created: { model: K8sModel; doc: K8sResourceCommon }[],
+): Promise<Error> {
+  const why = err instanceof Error ? err.message : String(err);
+  const left: string[] = [];
+  for (const { model, doc } of [...created].reverse()) {
+    try {
+      await k8sDelete({ model, resource: doc });
+    } catch (e) {
+      const gone = (e as { json?: { code?: number } })?.json?.code === 404;
+      if (!gone) left.push(`${doc.kind}/${doc.metadata?.name}`);
+    }
+  }
+  let note: string;
+  if (created.length === 0) note = 'Nothing was created.';
+  else if (left.length === 0) note = `The ${created.length} object(s) this install had created were removed again.`;
+  else note = `Could not remove ${left.join(', ')}; delete them by hand before retrying.`;
+  const out = new Error(`Creating ${failed} failed: ${why} ${note}`);
+  (out as Error & { cause?: unknown }).cause = err;
+  return out;
 }
 
 /**
