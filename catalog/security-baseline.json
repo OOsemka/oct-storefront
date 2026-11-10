@@ -51,6 +51,11 @@
       "workload-hardening Deployment/benchmark-runner",
       "workload-hardening Deployment/oct-storage-bench"
     ],
+    "oct-storefront deploy/upgrade.yaml": [
+      "backend-no-networkpolicy bundle",
+      "workload-hardening Deployment/catalog-service",
+      "workload-hardening Deployment/oct-storefront"
+    ],
     "oct-windows-builder": [
       "backend-no-networkpolicy bundle",
       "workload-hardening Deployment/oct-windows-builder",

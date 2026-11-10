@@ -344,7 +344,16 @@ function workloadFindings(holder: PodSpecHolder, images: ImageRef[], hostAccess:
  * Derive the security profile of a bundle.
  * @param yaml multi-document YAML as it would be applied
  */
-export function deriveProfile(yaml: string): SecurityProfile {
+export type DeriveOptions = {
+  /**
+   * The storefront's own bundle (tool id oct-storefront from the community catalog,
+   * never an external tool) owns the oct-storefront namespace, so its objects there
+   * are not "another tool writing into the storefront's namespace".
+   */
+  ownsStorefrontNamespace?: boolean;
+};
+
+export function deriveProfile(yaml: string, opts: DeriveOptions = {}): SecurityProfile {
   const docs = parseBundle(yaml);
   const profile: SecurityProfile = {
     level: 'plugin',
@@ -368,7 +377,16 @@ export function deriveProfile(yaml: string): SecurityProfile {
   };
 
   const roles = new Map<string, RbacRule[]>(); // "ClusterRole/x" or "Role/ns/x"
-  const ownNamespaces = new Set(docs.filter((d) => d.kind === 'Namespace' && d.metadata?.name).map((d) => String(d.metadata.name)));
+  // A Namespace document makes a namespace the bundle's own, except the storefront's
+  // and the platform's: those already exist, and "creating" them must not exempt
+  // the bundle from the placement and RBAC checks below.
+  const ownNamespaces = new Set(
+    docs
+      .filter((d) => d.kind === 'Namespace' && d.metadata?.name && !isProtectedNamespace(String(d.metadata.name)))
+      .map((d) => String(d.metadata.name)),
+  );
+  if (opts.ownsStorefrontNamespace) ownNamespaces.add('oct-storefront');
+  const isProtected = (ns: string) => isProtectedNamespace(ns) && !ownNamespaces.has(ns);
   for (const doc of docs) {
     profile.kinds[doc.kind] = (profile.kinds[doc.kind] || 0) + 1;
     if (doc.kind === 'ClusterRole') {
@@ -422,7 +440,7 @@ export function deriveProfile(yaml: string): SecurityProfile {
         // In its own namespace even admin/edit stay there. In a platform namespace they
         // reach cluster-critical ServiceAccounts and config; in a namespace the bundle
         // doesn't create they reach someone else's workloads.
-        const where = scope === 'cluster' ? 'cluster' : isProtectedNamespace(scope) ? 'protected' : ownNamespaces.has(scope) ? 'own' : 'foreign';
+        const where = scope === 'cluster' ? 'cluster' : isProtected(scope) ? 'protected' : ownNamespaces.has(scope) ? 'own' : 'foreign';
         const lvl: SecurityLevel =
           where === 'cluster' || where === 'protected'
             ? builtin
@@ -461,7 +479,7 @@ export function deriveProfile(yaml: string): SecurityProfile {
   });
 
   for (const rule of [...profile.clusterRules, ...profile.namespacedRules]) {
-    const protectedNs = rule.scope !== 'cluster' && isProtectedNamespace(rule.scope);
+    const protectedNs = rule.scope !== 'cluster' && isProtected(rule.scope);
     const foreignNs = rule.scope !== 'cluster' && !protectedNs && !ownNamespaces.has(rule.scope);
     // RBAC inside a platform namespace is judged like cluster-wide RBAC.
     const found = ruleFindings(rule, protectedNs);
@@ -564,7 +582,7 @@ export function deriveProfile(yaml: string): SecurityProfile {
         });
       }
     }
-    if (!ns) continue;
+    if (!ns || ownNamespaces.has(ns)) continue;
     if (ns === 'oct-storefront') {
       findings.push({
         id: 'object-in-storefront-namespace',
@@ -581,7 +599,7 @@ export function deriveProfile(yaml: string): SecurityProfile {
         level: 'privileged',
         message: `Puts an object in platform namespace ${ns}.`,
       });
-    } else if (!ownNamespaces.has(ns)) {
+    } else {
       findings.push({
         id: 'object-outside-own-namespace',
         severity: 'warn',

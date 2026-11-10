@@ -583,6 +583,11 @@ async function liveRbacYaml(yaml: string): Promise<string> {
  * evaluate the cluster policy. Nothing is applied. Pass the result's `yaml` to
  * addExtension as `reviewedYaml` so the user gets exactly what they reviewed.
  */
+/** Only the storefront's own catalog entry (never an external tool of the same name) owns oct-storefront. */
+export function ownsStorefrontNamespace(tool: CommunityTool): boolean {
+  return tool.metadata.name === 'oct-storefront' && tool.spec.source !== 'external';
+}
+
 export async function prepareInstall(
   tool: CommunityTool,
   version: ToolVersion | undefined,
@@ -593,7 +598,7 @@ export async function prepareInstall(
     loadPolicy(),
     resolveDeployYaml(tool, version, clusterMinor),
   ]);
-  const profile = deriveProfile(yaml);
+  const profile = deriveProfile(yaml, { ownsStorefrontNamespace: ownsStorefrontNamespace(tool) });
   const declared = version?.security || tool.spec.security;
   const ownManifest = Boolean(version?.deployYAML?.trim() || (!version?.deployYAML && tool.spec.deployYAML?.trim()));
   const deployURL = ownManifest ? undefined : version?.deployURL || tool.spec.deployURL;

@@ -51,13 +51,14 @@ Besides the level, the profile lists findings, each with a stable id:
 
 ## CI: report and ratchet
 
-`yarn security-check` derives the profile of every bundle in `catalog/deploy/` and compares the findings with [`catalog/security-baseline.json`](../catalog/security-baseline.json):
+`yarn security-check` derives the profile of every bundle the storefront can install (`catalog/deploy/<tool>.yaml`, inline `deployYAML` on a catalog row or tool, and `deployURL`s that point into this repository, which are read from the local file; a `deployURL` anywhere else fails `--strict` because CI can't check what it serves) and compares the findings with [`catalog/security-baseline.json`](../catalog/security-baseline.json):
 
 - Findings already in the baseline are **tolerated**. They are the known issues of existing tools.
 - CI runs `yarn security-check --strict`, which **fails** on:
   - a **new** finding. Fix it, or accept it deliberately with `yarn security-check --update-baseline` and say why in the PR;
   - a **stale** baseline entry: a finding that was fixed, or whose bundle was removed, but is still listed. Remove it with `--update-baseline` and check that the diff only removes lines. This keeps the baseline shrinking: once something is fixed, it can't quietly come back;
   - a **declaration mismatch**: `spec.security.level` lower than the level the bundle derives, or a Route the declaration doesn't list. A tool without any declaration is only noted (declarations are optional);
+  - a **hard rule** (below), which is never tolerated, not even when added to the baseline;
   - **declaration drift**: a declared tool's bundle changed since its declaration was last reviewed. [`catalog/declaration-review.json`](../catalog/declaration-review.json) keeps a fingerprint of each bundle that ignores image tags, digests and version labels, so routine releases don't trip it; anything else does (RBAC, CRD fields, new objects, ports). Static checks can't see everything a bundle does at runtime (for example a CRD field that makes the tool publish Routes), so a person reads the bundle diff, updates `spec.security` if needed, and records it with `yarn security-check --mark-reviewed <tool>`.
 - Without `--strict` (local runs), the same report is printed but only the hard rules below fail.
 

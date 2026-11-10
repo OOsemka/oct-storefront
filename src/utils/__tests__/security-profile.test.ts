@@ -352,3 +352,23 @@ subjects: [{ kind: ServiceAccount, name: sa, namespace: oct-x }]`;
     ]);
   });
 });
+
+describe('own-namespace exemptions cannot be claimed', () => {
+  const withNs = (ns: string) => `
+apiVersion: v1
+kind: Namespace
+metadata: { name: ${ns} }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: community-tools-policy, namespace: ${ns} }`;
+  it('a Namespace document for oct-storefront or a platform namespace does not exempt the bundle', () => {
+    expect(deriveProfile(withNs('oct-storefront')).findings.map((f) => f.id)).toContain('object-in-storefront-namespace');
+    expect(deriveProfile(withNs('openshift-config')).findings.map((f) => f.id)).toContain('object-in-platform-namespace');
+    expect(deriveProfile(withNs('oct-storefront')).level).toBe('privileged');
+  });
+  it('only the explicit option lets the storefront own its namespace', () => {
+    expect(deriveProfile(withNs('oct-storefront'), { ownsStorefrontNamespace: true }).level).toBe('plugin');
+    expect(deriveProfile(withNs('openshift-config'), { ownsStorefrontNamespace: true }).level).toBe('privileged');
+  });
+});

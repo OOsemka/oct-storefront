@@ -45,6 +45,7 @@ import {
   statsFromCache,
   syncFromCache,
   toolsFromCache,
+  ownsStorefrontNamespace,
 } from '../../utils/catalog-actions';
 import { deriveProfile, SecurityLevel } from '../../utils/security-profile';
 
@@ -65,18 +66,19 @@ function clusterVersionString(cv?: ClusterVersionKind): string {
 
 // Tile labels derive a profile per tool; bundles rarely change, so cache by YAML text.
 const levelCache = new Map<string, SecurityLevel | undefined>();
-function levelOf(yaml: string): SecurityLevel | undefined {
+function levelOf(yaml: string, ownsStorefrontNs = false): SecurityLevel | undefined {
   if (!yaml) return undefined;
-  if (!levelCache.has(yaml)) {
+  const key = `${ownsStorefrontNs ? 'own:' : ''}${yaml}`;
+  if (!levelCache.has(key)) {
     let level: SecurityLevel | undefined;
     try {
-      level = deriveProfile(yaml).level;
+      level = deriveProfile(yaml, { ownsStorefrontNamespace: ownsStorefrontNs }).level;
     } catch {
       level = undefined;
     }
-    levelCache.set(yaml, level);
+    levelCache.set(key, level);
   }
-  return levelCache.get(yaml);
+  return levelCache.get(key);
 }
 
 /** An install waiting for the user to confirm the review screen. */
@@ -244,7 +246,7 @@ export function useCatalog(category: ToolCategory) {
           updateAvailable: blocked ? undefined : newer,
           updateBlocked: blocked && newer?.version ? { version: newer.version, reason: blocked } : undefined,
           compatibleSemvers: compatibleSemvers(t.spec, clusterVersion),
-          securityLevel: levelOf(peekDeployYaml(t, picked.version)),
+          securityLevel: levelOf(peekDeployYaml(t, picked.version), ownsStorefrontNamespace(t)),
           publicOnly: t.spec.source === 'community' && !bundledIds.has(t.metadata.name),
         };
       });

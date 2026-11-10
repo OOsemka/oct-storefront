@@ -8,6 +8,7 @@
     "oct-storage-bench": "sha256:991c98bef2845c55879489f4bf111d5ae7d6789a52900455d326edf1970899f0",
     "oct-odf-macvlans": "sha256:dac1badd65036a9e19a0676893080b327fc875cd80e2feb0cf69b40696c74c7a",
     "oct-hello-world": "sha256:d694788e7d8f8e98eb075a6172019314ff219bbc93c642692b85d87d44208b78",
+    "oct-storefront deploy/upgrade.yaml": "sha256:e331a4a0922bc0148101ebde336ebe49d7eab172ace4f508631140e3ba06b91c",
     "oct-network-bridge": "sha256:1b856e83f708df4238cda90c04a5578c3e2c8cc7e48d857640531ef0fe96490b",
     "oct-network-vlan": "sha256:1db7050289f88fcd0c66b39b4c9d6ea8f846df3e693e813c94d876385eaf7879",
     "oct-network-dhcp": "sha256:790ad720585946438cac59acd0c2c0c28de6ade56e1d2d283bbc1a319a6c5bef",
