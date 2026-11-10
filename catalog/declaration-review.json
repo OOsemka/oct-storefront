@@ -12,6 +12,6 @@
     "oct-network-bridge": "sha256:1b856e83f708df4238cda90c04a5578c3e2c8cc7e48d857640531ef0fe96490b",
     "oct-network-vlan": "sha256:1db7050289f88fcd0c66b39b4c9d6ea8f846df3e693e813c94d876385eaf7879",
     "oct-network-dhcp": "sha256:790ad720585946438cac59acd0c2c0c28de6ade56e1d2d283bbc1a319a6c5bef",
-    "oct-shift-on-shift-virt": "sha256:68e96cd9fae605fa5749377e72ae6f7a469e6e4847f0123fdaa2bdca36eded34"
+    "oct-shift-on-shift-virt": "sha256:198046d3bdfb83513449865e7aa954ed58ce6b4dd504f8af0c7a39eefdec2435"
   }
 }

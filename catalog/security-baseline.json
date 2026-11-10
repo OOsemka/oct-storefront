@@ -29,7 +29,6 @@
       "workload-hardening Deployment/oct-odf-macvlans"
     ],
     "oct-shift-on-shift-virt": [
-      "backend-no-networkpolicy bundle",
       "rbac-cluster-namespaces-delete ClusterRole/oct-shift-on-shift-virt-orchestrator",
       "rbac-cluster-pods-exec ClusterRole/oct-shift-on-shift-virt-orchestrator",
       "rbac-cluster-rbac-write ClusterRole/oct-shift-on-shift-virt-orchestrator",

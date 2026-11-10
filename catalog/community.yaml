@@ -1446,9 +1446,10 @@ spec:
     summary: Deploys standalone OpenShift clusters on KubeVirt VMs, by installing them or by cloning a master cluster's disk snapshots (Express). Each nested cluster gets its own namespace, network, VMs, disks and helper services, managed by an orchestrator through the NestedCluster API.
     backend:
       services: [sos-orchestrator]
-      auth: none
+      auth: ssar
+      authModeDefault: audit
       publicPaths: []
-    network: { ingress: console-only, networkPolicy: false, routes: [], egress: [] }
+    network: { ingress: console-only, networkPolicy: true, routes: [], egress: [] }
     rbac:
       rules:
         - { apiGroups: [""], resources: [namespaces], verbs: [get, list, watch, create, delete], why: "One namespace per nested cluster; only namespaces it created are ever deleted." }
