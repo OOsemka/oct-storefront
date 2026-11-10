@@ -62,8 +62,9 @@ Besides the level, the profile lists findings, each with a stable id:
   - **declaration drift**: a declared tool's bundle changed since its declaration was last reviewed. [`catalog/declaration-review.json`](../catalog/declaration-review.json) keeps a fingerprint of each bundle that ignores image tags, digests and version labels, so routine releases don't trip it; anything else does (RBAC, CRD fields, new objects, ports). Static checks can't see everything a bundle does at runtime (for example a CRD field that makes the tool publish Routes), so a person reads the bundle diff, updates `spec.security` if needed, and records it with `yarn security-check --mark-reviewed <tool>`.
 - Without `--strict` (local runs), the same report is printed but only the hard rules below fail.
 
-The goal is an empty baseline. Besides the ratchet, two **hard rules** fail CI for any new occurrence:
+The goal is an empty baseline. Besides the ratchet, these **hard rules** always fail CI:
 
+- a bundle that is not valid YAML or contains no Kubernetes objects (the derivation would otherwise see an empty, harmless-looking profile);
 - a Secret with data inside a bundle;
 - a catalog row whose inline `deployYAML` contains a NetworkPolicy without `versions[].minStorefront: "1.6.0"` or newer.
 

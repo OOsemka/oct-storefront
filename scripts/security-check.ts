@@ -20,7 +20,9 @@
  *                                          were checked against their current bundles
  *   yarn security-check --json             machine-readable output
  *
- * Hard rules (fail even without --strict; existing baseline entries are tolerated):
+ * Hard rules (fail even without --strict, never tolerated by the baseline):
+ *   - a bundle that is not valid YAML or contains no Kubernetes objects (it would
+ *     otherwise derive as a harmless, empty profile);
  *   - a Secret with data inside a bundle (credentials must never ship in a manifest);
  *   - a catalog row whose inline deployYAML has a NetworkPolicy but no
  *     versions[].minStorefront of at least 1.6.0 (older storefronts can't apply it).
@@ -33,6 +35,7 @@
  * (for example a new CRD field that publishes Routes at runtime), so a person looks.
  */
 import { createHash } from 'crypto';
+import { loadAll } from 'js-yaml';
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { canonicalBundle } from '../src/utils/bundle-fingerprint';
@@ -105,6 +108,17 @@ for (const t of tools) {
     }
   }
 }
+// A bundle that doesn't parse would derive as an empty, "plugin"-level profile (the
+// derivation never throws), so an invalid manifest could look harmless. Fail instead.
+const unparsable: string[] = [];
+for (const id of Object.keys(bundleText).sort()) {
+  try {
+    const docs = (loadAll(bundleText[id]) as unknown[]).filter((d) => d && typeof d === 'object' && (d as { kind?: string }).kind);
+    if (docs.length === 0) unparsable.push(`${id}: contains no Kubernetes objects`);
+  } catch (e) {
+    unparsable.push(`${id}: invalid YAML (${(e as Error).message.split('\n')[0]})`);
+  }
+}
 const profiles: Record<string, SecurityProfile> = {};
 const fingerprints: Record<string, string> = {};
 for (const id of Object.keys(bundleText).sort()) {
@@ -160,7 +174,7 @@ if (update) {
 }
 
 const baseline = loadBaseline();
-const hard: string[] = [];
+const hard: string[] = unparsable.map((u) => `${u}; the security profile can't be derived`);
 const declarationWarnings: string[] = [];
 let newCount = 0;
 let staleCount = 0;
