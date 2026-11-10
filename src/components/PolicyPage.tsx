@@ -209,7 +209,7 @@ const PolicyPage: FC = () => {
               <CardTitle>{t('Per-tool exceptions')}</CardTitle>
               <CardBody>
                 {overrides.length ? (
-                  <DescriptionList isHorizontal isCompact>
+                  <DescriptionList isHorizontal isCompact className="ct-policy-names">
                     {overrides.map((o) => (
                       <DescriptionListGroup key={o.tool}>
                         <DescriptionListTerm>
@@ -233,7 +233,7 @@ const PolicyPage: FC = () => {
               <CardTitle>{t('Extension backend auth modes')}</CardTitle>
               <CardBody>
                 {backends.length ? (
-                  <DescriptionList isHorizontal isCompact>
+                  <DescriptionList isHorizontal isCompact className="ct-policy-names">
                     {backends.map((b) => (
                       <DescriptionListGroup key={b.extension}>
                         <DescriptionListTerm>
@@ -275,7 +275,7 @@ const PolicyPage: FC = () => {
                   </StackItem>
                   {admission.state !== 'unknown' && admission.state !== 'not-installed' ? (
                     <StackItem>
-                      <DescriptionList isHorizontal isCompact>
+                      <DescriptionList isHorizontal isCompact className="ct-policy-names">
                         {admission.policies.map((p) => (
                           <DescriptionListGroup key={p.name}>
                             <DescriptionListTerm>
@@ -292,7 +292,7 @@ const PolicyPage: FC = () => {
                       <Title headingLevel="h3" size="md">
                         {t('Settings ({{ns}}/{{name}})', { ns: STOREFRONT_NS, name: ADMISSION_PARAMS_CONFIGMAP })}
                       </Title>
-                      <DescriptionList isHorizontal isCompact>
+                      <DescriptionList isHorizontal isCompact className="ct-policy-names">
                         <DescriptionListGroup>
                           <DescriptionListTerm>
                             <code>allowedRegistries</code>

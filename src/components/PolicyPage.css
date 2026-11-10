@@ -5,5 +5,9 @@
 }
 
 .ct-policy-list {
-  --pf-v6-c-description-list--m-horizontal__term--width: 28ch;
+  --pf-v6-c-description-list--m-horizontal__term--width: 48ch;
+}
+
+.ct-policy-names {
+  --pf-v6-c-description-list--m-horizontal__term--width: 32ch;
 }
