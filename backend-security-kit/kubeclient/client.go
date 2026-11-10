@@ -99,15 +99,34 @@ func (c *Client) serviceAccountToken() (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// Do sends one request. With token == "" it uses the ServiceAccount token. body and
-// out are JSON (either may be nil).
-func (c *Client) Do(ctx context.Context, method, path string, token string, body, out any) error {
+// ErrNoUserToken is returned by DoAsUser when there is no user token. It never
+// falls back to the ServiceAccount: in audit mode or on a public route a request
+// can reach a handler without a token, and "as the caller" must not quietly
+// become "as the backend".
+var ErrNoUserToken = errors.New("kubeclient: no user token for a call made as the caller")
+
+// DoAsUser sends one request with the caller's token (auth.UserToken). An empty
+// token is an error (ErrNoUserToken). body and out are JSON (either may be nil).
+func (c *Client) DoAsUser(ctx context.Context, method, path, token string, body, out any) error {
+	if strings.TrimSpace(token) == "" {
+		return ErrNoUserToken
+	}
+	return c.do(ctx, method, path, token, body, out)
+}
+
+// DoAsServiceAccount sends one request with the backend's own ServiceAccount token.
+// Use it only after the caller was checked, for things the caller can't do directly.
+func (c *Client) DoAsServiceAccount(ctx context.Context, method, path string, body, out any) error {
+	t, err := c.serviceAccountToken()
+	if err != nil {
+		return err
+	}
+	return c.do(ctx, method, path, t, body, out)
+}
+
+func (c *Client) do(ctx context.Context, method, path string, token string, body, out any) error {
 	if token == "" {
-		t, err := c.serviceAccountToken()
-		if err != nil {
-			return err
-		}
-		token = t
+		return errors.New("kubeclient: empty token")
 	}
 	var rdr io.Reader
 	if body != nil {
@@ -179,7 +198,7 @@ func (c *Client) SelfSubjectAccessReview(ctx context.Context, userToken string, 
 			Reason  string `json:"reason"`
 		} `json:"status"`
 	}
-	if err := c.Do(ctx, http.MethodPost, "/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", userToken, req, &resp); err != nil {
+	if err := c.DoAsUser(ctx, http.MethodPost, "/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", userToken, req, &resp); err != nil {
 		return false, "", err
 	}
 	return resp.Status.Allowed, resp.Status.Reason, nil
@@ -201,7 +220,7 @@ func (c *Client) TokenReview(ctx context.Context, userToken string) (username st
 			} `json:"user"`
 		} `json:"status"`
 	}
-	if err := c.Do(ctx, http.MethodPost, "/apis/authentication.k8s.io/v1/tokenreviews", "", req, &resp); err != nil {
+	if err := c.DoAsServiceAccount(ctx, http.MethodPost, "/apis/authentication.k8s.io/v1/tokenreviews", req, &resp); err != nil {
 		return "", false, err
 	}
 	return resp.Status.User.Username, resp.Status.Authenticated, nil
@@ -212,7 +231,7 @@ func (c *Client) GetConfigMap(ctx context.Context, namespace, name string) (map[
 	var cm struct {
 		Data map[string]string `json:"data"`
 	}
-	if err := c.Do(ctx, http.MethodGet, "/api/v1/namespaces/"+namespace+"/configmaps/"+name, "", nil, &cm); err != nil {
+	if err := c.DoAsServiceAccount(ctx, http.MethodGet, "/api/v1/namespaces/"+namespace+"/configmaps/"+name, nil, &cm); err != nil {
 		return nil, err
 	}
 	return cm.Data, nil

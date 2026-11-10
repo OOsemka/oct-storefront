@@ -1,5 +1,5 @@
 // Package backendsecuritykit is the shared security library for OpenShift Community
-// Tools extension backends. It is standard library only.
+// Tools extension backends. Its only dependency is gopkg.in/yaml.v3 (policy parsing).
 //
 //   - auth: who is calling, and may they do this? Per-route permission table checked
 //     with a SelfSubjectAccessReview made with the caller's own token, off/audit/enforce

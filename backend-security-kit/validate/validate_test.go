@@ -3,8 +3,11 @@ package validate_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OOsemka/oct-storefront/backend-security-kit/validate"
 )
@@ -91,4 +94,30 @@ func FuzzDNS1123Label(f *testing.F) {
 			t.Fatalf("accepted %q", s)
 		}
 	})
+}
+
+// Review findings A6/A7.
+func TestSafeJoinRootBaseAndSymlinks(t *testing.T) {
+	if p, err := validate.SafeJoin("/", "etc/hosts"); err != nil || p != "/etc/hosts" {
+		t.Fatalf("root base: %q %v", p, err)
+	}
+	base := t.TempDir()
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(base, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validate.SafeJoin(base, "link/secret"); err == nil {
+		t.Fatal("a symlink leading outside base must be refused")
+	}
+	if _, err := validate.SafeJoin(base, "new/file"); err != nil {
+		t.Fatalf("a path that doesn't exist yet inside base is fine: %v", err)
+	}
+}
+
+func TestRunRefusesShellsThroughWrappers(t *testing.T) {
+	for _, args := range [][]string{{"env", "sh", "-c", "echo x"}, {"busybox", "sh"}, {"timeout", "5", "bash", "-c", "x"}} {
+		if _, err := validate.Run(context.Background(), time.Second, args[0], args[1:]...); err != validate.ErrShell {
+			t.Fatalf("%v: want ErrShell, got %v", args, err)
+		}
+	}
 }

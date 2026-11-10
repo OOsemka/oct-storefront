@@ -1,6 +1,6 @@
 # backend-security-kit
 
-The shared security library for OpenShift Community Tools extension backends. It's Go standard library only, so it adds no dependencies to your backend.
+The shared security library for OpenShift Community Tools extension backends. Its only dependency is `gopkg.in/yaml.v3`, so it reads the cluster policy exactly as the storefront does.
 
 **The problem it solves:** the console sends requests from your plugin straight to your backend through the ConsolePlugin proxy. Your backend then acts with **its own** ServiceAccount, which usually has far more access than the person clicking. Without a check, anyone who can open the console (or reach the Service) can use your backend's permissions. The kit makes the backend check **the caller's** permissions on every request.
 
@@ -38,13 +38,13 @@ The shared security library for OpenShift Community Tools extension backends. It
    ```
 
    Rule of thumb: require what the user would need to do the same thing with `oc`. All checks on a route must pass. A route with no checks must be marked `Public` explicitly; `New` fails otherwise.
-3. **Wrap your mux:** `authz.Middleware(mux)`, and serve it with `server.Run` (see `example_test.go`).
+3. **Serve the table:** give every `auth.Route` its `Handler` and serve `authz.Handler()` with `server.Run`, so one pattern decides both the check and what runs. (`authz.Middleware(mux)` also works, but then the table and your mux must stay identical by hand.) A public route ending in `/` matches everything below it, so `New` refuses it unless you set `Subtree: true`. `auth.Query(name)` fails closed (400) if the parameter is repeated or the request has a form body; read it in the handler the same way, `r.URL.Query().Get(name)`, never `r.FormValue`.
 4. **Poll the policy** for the admin override: `go auth.NewPolicySource(client, 0, nil).Run(ctx)`.
 5. **Validate inputs** you use in names, paths or commands with `validate`.
 6. **Apply the manifests:** the serving-cert annotation, the hardened Deployment settings, and the console-only NetworkPolicy.
 7. **Declare it** in your catalog entry: `spec.security.backend: { services: [...], auth: ssar, authModeDefault: enforce }`.
 
-Handlers can call the API **as the caller** with `auth.UserToken(r.Context())` and `kubeclient.Client.Do(ctx, method, path, token, body, out)`. Use the ServiceAccount (token `""`) only for background work, and record who asked, for example with the annotation `communitytools.io/requested-by`.
+Handlers call the API **as the caller** with `client.DoAsUser(ctx, method, path, auth.UserToken(r.Context()), body, out)`. It returns `kubeclient.ErrNoUserToken` when there is no token (possible in audit mode or on a public route) and never falls back to the ServiceAccount; answer 401 then. Use `client.DoAsServiceAccount` only after the caller was checked, for things the caller can't do directly, and record who asked, for example with the annotation `communitytools.io/requested-by`.
 
 ## Modes
 
@@ -69,7 +69,7 @@ backends:
     authMode: enforce   # or audit
 ```
 
-Backends pick it up within about a minute; removing it restores the Deployment's mode. Only `audit` and `enforce` are accepted: **an override can never turn checks off.** Everyone may read the policy ConfigMap, so the backend's ServiceAccount needs no extra RBAC for this.
+Backends pick it up within about a minute; removing it restores the Deployment's mode. Only `audit` and `enforce` are accepted, so an override can't select `off`. But **audit lets every request through** (it only logs), so who may edit that ConfigMap matters: by default only cluster admins. Invalid entries are logged as warnings and ignored. Everyone may read the policy ConfigMap, so the backend's ServiceAccount needs no extra RBAC for this.
 
 ## What this does not do
 

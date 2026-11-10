@@ -2,10 +2,14 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
 )
@@ -23,7 +27,9 @@ const (
 //	  oct-baremetal:
 //	    authMode: audit
 //
-// Only audit and enforce are accepted; an override can never turn checks off.
+// Only audit and enforce are accepted; an override can never turn checks off. Note
+// that audit lets every request through (it only logs), so who may edit the policy
+// ConfigMap matters: by default only cluster admins.
 // Every authenticated user may read the policy ConfigMap, so the backend's
 // ServiceAccount needs no extra RBAC.
 type PolicySource struct {
@@ -31,8 +37,9 @@ type PolicySource struct {
 	interval time.Duration
 	log      *slog.Logger
 
-	mu    sync.RWMutex
-	modes map[string]Mode
+	mu       sync.RWMutex
+	modes    map[string]Mode
+	lastWarn string
 }
 
 // NewPolicySource creates a source that polls every interval (60s when zero).
@@ -75,7 +82,14 @@ func (p *PolicySource) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p.Set(ParseBackendOverrides(data[PolicyKey]))
+	modes, warns := ParseBackendOverridesWarn(data[PolicyKey])
+	p.Set(modes)
+	if w := strings.Join(warns, "; "); w != p.lastWarn {
+		p.lastWarn = w
+		if w != "" {
+			p.log.Warn("cluster policy: problems in backends", "problems", w)
+		}
+	}
 	return nil
 }
 
@@ -95,137 +109,64 @@ func (p *PolicySource) Run(ctx context.Context) {
 	}
 }
 
-// ParseBackendOverrides extracts backends.<name>.authMode from policy.yaml.
-//
-// The kit is standard library only, so this reads just the small YAML subset the
-// `backends` section uses: a block mapping of names, each with `authMode: <mode>`
-// on the next line or as a flow mapping `{ authMode: <mode> }`, or the whole section
-// as a flow mapping. Anything else is ignored. It never panics.
+// ParseBackendOverrides extracts backends.<name>.authMode from policy.yaml with a
+// real YAML parser, so the kit reads the policy exactly as the storefront's policy
+// page does. Invalid YAML or invalid entries yield no override for them (the
+// Deployment's own mode applies); ParseBackendOverridesWarn also says why.
 func ParseBackendOverrides(policyYAML string) map[string]Mode {
+	m, _ := ParseBackendOverridesWarn(policyYAML)
+	return m
+}
+
+// ParseBackendOverridesWarn is ParseBackendOverrides plus the problems found.
+func ParseBackendOverridesWarn(policyYAML string) (map[string]Mode, []string) {
 	out := map[string]Mode{}
-	lines := strings.Split(strings.ReplaceAll(policyYAML, "\r\n", "\n"), "\n")
-	for i := 0; i < len(lines); i++ {
-		line := stripComment(lines[i])
-		if indentOf(line) != 0 || !strings.HasPrefix(line, "backends:") {
+	text := strings.TrimPrefix(policyYAML, "\ufeff")
+	if strings.TrimSpace(text) == "" {
+		return out, nil
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(text), &doc); err != nil {
+		return out, []string{"policy.yaml is not valid YAML (" + err.Error() + "); no auth-mode overrides apply"}
+	}
+	raw, ok := doc["backends"]
+	if !ok || raw == nil {
+		return out, nil
+	}
+	backends, ok := raw.(map[string]any)
+	if !ok {
+		return out, []string{"backends must be a mapping of extension names; no auth-mode overrides apply"}
+	}
+	var warns []string
+	for name, v := range backends {
+		entry, ok := v.(map[string]any)
+		if !ok {
+			warns = append(warns, "backends."+name+" must be a mapping with authMode; ignored")
 			continue
 		}
-		rest := strings.TrimSpace(strings.TrimPrefix(line, "backends:"))
-		if strings.HasPrefix(rest, "{") {
-			parseFlowBackends(rest, out)
-			return out
+		am, ok := entry["authMode"]
+		if !ok {
+			warns = append(warns, "backends."+name+" has no authMode; ignored")
+			continue
 		}
-		childIndent := -1
-		current := ""
-		for j := i + 1; j < len(lines); j++ {
-			l := stripComment(lines[j])
-			if strings.TrimSpace(l) == "" {
-				continue
-			}
-			ind := indentOf(l)
-			if ind == 0 {
-				break
-			}
-			key, val, ok := splitKV(strings.TrimSpace(l))
-			if !ok {
-				continue
-			}
-			if childIndent < 0 {
-				childIndent = ind
-			}
-			switch {
-			case ind == childIndent:
-				current = key
-				if strings.HasPrefix(val, "{") {
-					if m, ok := flowAuthMode(val); ok {
-						out[current] = m
-					}
-				}
-			case ind > childIndent && current != "" && key == "authMode":
-				if m, ok := asOverride(val); ok {
-					out[current] = m
-				}
-			}
+		str, _ := am.(string)
+		mode, ok := asOverride(str)
+		if !ok {
+			warns = append(warns, fmt.Sprintf("backends.%s.authMode %q is not audit or enforce; ignored", name, am))
+			continue
 		}
-		return out
+		out[name] = mode
 	}
-	return out
-}
-
-// parseFlowBackends handles `backends: { a: { authMode: audit }, b: { authMode: enforce } }`.
-func parseFlowBackends(s string, out map[string]Mode) {
-	s = strings.TrimSpace(s)
-	if len(s) < 2 || s[0] != '{' || s[len(s)-1] != '}' {
-		return
-	}
-	body := s[1 : len(s)-1]
-	for len(body) > 0 {
-		colon := strings.Index(body, ":")
-		if colon < 0 {
-			return
-		}
-		name := unquote(strings.TrimSpace(strings.TrimLeft(body[:colon], ", ")))
-		rest := strings.TrimSpace(body[colon+1:])
-		if !strings.HasPrefix(rest, "{") {
-			return
-		}
-		end := strings.Index(rest, "}")
-		if end < 0 {
-			return
-		}
-		if m, ok := flowAuthMode(rest[:end+1]); ok && name != "" {
-			out[name] = m
-		}
-		body = rest[end+1:]
-	}
-}
-
-// flowAuthMode reads `{ authMode: audit }`.
-func flowAuthMode(s string) (Mode, bool) {
-	s = strings.TrimSpace(s)
-	if len(s) < 2 || s[0] != '{' || s[len(s)-1] != '}' {
-		return "", false
-	}
-	for _, part := range strings.Split(s[1:len(s)-1], ",") {
-		if k, v, ok := splitKV(strings.TrimSpace(part)); ok && k == "authMode" {
-			return asOverride(v)
-		}
-	}
-	return "", false
+	sort.Strings(warns)
+	return out, warns
 }
 
 func asOverride(v string) (Mode, bool) {
-	switch Mode(unquote(v)) {
+	switch Mode(strings.ToLower(strings.TrimSpace(v))) {
 	case Audit:
 		return Audit, true
 	case Enforce:
 		return Enforce, true
 	}
 	return "", false
-}
-
-func splitKV(s string) (string, string, bool) {
-	i := strings.Index(s, ":")
-	if i <= 0 {
-		return "", "", false
-	}
-	return unquote(strings.TrimSpace(s[:i])), strings.TrimSpace(s[i+1:]), true
-}
-
-func unquote(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) >= 2 && (s[0] == '"' && s[len(s)-1] == '"' || s[0] == '\'' && s[len(s)-1] == '\'') {
-		return s[1 : len(s)-1]
-	}
-	return s
-}
-
-func stripComment(l string) string {
-	if i := strings.Index(l, "#"); i >= 0 && (i == 0 || l[i-1] == ' ' || l[i-1] == '\t') {
-		l = l[:i]
-	}
-	return strings.TrimRight(l, " \t")
-}
-
-func indentOf(l string) int {
-	return len(l) - len(strings.TrimLeft(l, " "))
 }

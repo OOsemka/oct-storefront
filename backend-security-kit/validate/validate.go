@@ -62,7 +62,10 @@ func Namespace(ns string, allowed ...string) error {
 }
 
 // SafeJoin joins a caller-supplied relative path to base and fails if the result
-// would leave base (.., absolute paths, NUL bytes).
+// would leave base: "..", absolute paths, NUL bytes, or a symlink inside base that
+// points outside it (checked for the part of the path that exists now). A symlink
+// created after the check is not caught; for directories other users can write to,
+// open files through os.Root (Go 1.24+).
 func SafeJoin(base, rel string) (string, error) {
 	if strings.ContainsRune(rel, 0) {
 		return "", errors.New("path contains a NUL byte")
@@ -72,10 +75,41 @@ func SafeJoin(base, rel string) (string, error) {
 	}
 	b := filepath.Clean(base)
 	p := filepath.Join(b, rel)
-	if p != b && !strings.HasPrefix(p, b+string(filepath.Separator)) {
+	if !within(b, p) {
 		return "", fmt.Errorf("invalid path %q: leaves %s", rel, b)
 	}
+	if !within(resolveExisting(b), resolveExisting(p)) {
+		return "", fmt.Errorf("invalid path %q: a symlink leads outside %s", rel, b)
+	}
 	return p, nil
+}
+
+func within(base, p string) bool {
+	if p == base {
+		return true
+	}
+	prefix := base
+	if !strings.HasSuffix(prefix, string(filepath.Separator)) {
+		prefix += string(filepath.Separator)
+	}
+	return strings.HasPrefix(p, prefix)
+}
+
+// resolveExisting resolves symlinks in the longest prefix of p that exists.
+func resolveExisting(p string) string {
+	rest := ""
+	cur := p
+	for {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(r, rest)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
 }
 
 // SafeArg checks a caller-supplied command argument: no leading '-' (so it can't be
@@ -95,15 +129,28 @@ func SafeArg(s string) error {
 
 var shells = map[string]bool{"sh": true, "bash": true, "zsh": true, "dash": true, "ash": true, "ksh": true}
 
+// wrappers run another program given as an argument.
+var wrappers = map[string]bool{"env": true, "busybox": true, "sudo": true, "nice": true, "nohup": true, "timeout": true, "xargs": true, "stdbuf": true, "setsid": true}
+
 // ErrShell is returned by Run for `sh -c`-style invocations.
 var ErrShell = errors.New("running a shell with -c is not allowed; pass the program and its arguments directly")
 
 // Run executes name with args directly (never through a shell), with a timeout, and
-// returns combined output. It refuses `sh -c ...` and similar.
+// returns combined output. It refuses `sh -c ...`, and shells started through common
+// wrappers (`env sh -c`, `busybox sh`). This guard is best-effort: other interpreters
+// (`python3 -c`, `perl -e`) are not blocked. Never let a caller choose the program,
+// and validate every caller-supplied argument with SafeArg and a per-tool allowlist.
 func Run(ctx context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
 	if shells[filepath.Base(name)] {
 		for _, a := range args {
 			if strings.HasPrefix(a, "-") && strings.Contains(a, "c") {
+				return nil, ErrShell
+			}
+		}
+	}
+	if wrappers[filepath.Base(name)] {
+		for _, a := range args {
+			if shells[filepath.Base(a)] {
 				return nil, ErrShell
 			}
 		}

@@ -2,6 +2,7 @@ package kubeclient_test
 
 import (
 	"context"
+	"errors"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -69,5 +70,16 @@ func TestServiceAccountCallsAndTokenReview(t *testing.T) {
 	_, err = c.GetConfigMap(context.Background(), "oct-storefront", "community-tools-policy")
 	if !kubeclient.IsStatus(err, 404) {
 		t.Fatalf("want 404, got %v", err)
+	}
+}
+
+// Review finding A1: "as the caller" never falls back to the ServiceAccount.
+func TestDoAsUserRefusesAnEmptyToken(t *testing.T) {
+	_, c := fakeapi.New(t)
+	if err := c.DoAsUser(context.Background(), "GET", "/api/v1/namespaces", "", nil, nil); !errors.Is(err, kubeclient.ErrNoUserToken) {
+		t.Fatalf("want ErrNoUserToken, got %v", err)
+	}
+	if err := c.DoAsUser(context.Background(), "GET", "/api/v1/namespaces", "  ", nil, nil); !errors.Is(err, kubeclient.ErrNoUserToken) {
+		t.Fatalf("whitespace token: want ErrNoUserToken, got %v", err)
 	}
 }

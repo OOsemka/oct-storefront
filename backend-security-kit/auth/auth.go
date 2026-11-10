@@ -28,6 +28,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -63,9 +64,26 @@ func PathValue(name string) Extractor {
 	return func(r *http.Request) string { return r.PathValue(name) }
 }
 
-// Query reads a query parameter.
+// ambiguous is returned by Query when the value can't be trusted to be the one the
+// handler will act on; check() answers 400 for it.
+const ambiguous = "\x00ambiguous"
+
+// Query reads a URL query parameter. It fails closed (400) when the parameter is
+// repeated, or when the request carries a form body: r.FormValue prefers a body value
+// with the same key, so the handler could act on something other than what was
+// checked. Handlers must read the value the same way: r.URL.Query().Get(name).
 func Query(name string) Extractor {
-	return func(r *http.Request) string { return r.URL.Query().Get(name) }
+	return func(r *http.Request) string {
+		vals := r.URL.Query()[name]
+		if len(vals) == 0 {
+			return ""
+		}
+		ct := strings.ToLower(r.Header.Get("Content-Type"))
+		if len(vals) > 1 || strings.HasPrefix(ct, "application/x-www-form-urlencoded") || strings.HasPrefix(ct, "multipart/form-data") {
+			return ambiguous
+		}
+		return vals[0]
+	}
 }
 
 // Fixed always returns s.
@@ -97,10 +115,18 @@ func (c Check) String() string {
 // Route maps a Go 1.22 ServeMux pattern ("GET /api/v1/hosts/{ns}/{name}") to the
 // permissions it needs. All checks must pass. Public routes are never checked: use
 // them only for things that must work without a user, such as an image Ironic fetches.
+//
+// Prefer setting Handler and serving Authorizer.Handler(): then one pattern decides
+// both what is checked and what runs, and the table can't drift from the app's
+// routes. With Middleware the table and the app's mux are separate and must match.
 type Route struct {
 	Pattern string
 	Checks  []Check
 	Public  bool
+	// Subtree allows a Public pattern ending in "/" (which matches everything below it).
+	// Without it New refuses such patterns: they easily cover routes added later.
+	Subtree bool
+	Handler http.Handler
 }
 
 // Options configure an Authorizer.
@@ -165,10 +191,17 @@ func New(opts Options, routes []Route) (a *Authorizer, err error) {
 		opts.Logger = slog.Default()
 	}
 	a = &Authorizer{opts: opts, routes: routes, mux: http.NewServeMux(), cache: newCache(opts.CacheTTL, 10000), log: opts.Logger}
+	withHandler := 0
 	for i := range routes {
 		rt := routes[i]
+		if rt.Handler != nil {
+			withHandler++
+		}
 		if !rt.Public && len(rt.Checks) == 0 {
 			return nil, fmt.Errorf("auth: route %q has no checks; add one or mark it Public", rt.Pattern)
+		}
+		if rt.Public && strings.HasSuffix(rt.Pattern, "/") && !rt.Subtree {
+			return nil, fmt.Errorf("auth: public route %q ends in / and so matches every path below it; set Subtree: true if that is intended", rt.Pattern)
 		}
 		for _, c := range rt.Checks {
 			if c.Verb == "" || c.Resource == "" {
@@ -178,6 +211,9 @@ func New(opts Options, routes []Route) (a *Authorizer, err error) {
 		if err := a.register(rt); err != nil {
 			return nil, err
 		}
+	}
+	if withHandler != 0 && withHandler != len(routes) {
+		return nil, errors.New("auth: set Handler on every route or on none (with Handler, serve Authorizer.Handler())")
 	}
 	if opts.Mode == Off {
 		a.log.Warn("AUTH_MODE=off: requests are NOT checked. Use only for local development.", "extension", opts.Extension)
@@ -210,8 +246,17 @@ func (a *Authorizer) EffectiveMode() Mode {
 	return a.opts.Mode
 }
 
-// Middleware checks each request before it reaches next.
-func (a *Authorizer) Middleware(next http.Handler) http.Handler {
+// Middleware checks each request before it reaches next (the app's own mux, which
+// must route the same patterns as the table).
+func (a *Authorizer) Middleware(next http.Handler) http.Handler { return a.serve(next) }
+
+// Handler serves the routes' own Handlers after their checks: one pattern decides
+// both. Requires Route.Handler on every route.
+func (a *Authorizer) Handler() http.Handler { return a.serve(nil) }
+
+var notFound = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { writeError(w, http.StatusNotFound, "no such route") })
+
+func (a *Authorizer) serve(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mode := a.EffectiveMode()
 		token := bearer(r)
@@ -226,10 +271,24 @@ func (a *Authorizer) Middleware(next http.Handler) http.Handler {
 			r = r.WithContext(context.WithValue(r.Context(), tokenKey, token))
 		}
 		if _, pattern := a.mux.Handler(r); pattern == "" {
-			a.decide(w, r, next, mode, http.StatusForbidden, "no permission rule for this route", nil)
+			fallback := next
+			if fallback == nil {
+				fallback = notFound
+			}
+			a.decide(w, r, fallback, mode, http.StatusForbidden, "no permission rule for this route", nil)
 			return
 		}
-		cont := func(w http.ResponseWriter, r *http.Request, rt Route) { a.check(w, r, next, mode, rt, token) }
+		cont := func(w http.ResponseWriter, r *http.Request, rt Route) {
+			h := next
+			if h == nil {
+				h = rt.Handler
+			}
+			if h == nil {
+				writeError(w, http.StatusInternalServerError, "route has no handler")
+				return
+			}
+			a.check(w, r, h, mode, rt, token)
+		}
 		a.mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), routeKey{}, cont)))
 	})
 }
@@ -252,6 +311,10 @@ func (a *Authorizer) check(w http.ResponseWriter, r *http.Request, next http.Han
 		ra := kubeclient.ResourceAttributes{Verb: c.Verb, Group: c.Group, Resource: c.Resource, Subresource: c.Subresource}
 		if c.Namespace != nil {
 			ra.Namespace = c.Namespace(r)
+			if ra.Namespace == ambiguous {
+				a.decide(w, r, next, mode, http.StatusBadRequest, "ambiguous namespace parameter for permission check "+c.String(), &c)
+				return
+			}
 			if ra.Namespace == "" {
 				a.decide(w, r, next, mode, http.StatusBadRequest, "missing namespace for permission check "+c.String(), &c)
 				return
@@ -259,6 +322,10 @@ func (a *Authorizer) check(w http.ResponseWriter, r *http.Request, next http.Han
 		}
 		if c.Name != nil {
 			ra.Name = c.Name(r)
+			if ra.Name == ambiguous {
+				a.decide(w, r, next, mode, http.StatusBadRequest, "ambiguous name parameter for permission check "+c.String(), &c)
+				return
+			}
 		}
 		allowed, err := a.review(r.Context(), token, ra)
 		switch {
@@ -300,7 +367,8 @@ func (a *Authorizer) decide(w http.ResponseWriter, r *http.Request, next http.Ha
 }
 
 func (a *Authorizer) review(ctx context.Context, token string, ra kubeclient.ResourceAttributes) (bool, error) {
-	key := tokenHash(token) + "|" + ra.Verb + "|" + ra.Group + "|" + ra.Resource + "|" + ra.Subresource + "|" + ra.Namespace + "|" + ra.Name
+	attrs, _ := json.Marshal([]string{ra.Verb, ra.Group, ra.Resource, ra.Subresource, ra.Namespace, ra.Name})
+	key := tokenHash(token) + "|" + tokenHash(string(attrs))
 	if v, ok := a.cache.get(key); ok {
 		return v, nil
 	}
@@ -396,8 +464,21 @@ func (c *cache) store(k string, e cacheEntry) {
 				delete(c.data, key)
 			}
 		}
+		// Still full (a flood of fresh tokens or names): drop the entries closest to
+		// expiry, a tenth of the cache, instead of wiping everyone's answers.
 		if len(c.data) >= c.max {
-			c.data = map[string]cacheEntry{}
+			type kv struct {
+				k string
+				t time.Time
+			}
+			all := make([]kv, 0, len(c.data))
+			for key, old := range c.data {
+				all = append(all, kv{key, old.expires})
+			}
+			sort.Slice(all, func(i, j int) bool { return all[i].t.Before(all[j].t) })
+			for _, e := range all[:len(all)/10+1] {
+				delete(c.data, e.k)
+			}
 		}
 	}
 	e.expires = now.Add(c.ttl)

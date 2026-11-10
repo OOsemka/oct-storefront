@@ -26,9 +26,8 @@ func Example() {
 	policy := auth.NewPolicySource(client, 0, nil)
 	go policy.Run(ctx)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/hosts/{ns}", func(w http.ResponseWriter, r *http.Request) { /* ... */ })
-	mux.HandleFunc("GET /api/v1/images/{file}", func(w http.ResponseWriter, r *http.Request) { /* ... */ })
+	listHosts := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { /* ... */ })
+	serveImage := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { /* ... */ })
 
 	authz, err := auth.New(auth.Options{
 		Extension: "oct-example",
@@ -36,11 +35,11 @@ func Example() {
 		Client:    client,
 		Policy:    policy,
 	}, []auth.Route{
-		{Pattern: "GET /api/v1/hosts/{ns}", Checks: []auth.Check{
+		{Pattern: "GET /api/v1/hosts/{ns}", Handler: listHosts, Checks: []auth.Check{
 			{Verb: "list", Group: "metal3.io", Resource: "baremetalhosts", Namespace: auth.PathValue("ns")},
 		}},
 		// Fetched by Ironic, which has no user token. Keep public routes to a minimum.
-		{Pattern: "GET /api/v1/images/{file}", Public: true},
+		{Pattern: "GET /api/v1/images/{file}", Public: true, Handler: serveImage},
 	})
 	if err != nil {
 		slog.Error("bad permission table", "error", err)
@@ -50,7 +49,7 @@ func Example() {
 	err = server.Run(ctx, server.Config{
 		CertFile: "/var/serving-cert/tls.crt",
 		KeyFile:  "/var/serving-cert/tls.key",
-		Handler:  authz.Middleware(mux),
+		Handler:  authz.Handler(), // one pattern decides both the check and the handler
 	})
 	if err != nil {
 		slog.Error("server stopped", "error", err)
