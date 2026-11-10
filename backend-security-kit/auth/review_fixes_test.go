@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -111,5 +112,49 @@ func TestCacheKeysDoNotCollide(t *testing.T) {
 	second := do(h, "GET", "/h?ns=team-a%7C&name=z", "dev").Code
 	if api.Reviews.Load() == reviews {
 		t.Fatalf("second request reused the first answer (codes %d, %d)", first, second)
+	}
+}
+
+// JSONField: the checked body value is the one the handler decodes.
+func TestJSONFieldChecksTheBodyTheHandlerReads(t *testing.T) {
+	api, client := fakeapi.New(t)
+	api.Allow["dev"] = []string{"create baremetalhosts team-a"}
+	var seen string
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Namespace string `json:"namespace"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		seen = body.Namespace
+		w.WriteHeader(200)
+	})
+	a, err := auth.New(auth.Options{Extension: "oct-test", Mode: auth.Enforce, Client: client}, []auth.Route{
+		{Pattern: "POST /discover", Handler: h, Checks: []auth.Check{{Verb: "create", Group: "metal3.io", Resource: "baremetalhosts", Namespace: auth.JSONField("namespace", "")}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	send := func(body string) int {
+		r := httptest.NewRequest("POST", "/discover", strings.NewReader(body))
+		r.Header.Set("Authorization", "Bearer dev")
+		w := httptest.NewRecorder()
+		a.Handler().ServeHTTP(w, r)
+		return w.Code
+	}
+	if c := send(`{"namespace":"team-a","bmcAddress":"x"}`); c != 200 || seen != "team-a" {
+		t.Fatalf("allowed: code %d, handler saw %q", c, seen)
+	}
+	if c := send(`{"namespace":"kube-system"}`); c != 403 {
+		t.Fatalf("other namespace: got %d", c)
+	}
+	if c := send(`{"bmcAddress":"x"}`); c != 400 {
+		t.Fatalf("missing namespace: got %d want 400", c)
+	}
+	if c := send(`not json`); c != 400 {
+		t.Fatalf("not JSON: got %d want 400", c)
+	}
+	seen = ""
+	if c := send(`{"namespace":"kube-system","namespace":"team-a"}`); c != 200 || seen != "team-a" {
+		t.Fatalf("duplicate keys must resolve the same way in check and handler: code %d, saw %q", c, seen)
 	}
 }

@@ -19,12 +19,14 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -83,6 +85,44 @@ func Query(name string) Extractor {
 			return ambiguous
 		}
 		return vals[0]
+	}
+}
+
+// JSONField reads a top-level string field of a JSON request body (up to 1 MiB),
+// or def when the field is absent or empty. The body is put back unchanged, so the
+// handler decodes exactly the bytes that were checked (encoding/json picks the last
+// of duplicate keys in both places). A body that isn't a JSON object fails closed
+// (400).
+func JSONField(name, def string) Extractor {
+	return func(r *http.Request) string {
+		if r.Body == nil {
+			return def
+		}
+		data, err := io.ReadAll(io.LimitReader(r.Body, 1<<20+1))
+		_ = r.Body.Close()
+		r.Body = io.NopCloser(bytes.NewReader(data))
+		if err != nil || len(data) > 1<<20 {
+			return ambiguous
+		}
+		if len(bytes.TrimSpace(data)) == 0 {
+			return def
+		}
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(data, &obj) != nil {
+			return ambiguous
+		}
+		raw, ok := obj[name]
+		if !ok {
+			return def
+		}
+		var v string
+		if json.Unmarshal(raw, &v) != nil {
+			return ambiguous
+		}
+		if v == "" {
+			return def
+		}
+		return v
 	}
 }
 
