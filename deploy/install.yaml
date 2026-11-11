@@ -391,7 +391,7 @@ spec:
           # Bump this combined tag when webpack UI changes (picker, icons, copy).
           # Catalog ConfigMap updates do not roll the plugin image. Keep IfNotPresent
           # (the default for a named tag). Never retag the only install tag to ship JS.
-          image: quay.io/cjanisze/oct-storefront:1.5.24-ocp4.22
+          image: quay.io/cjanisze/oct-storefront:1.5.25-ocp4.22
           ports:
             - containerPort: 9443
               protocol: TCP
