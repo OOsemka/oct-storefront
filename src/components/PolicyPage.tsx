@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import { DocumentTitle } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
+import { ExternalLinkAltIcon } from '@patternfly/react-icons';
 import {
   Alert,
   Button,
@@ -40,6 +41,9 @@ import {
 } from '../utils/policy-view';
 import { STOREFRONT_NS } from '../utils/catalog-types';
 import './PolicyPage.css';
+
+/** The admin guide for everything on this page (docs/security-guide.md). */
+const SECURITY_GUIDE_URL = 'https://github.com/openshift-community-tools/oct-storefront/blob/main/docs/security-guide.md';
 
 const I18N = 'plugin__oct-storefront';
 
@@ -144,6 +148,20 @@ const PolicyPage: FC = () => {
               )}{' '}
               <Button variant="link" isInline onClick={refresh} isLoading={loading} isDisabled={loading}>
                 {t('Refresh')}
+              </Button>
+            </Content>
+            <Content component={ContentVariants.p}>
+              <Button
+                variant="link"
+                isInline
+                component="a"
+                href={SECURITY_GUIDE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                icon={<ExternalLinkAltIcon />}
+                iconPosition="end"
+              >
+                {t('Security guide: install review, policy examples, turning on enforcement')}
               </Button>
             </Content>
           </StackItem>

@@ -1,6 +1,6 @@
 # OCT security model
 
-This page explains how Community Tools thinks about security, what is enforced today, and what is advisory. It is the reference for contributors, cluster admins and reviewers. The full proposal is in [rfc-security-framework.md](rfc-security-framework.md).
+This page explains how Community Tools thinks about security, what is enforced today, and what is advisory. It is the reference for contributors, cluster admins and reviewers. The full proposal is in [rfc-security-framework.md](rfc-security-framework.md). For step-by-step admin tasks (policy examples, turning on enforcement, troubleshooting), see [security-guide.md](security-guide.md).
 
 ## What can go wrong
 

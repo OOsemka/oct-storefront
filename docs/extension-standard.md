@@ -182,6 +182,38 @@ Every extension is installed with a cluster admin's credentials, so keep what it
 - **Checks:** `yarn check-repo` warns on risky patterns (CORS `*` in shipped config, disabled TLS verification, `chmod 777`, `sh -c` in Go, `:latest`, deploy URLs on `main`, RBAC wildcards, runtime SCC creation); set `CHECK_REPO_SECURITY=error` to make them fail. In the storefront, `yarn security-check` derives every bundle's profile and compares it with the baseline and the declarations.
 - **Vulnerabilities** are reported privately through GitHub security advisories ([SECURITY.md](../SECURITY.md)); copy SECURITY.md into your repo.
 
+### Migrating an existing extension
+
+A checklist for tools that predate the security framework. Do it in one PR per repository, plus one storefront PR for the catalog entry and bundle. Admins see the result on the review screen; the admin side is in [security-guide.md](security-guide.md).
+
+**Every extension**
+
+- [ ] **Declaration:** add `spec.security` to the catalog entry (`level`, `summary`, `contact`, a `why` for every RBAC rule, Route, egress host and runtime-created object). Set `level` to at least what `yarn security-check` derives; it can't be lower.
+- [ ] **Containers:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, `capabilities: { drop: [ALL] }`, `seccompProfile: RuntimeDefault`, `readOnlyRootFilesystem: true`. With a read-only root, give every path the process writes an emptyDir: for the nginx-based plugin image that is `/tmp` and `/var/cache/nginx` (without them nginx crash-loops on start).
+- [ ] **No ServiceAccount token** where the pod doesn't call the API: `automountServiceAccountToken: false` (the plugin Deployment never needs one).
+- [ ] **NetworkPolicy:** console-only ingress for the plugin and any backend ([`backend-security-kit/manifests/networkpolicy-console-only.yaml`](../backend-security-kit/manifests/networkpolicy-console-only.yaml)). If the catalog row carries the manifest inline (`deployYAML`), set `versions[].minStorefront: "1.6.0"`; older storefronts can't apply NetworkPolicies.
+- [ ] **RBAC:** least privilege. Prefer a Role in your own namespace to a ClusterRole; no wildcards, `escalate`/`bind`/`impersonate`, cluster-wide Secret reads or bindings to cluster-admin/admin/edit. Things the user does in the browser use the user's own permissions; don't give the backend RBAC for them.
+- [ ] **Runtime objects:** if the tool creates objects from its page (an SCC, an operator Subscription, a NodeNetworkConfigurationPolicy), label them `communitytools.io/extension: <tool id>` and list them in `spec.security.privileged.runtimeCreates`. Routes and SCCs created this way need the admin's approval in the admission pack (`approvedRoutes`, `approvedSCCs`); say so in your README.
+- [ ] **Images:** version tags, never `:latest`; pin release images by digest where you can.
+- [ ] **SECURITY.md:** copy the storefront's and point it at your repository's security advisories.
+- [ ] **Checks:** `yarn check-repo` with `CHECK_REPO_SECURITY=error` passes.
+
+**Extensions with a backend** (a Service behind the ConsolePlugin proxy)
+
+- [ ] **Forward the user:** `authorization: UserToken` on the ConsolePlugin proxy. Without it the review screen reports `proxy-no-user-token`.
+- [ ] **Adopt the kit** ([README](../backend-security-kit/README.md#adopting-it)): `go get github.com/openshift-community-tools/oct-storefront/backend-security-kit`, write the permission table (require what the user would need to do the same with `oc`), serve `authz.Handler()`, and poll the policy with `auth.NewPolicySource`.
+- [ ] **Ship `AUTH_MODE=audit`** in the Deployment. An existing backend stays in audit until a cluster admin turns on enforce for it (`backends.<tool>.authMode`); don't change its default yourself. Set `spec.security.backend.authModeDefault: audit`.
+- [ ] **Act as the caller:** call the API with `client.DoAsUser(..., auth.UserToken(ctx), ...)`. Use the ServiceAccount only for what the user can't do directly, after the check, and record who asked (annotation `communitytools.io/requested-by`).
+- [ ] **No public API:** anything published with a Route serves only what has to be public (for example image files for Ironic), on its own port, with the API behind the console proxy. Mark those routes `Public` in the table and list them in `spec.security.backend.publicPaths` and `network.routes`.
+- [ ] **Validate inputs** used in names, paths or commands with the kit's `validate` package. Never log user tokens.
+- [ ] **Test as a non-admin user:** with the backend in audit, use every page and confirm the log has no `would be denied` lines for actions the user is allowed to do with `oc`, and has them for actions they aren't. Then try enforce through the policy (no restart needed).
+
+**Storefront PR**
+
+- [ ] Update `catalog/deploy/<tool>.yaml` (identical to your repo's bundle) and the catalog entry.
+- [ ] `yarn security-check --strict` passes. Findings you fixed leave the baseline (`--update-baseline`; the diff should only remove lines). Record the review of a changed bundle with `--mark-reviewed <tool>`.
+- [ ] `scripts/validate-catalog.sh` passes.
+
 ## Pre-ship validation
 
 Run `scripts/validate-catalog.sh` before every commit that touches `catalog/community.yaml` or `catalog/deploy/*.yaml`:
