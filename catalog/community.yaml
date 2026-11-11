@@ -1345,9 +1345,9 @@ spec:
       scc: []
       hostAccess: []
       runtimeCreates:
-        - { kind: SecurityContextConstraints, name: oct-dhcp-netraw, cleanup: Not removed automatically; delete it by hand when no DHCP servers remain., why: "DHCP servers need NET_RAW, NET_BIND_SERVICE and NET_ADMIN (no host network, not privileged)." }
-        - { kind: ClusterRole, name: oct-dhcp-netraw-use, cleanup: Not removed automatically; delete it with the SCC., why: Grants use of the oct-dhcp-netraw SCC. }
-        - { kind: ClusterRoleBinding, name: per DHCP server, cleanup: Deleted with the server., why: Binds the SCC role to that server's ServiceAccount only. }
+        - { kind: SecurityContextConstraints, name: oct-dhcp-netraw, cleanup: Deleted with the last DHCP server., why: "dnsmasq runs as root with only NET_RAW, NET_BIND_SERVICE and NET_ADMIN, no privilege escalation, the default seccomp profile, no host network, not privileged. Labelled communitytools.io/extension: oct-network-dhcp, so the admission policy pack's SCC approval applies." }
+        - { kind: ClusterRole, name: oct-dhcp-netraw-use, cleanup: Deleted with the last DHCP server., why: Grants use of the oct-dhcp-netraw SCC. }
+        - { kind: RoleBinding, name: per DHCP server, cleanup: Deleted with the server., why: "Lets that server's ServiceAccount use the SCC, in the server's namespace only." }
     secrets: { access: none }
   versions:
     - version: "1.0.0"
