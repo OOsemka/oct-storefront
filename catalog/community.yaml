@@ -37,6 +37,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-baremetal:0.1.1-ocp4.22
       gitRef: v0.1.1
+    - version: "0.1.2"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-baremetal:0.1.2-ocp4.21
+      gitRef: v0.1.2
+    - version: "0.1.2"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-baremetal:0.1.2-ocp4.22
+      gitRef: v0.1.2
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -995,6 +1005,18 @@ spec:
       image: quay.io/cjanisze/oct-storefront:1.5.25-ocp4.22
       gitRef: v1.5.25
       deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.26"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-storefront:1.5.26-ocp4.21
+      gitRef: v1.5.26
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.26"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-storefront:1.5.26-ocp4.22
+      gitRef: v1.5.26
+      deployURL: https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -1441,3 +1463,13 @@ spec:
       openshift: ["4.22"]
       image: quay.io/cjanisze/oct-shift-on-shift-virt:0.5.3-ocp4.22
       gitRef: v0.5.3
+    - version: "0.5.4"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.5.4-ocp4.21
+      gitRef: v0.5.4
+    - version: "0.5.4"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/cjanisze/oct-shift-on-shift-virt:0.5.4-ocp4.22
+      gitRef: v0.5.4
