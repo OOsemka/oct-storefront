@@ -3,7 +3,7 @@
 #
 # Usage:
 #   oc login ...
-#   bash <(curl -s https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/uninstall.sh)
+#   bash <(curl -s https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/uninstall.sh)
 #
 # Or locally:
 #   ./deploy/uninstall.sh
@@ -134,4 +134,4 @@ fi
 echo ""
 echo -e "${GREEN}=== OCT Uninstall Complete ===${NC}"
 echo "You can reinstall OCT with:"
-echo "  oc apply -f https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml"
+echo "  oc apply -f https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/install.yaml"

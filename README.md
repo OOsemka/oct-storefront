@@ -6,14 +6,14 @@ This repository is the **storefront**: left-nav **Community Tools** and category
 
 - **Plugin ID:** `oct-storefront`
 - **OpenShift:** 4.22 (PatternFly 6)
-- **Images:** `quay.io/cjanisze/oct-storefront:1.5.26-ocp4.22` (plugin UI; also publish `:1.5.26-ocp4.21`) and `quay.io/cjanisze/oct-storefront-catalog:1.0.1-ocp4.22` / `-ocp4.21` (catalog-service; no webpack UI)
+- **Images:** `quay.io/openshift-community-tools/oct-storefront:1.5.26-ocp4.22` (plugin UI; also publish `:1.5.26-ocp4.21`) and `quay.io/openshift-community-tools/oct-storefront-catalog:1.0.1-ocp4.22` / `-ocp4.21` (catalog-service; no webpack UI)
 
 ## Install (one command)
 
 Cluster-admin.
 
 ```bash
-oc apply -f https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/install.yaml
+oc apply -f https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/install.yaml
 ```
 
 Then:
