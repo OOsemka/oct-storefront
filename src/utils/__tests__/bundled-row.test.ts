@@ -22,6 +22,7 @@ vi.mock('../../../catalog/deploy/oct-network-bridge.yaml', async () => ({ defaul
 vi.mock('../../../catalog/deploy/oct-network-dhcp.yaml', async () => ({ default: (await import('fs')).readFileSync(new URL('../../../catalog/deploy/oct-network-dhcp.yaml', import.meta.url), 'utf8') }));
 vi.mock('../../../catalog/deploy/oct-network-vlan.yaml', async () => ({ default: (await import('fs')).readFileSync(new URL('../../../catalog/deploy/oct-network-vlan.yaml', import.meta.url), 'utf8') }));
 vi.mock('../../../catalog/deploy/oct-shift-on-shift-virt.yaml', async () => ({ default: (await import('fs')).readFileSync(new URL('../../../catalog/deploy/oct-shift-on-shift-virt.yaml', import.meta.url), 'utf8') }));
+vi.mock('../../../catalog/deploy/oct-must-gather.yaml', async () => ({ default: (await import('fs')).readFileSync(new URL('../../../catalog/deploy/oct-must-gather.yaml', import.meta.url), 'utf8') }));
 
 import { bundledCommunityTools, matchesBundledRow } from '../catalog-actions';
 

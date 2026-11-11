@@ -62,7 +62,7 @@ On a lab cluster with the storefront installed, swap in your image:
 oc set image deploy/oct-storefront -n oct-storefront plugin=quay.io/<you>/oct-storefront:dev
 ```
 
-or deploy `deploy/install.yaml` with your image (`sed 's|quay.io/cjanisze/oct-storefront:[^ ]*|quay.io/<you>/oct-storefront:dev|' deploy/install.yaml | oc apply -f -`).
+or deploy `deploy/install.yaml` with your image (`sed 's|quay.io/openshift-community-tools/oct-storefront:[^ ]*|quay.io/<you>/oct-storefront:dev|' deploy/install.yaml | oc apply -f -`).
 
 **Catalog service** (`catalog-service/`): build it with
 `podman build -t quay.io/<you>/oct-storefront-catalog:dev -f catalog-service/Containerfile catalog-service/`

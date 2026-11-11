@@ -22,6 +22,7 @@ import octNetworkDhcp from '../assets/tiles/oct-network-dhcp.svg';
 import octNetworkVlan from '../assets/tiles/oct-network-vlan.svg';
 import octWindowsBuilder from '../assets/tiles/oct-windows-builder.svg';
 import octShiftOnShiftVirt from '../assets/tiles/oct-shift-on-shift-virt.svg';
+import octMustGather from '../assets/tiles/oct-must-gather.svg';
 
 const BUNDLED: Record<string, string> = {};
 
@@ -45,6 +46,8 @@ register('oct-storefront', octStorefront);
 /** Original paperclip assistant (googly eyes + eyebrows). Not Microsoft Clippy art. */
 register('oct-windows-builder', octWindowsBuilder);
 register('oct-shift-on-shift-virt', octShiftOnShiftVirt);
+/** Original archive box with data sheets and a download arrow. */
+register('oct-must-gather', octMustGather);
 
 function normalizeIconKey(raw: string): string {
   const s = raw.trim();
