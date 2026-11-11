@@ -66,3 +66,15 @@ func TestFetchAllowedBlocksRedirectOffList(t *testing.T) {
 		t.Fatalf("redirect to %s should be refused, got %v", internal.URL, err)
 	}
 }
+
+func TestParseTelemetry(t *testing.T) {
+	cases := map[string]string{"": "full", "mode: warn\n": "full", "telemetry: off\n": "off", "telemetry: ratings-only\n": "ratings-only", "telemetry: sometimes\n": "off"}
+	for in, want := range cases {
+		if got, err := parseTelemetry(in); err != nil || got != want {
+			t.Errorf("%q: got %q (%v), want %q", in, got, err, want)
+		}
+	}
+	if _, err := parseTelemetry("telemetry: [unclosed"); err == nil {
+		t.Error("invalid YAML must be an error (sends nothing)")
+	}
+}

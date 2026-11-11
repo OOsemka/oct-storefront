@@ -322,6 +322,20 @@ if [[ -n "$UNSUPPORTED" ]]; then
 else
   green "deploy/upgrade.yaml uses only appliable kinds"
 fi
+# Older storefronts apply upgrade.yaml to update themselves, so it must not contain kinds
+# they can't apply (checking against this storefront's own kinds would miss that).
+NEWER=$(python3 - "$UPGRADE_YAML" <<'PY'
+import sys, yaml
+newer = {"NetworkPolicy"}  # appliable from storefront 1.6
+kinds = {d.get("kind") for d in yaml.safe_load_all(open(sys.argv[1])) if isinstance(d, dict)}
+print(" ".join(sorted(kinds & newer)))
+PY
+)
+if [[ -n "$NEWER" ]]; then
+  error "deploy/upgrade.yaml has kinds storefronts before 1.6 cannot apply when they update themselves: $NEWER"
+else
+  green "deploy/upgrade.yaml has no kinds older storefronts cannot apply"
+fi
 BAD_URLS=$(python3 - "$CATALOG" <<'PY'
 import sys, yaml
 for d in yaml.safe_load_all(open(sys.argv[1])):

@@ -461,6 +461,10 @@ spec:
         - name: catalog-service
           image: quay.io/cjanisze/oct-storefront-catalog:1.0.1-ocp4.22
           env:
+            # backend-security-kit: audit until a cluster admin enables enforce
+            # (backends.oct-storefront.authMode in the cluster policy).
+            - name: AUTH_MODE
+              value: audit
             - name: COMMUNITY_TOOLS_CATALOG_URL
               value: "https://api.octools.net"
           ports:
@@ -649,3 +653,45 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop: [ALL]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oct-storefront
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  # The storefront plugin's static files: only the console loads them.
+  podSelector:
+    matchLabels:
+      app: oct-storefront
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - { protocol: TCP, port: 9443 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: catalog-service
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  # The catalog API, only through the console proxy (the HTTP port serves /healthz for the kubelet, which NetworkPolicy doesn't affect).
+  podSelector:
+    matchLabels:
+      app: catalog-service
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - { protocol: TCP, port: 8443 }

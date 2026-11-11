@@ -185,6 +185,8 @@ spec:
       - name: catalog-service
         image: quay.io/cjanisze/oct-storefront-catalog:1.0.1-ocp4.22
         env:
+        - name: AUTH_MODE
+          value: audit
         - name: COMMUNITY_TOOLS_CATALOG_URL
           value: https://api.octools.net
         ports:

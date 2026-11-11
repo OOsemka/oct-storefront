@@ -124,7 +124,9 @@ How it behaves:
 
   The storefront then applies exactly the YAML that was reviewed. In `enforce` mode, a blocked install can't be confirmed.
 - **Synced rows are reviewed.** The catalog is read from a cache ConfigMap that the optional `storefront-user` role lets non-admins write. A version whose image or manifest differs from the storefront's own bundled catalog (a newer release from the public catalog, or an edited cache) always opens the review screen with the reason "comes from the synced catalog", so nobody can change what a one-click install applies.
-- **Telemetry waits for the policy.** Nothing is sent before the policy has loaded, or when it couldn't be read.
+- **Telemetry waits for the policy.** Nothing is sent before the policy has loaded, or when it couldn't be read. catalog-service, which forwards download counts and ratings to api.octools.net, enforces the policy's `telemetry` setting itself too (an unreadable policy sends nothing), so a pod in the cluster can't send what the browser wouldn't.
+- **catalog-service checks every caller** (backend-security-kit, audit by default; `backends.oct-storefront.authMode: enforce` turns it on): reading the catalog or fetching a manifest needs what every storefront user has, sending stats the right to update the storefront's stats. Its HTTP port serves only `/healthz`.
+- **NetworkPolicies for the storefront** (only the console reaches the plugin and catalog-service) come with new installs; storefronts before 1.6 can't apply them while updating themselves, so on an updated cluster apply `deploy/policy/storefront-networkpolicy.yaml` once.
 - **Labels on tiles:** the derived level (when the manifest is known without fetching), "Not declared", and "Public-only" for tools that came only from the public catalog.
 - **Ownership label.** Objects the storefront creates get `communitytools.io/extension: <tool id>`. Namespaces and the Console config are never labelled, because they can be shared.
 - **Telemetry.** Only Add counts as a download; updates and version changes don't. The policy's `telemetry` setting controls what is sent to api.octools.net.

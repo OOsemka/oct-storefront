@@ -662,7 +662,8 @@ spec:
     summary: Installs catalog tools with the signed-in user's own credentials after a review screen. Its own permissions are limited to enabling its plugin and reading the cluster policy.
     backend:
       services: [catalog-service]
-      auth: none
+      auth: ssar
+      authModeDefault: audit
       publicPaths: []
     network:
       ingress: console-only
