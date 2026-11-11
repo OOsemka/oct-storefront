@@ -24,7 +24,8 @@ vi.mock('../../../catalog/deploy/oct-network-vlan.yaml', async () => ({ default:
 vi.mock('../../../catalog/deploy/oct-shift-on-shift-virt.yaml', async () => ({ default: (await import('fs')).readFileSync(new URL('../../../catalog/deploy/oct-shift-on-shift-virt.yaml', import.meta.url), 'utf8') }));
 vi.mock('../../../catalog/deploy/oct-must-gather.yaml', async () => ({ default: (await import('fs')).readFileSync(new URL('../../../catalog/deploy/oct-must-gather.yaml', import.meta.url), 'utf8') }));
 
-import { bundledCommunityTools, matchesBundledRow } from '../catalog-actions';
+import { bundledCommunityTools, manifestsWithheld, matchesBundledRow, telemetryPolicy } from '../catalog-actions';
+import { DEFAULT_POLICY } from '../policy';
 
 describe('matchesBundledRow (review finding B3)', () => {
   const tool = bundledCommunityTools().find((t) => t.metadata.name === 'oct-hello-world')!;
@@ -49,5 +50,33 @@ describe('matchesBundledRow (review finding B3)', () => {
   });
   it('rejects tools that are not bundled at all', () => {
     expect(matchesBundledRow({ ...tool, metadata: { name: 'oct-not-bundled' } }, row)).toBe(false);
+  });
+});
+
+describe('telemetryPolicy', () => {
+  it('sends nothing when the policy could not be read', () => {
+    expect(telemetryPolicy({ policy: DEFAULT_POLICY, policySource: 'error' })).toBeUndefined();
+    expect(telemetryPolicy({ policy: DEFAULT_POLICY, policySource: 'default' })).toBe(DEFAULT_POLICY);
+    expect(telemetryPolicy({ policy: DEFAULT_POLICY, policySource: 'configmap' })).toBe(DEFAULT_POLICY);
+  });
+});
+
+describe('manifestsWithheld (publicCatalog other than full)', () => {
+  const sf = bundledCommunityTools().find((t) => t.metadata.name === 'oct-storefront')!;
+  const newer = { version: '9.9.9', openshift: '4.22', image: 'quay.io/openshift-community-tools/oct-storefront:9.9.9-ocp4.22' };
+  const ctx = (publicCatalog: 'full' | 'metadata-only' | 'off') => ({ publicOnly: false, unverifiedRow: true, publicCatalog });
+
+  it("refuses a synced storefront row whose manifest was removed (it would get generated manifests)", () => {
+    expect(manifestsWithheld(sf, newer, ctx('metadata-only'))).toBe(true);
+  });
+  it('allows it with publicCatalog: full, or when the row still has a manifest', () => {
+    expect(manifestsWithheld(sf, newer, ctx('full'))).toBe(false);
+    expect(manifestsWithheld(sf, { ...newer, deployURL: 'https://example.com/upgrade.yaml' }, ctx('metadata-only'))).toBe(false);
+  });
+  it('leaves bundled rows and tools that never ship manifests alone', () => {
+    expect(manifestsWithheld(sf, newer, { ...ctx('metadata-only'), unverifiedRow: false })).toBe(false);
+    const plain = { ...sf, metadata: { name: 'oct-plain-plugin' }, spec: { ...sf.spec, consolePlugin: 'oct-plain-plugin', versions: [], deployURL: undefined, deployYAML: undefined } };
+    expect(manifestsWithheld(plain, newer, ctx('metadata-only'))).toBe(false);
+    expect(manifestsWithheld(plain, newer, { ...ctx('metadata-only'), publicOnly: true })).toBe(true);
   });
 });

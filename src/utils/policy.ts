@@ -102,6 +102,22 @@ function pickBool(raw: Raw, key: string, warnings: string[], prefix = ''): boole
   return undefined;
 }
 
+/**
+ * A list setting. A string is read as comma-separated (the format of the admission
+ * pack's settings), with a warning, because silently ignoring it would mean "any".
+ */
+function pickList(raw: Raw, key: string, warnings: string[], prefix = ''): string[] | undefined {
+  const v = raw[key];
+  if (v == null) return undefined;
+  if (Array.isArray(v)) return strList(v);
+  if (typeof v === 'string') {
+    warnings.push(`${prefix}${key} should be a YAML list, e.g. [a, b]; read "${v}" as a comma-separated list.`);
+    return v.split(',').map((x) => x.trim()).filter(Boolean);
+  }
+  warnings.push(`${prefix}${key} must be a list; using the default.`);
+  return undefined;
+}
+
 const DNS1123 = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 
 function parseOverride(raw: Raw, warnings: string[], prefix: string): ToolOverride {
@@ -112,7 +128,8 @@ function parseOverride(raw: Raw, warnings: string[], prefix: string): ToolOverri
   if (allowRoutes != null) o.allowRoutes = allowRoutes;
   const requireNetworkPolicy = pickBool(raw, 'requireNetworkPolicy', warnings, prefix);
   if (requireNetworkPolicy != null) o.requireNetworkPolicy = requireNetworkPolicy;
-  if (Array.isArray(raw.allowedRegistries)) o.allowedRegistries = strList(raw.allowedRegistries);
+  const allowedRegistries = pickList(raw, 'allowedRegistries', warnings, prefix);
+  if (allowedRegistries) o.allowedRegistries = allowedRegistries;
   const requireDigest = pickEnum(raw, 'requireDigest', ['none', 'community', 'all'] as const, warnings, prefix);
   if (requireDigest) o.requireDigest = requireDigest;
   const review = pickEnum(raw, 'review', ['never', 'elevated', 'always'] as const, warnings, prefix);
@@ -149,9 +166,9 @@ export function parsePolicy(text: string | undefined, warnings: string[] = []): 
   policy.rbacWidening = pickEnum(raw, 'rbacWidening', ['allow', 'warn', 'review', 'block'] as const, warnings) || policy.rbacWidening;
   policy.allowRoutes = pickBool(raw, 'allowRoutes', warnings) ?? policy.allowRoutes;
   policy.requireNetworkPolicy = pickBool(raw, 'requireNetworkPolicy', warnings) ?? policy.requireNetworkPolicy;
-  policy.allowedRegistries = strList(raw.allowedRegistries);
+  policy.allowedRegistries = pickList(raw, 'allowedRegistries', warnings) ?? [];
   policy.requireDigest = pickEnum(raw, 'requireDigest', ['none', 'community', 'all'] as const, warnings) || policy.requireDigest;
-  policy.allowedDeployHosts = strList(raw.allowedDeployHosts).map((h) => h.toLowerCase());
+  policy.allowedDeployHosts = (pickList(raw, 'allowedDeployHosts', warnings) ?? []).map((h) => h.toLowerCase());
   policy.telemetry = pickEnum(raw, 'telemetry', ['full', 'ratings-only', 'off'] as const, warnings) || policy.telemetry;
   if (!policy.maxLevel) delete policy.maxLevel;
   if (!policy.externalMaxLevel) delete policy.externalMaxLevel;
@@ -204,6 +221,8 @@ export type InstallContext = {
   deployURL?: string;
   /** Permissions added by an update (from rbacDiff). */
   rbacAdded?: { role: string; added: string[] }[];
+  /** Set when the cluster's current RBAC couldn't be read, so rbacAdded is unknown. */
+  rbacCompareError?: string;
 };
 
 export type Reason = {
@@ -278,6 +297,13 @@ export function evaluate(basePolicy: Policy, ctx: InstallContext): Decision {
   const widened = (ctx.rbacAdded || []).filter((r) => r.added.length);
   if (ctx.action === 'update' && widened.length) {
     add('rbac-widening', policy.rbacWidening, `This update adds permissions: ${widened.map((r) => `${r.role} (${r.added.join('; ')})`).join(', ')}.`);
+  } else if (ctx.action === 'update' && ctx.rbacCompareError && policy.rbacWidening !== 'allow') {
+    // Unknown is not "nothing added": at least show the review (warn stays a warning).
+    add(
+      'rbac-unknown',
+      policy.rbacWidening === 'warn' ? 'warn' : 'review',
+      `Could not read the permissions currently on the cluster (${ctx.rbacCompareError}), so permissions this update adds can't be checked: compare them below.`,
+    );
   }
   if (!external && (ctx.publicOnly || ctx.unverifiedRow) && policy.publicCatalog !== 'full') {
     add(

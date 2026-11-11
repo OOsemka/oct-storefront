@@ -61,6 +61,19 @@ describe('parsePolicy', () => {
     expect(parsePolicy('- a list', w2)).toEqual(DEFAULT_POLICY);
   });
 
+  it('reads a string list setting as comma-separated, with a warning (never as "any")', () => {
+    const w: string[] = [];
+    const p = parsePolicy('allowedRegistries: "quay.io/a, registry.redhat.io"\nallowedDeployHosts: Example.com\nperTool:\n  oct-x:\n    allowedRegistries: quay.io/x\n', w);
+    expect(p.allowedRegistries).toEqual(['quay.io/a', 'registry.redhat.io']);
+    expect(p.allowedDeployHosts).toEqual(['example.com']);
+    expect(p.perTool['oct-x'].allowedRegistries).toEqual(['quay.io/x']);
+    expect(w).toHaveLength(3);
+    expect(w[0]).toContain('should be a YAML list');
+    const w2: string[] = [];
+    expect(parsePolicy('allowedRegistries: 5\n', w2).allowedRegistries).toEqual([]);
+    expect(w2[0]).toContain('must be a list');
+  });
+
   it('accepts backend overrides of audit or enforce only', () => {
     const w: string[] = [];
     const p = parsePolicy('backends:\n  oct-baremetal: { authMode: audit }\n  oct-x: { authMode: off }\n  Bad_Name: { authMode: audit }\n', w);
@@ -182,6 +195,16 @@ describe('evaluate: individual rules (enforce)', () => {
     expect(evaluate(enforce('rbacWidening: block'), ctx(plugin(), { action: 'update', rbacAdded: added })).outcome).toBe('block');
     expect(evaluate(enforce('rbacWidening: block'), ctx(plugin(), { action: 'add', rbacAdded: added })).outcome).toBe('allow');
     expect(evaluate(DEFAULT_POLICY, ctx(plugin(), { action: 'update', rbacAdded: added })).review).toBe(true);
+  });
+
+  it('an update whose current RBAC could not be read is reviewed, not passed', () => {
+    const unknown = { action: 'update' as const, rbacAdded: [], rbacCompareError: 'forbidden' };
+    const blocked = evaluate(enforce('rbacWidening: block'), ctx(plugin(), unknown));
+    expect(blocked.outcome).toBe('review');
+    expect(blocked.reasons.map((r) => r.id)).toContain('rbac-unknown');
+    expect(evaluate(DEFAULT_POLICY, ctx(plugin(), unknown)).reasons.find((r) => r.id === 'rbac-unknown')?.gate).toBe('warn');
+    expect(evaluate(enforce('rbacWidening: allow'), ctx(plugin(), unknown)).reasons.map((r) => r.id)).not.toContain('rbac-unknown');
+    expect(evaluate(enforce('rbacWidening: block'), ctx(plugin(), { ...unknown, action: 'add' })).outcome).toBe('allow');
   });
 
   it('flags a profile above the declared level, but a declaration never relaxes a rule', () => {

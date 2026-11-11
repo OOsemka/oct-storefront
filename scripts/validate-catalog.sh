@@ -294,6 +294,27 @@ for minor in "${OCP_MINORS[@]}"; do
   fi
 done
 
+# A row may need a newer storefront (versions[].minStorefront), but never one newer
+# than this storefront: it couldn't install its own catalog's row.
+TOO_NEW=$(python3 - "$CATALOG" "$SF_VERSION" <<'PY'
+import sys, yaml
+cat, ver = sys.argv[1], sys.argv[2]
+key = lambda v: tuple(int(x) if x.isdigit() else 0 for x in str(v).split("-")[0].split("."))
+for d in yaml.safe_load_all(open(cat)):
+    if not d:
+        continue
+    for v in d.get("spec", {}).get("versions", []) or []:
+        m = v.get("minStorefront")
+        if m and key(m) > key(ver):
+            print(f'{d["metadata"]["name"]} {v.get("version")} (minStorefront {m})')
+PY
+)
+if [ -n "$TOO_NEW" ]; then
+  while IFS= read -r row; do error "$row needs a newer storefront than STOREFRONT_VERSION $SF_VERSION: bump STOREFRONT_VERSION first"; done <<<"$TOO_NEW"
+else
+  green "no catalog row needs a storefront newer than $SF_VERSION"
+fi
+
 # ── 9. Storefront self-update manifest ──────────────────────────────
 
 echo ""

@@ -551,6 +551,8 @@ export type PreparedInstall = {
   declared?: SecuritySpec;
   decision: Decision;
   policy: Policy;
+  /** Where the policy came from; telemetry stays off when it couldn't be read. */
+  policySource: PolicyState['source'];
   policyWarnings: string[];
   /** Rules added or removed compared with the Roles/ClusterRoles on the cluster (updates). */
   rbacChanges: { role: string; added: string[]; removed: string[] }[];
@@ -621,13 +623,45 @@ export function ownsStorefrontNamespace(tool: CommunityTool): boolean {
   return tool.metadata.name === 'oct-storefront' && tool.spec.source !== 'external';
 }
 
+/**
+ * With publicCatalog other than full, a synced or public-only row has had its install
+ * manifests removed. Generating plugin manifests instead would install something
+ * other than the tool (for the storefront itself, a ConsolePlugin without its
+ * catalog-service proxy). True when that would happen: the row has no manifest of
+ * its own and no bundled one, and the tool normally ships manifests (its bundled rows
+ * have them) or is public-only (what was removed is unknown).
+ */
+export function manifestsWithheld(
+  tool: CommunityTool,
+  version: ToolVersion | undefined,
+  ctx: { publicOnly: boolean; unverifiedRow: boolean; publicCatalog: Policy['publicCatalog'] },
+): boolean {
+  if (ctx.publicCatalog === 'full' || (!ctx.publicOnly && !ctx.unverifiedRow)) return false;
+  const hasManifests = Boolean(
+    version?.deployYAML?.trim() ||
+      tool.spec.deployYAML?.trim() ||
+      version?.deployURL ||
+      tool.spec.deployURL ||
+      BUNDLED_DEPLOY[tool.metadata.name] ||
+      BUNDLED_DEPLOY[tool.spec.consolePlugin],
+  );
+  if (hasManifests) return false;
+  if (ctx.publicOnly) return true;
+  const bundledTool = bundledCommunityTools().find((t) => t.metadata.name === tool.metadata.name);
+  return Boolean(
+    bundledTool?.spec.deployYAML?.trim() ||
+      bundledTool?.spec.deployURL ||
+      bundledTool?.spec.versions?.some((v) => v.deployYAML?.trim() || v.deployURL),
+  );
+}
+
 export async function prepareInstall(
   tool: CommunityTool,
   version: ToolVersion | undefined,
   clusterMinor: string,
   action: 'add' | 'update',
 ): Promise<PreparedInstall> {
-  const [{ policy, warnings: policyWarnings }, yaml] = await Promise.all([
+  const [{ policy, source: policySource, warnings: policyWarnings }, yaml] = await Promise.all([
     loadPolicy(),
     resolveDeployYaml(tool, version, clusterMinor),
   ]);
@@ -649,6 +683,11 @@ export async function prepareInstall(
     }
   }
   const problems: string[] = [];
+  if (manifestsWithheld(tool, version, { publicOnly, unverifiedRow, publicCatalog: policy.publicCatalog })) {
+    problems.push(
+      `The cluster policy (publicCatalog: ${policy.publicCatalog}) removed this version's install manifests, and the storefront doesn't generate replacements. Install a version from the storefront's bundled catalog, or ask a cluster admin to set publicCatalog: full.`,
+    );
+  }
   const missing = await missingNamespaces(splitYamlDocs(yaml));
   if (missing.length) {
     problems.push(
@@ -665,6 +704,7 @@ export async function prepareInstall(
     deployURL,
     unverifiedRow,
     rbacAdded: rbacChanges.map((r) => ({ role: r.role, added: r.added })),
+    rbacCompareError,
   });
   return {
     tool,
@@ -675,12 +715,18 @@ export async function prepareInstall(
     declared,
     decision,
     policy,
+    policySource,
     policyWarnings,
     rbacChanges,
     rbacCompareError,
     problems,
     publicOnly,
   };
+}
+
+/** The policy to pass for telemetry: none (nothing sent) when it couldn't be read. */
+export function telemetryPolicy(prep: Pick<PreparedInstall, 'policy' | 'policySource'>): Policy | undefined {
+  return prep.policySource === 'error' ? undefined : prep.policy;
 }
 
 export type AddExtensionOpts = {

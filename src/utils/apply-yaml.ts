@@ -31,12 +31,29 @@ export const EXTENSION_LABEL = 'communitytools.io/extension';
 /** Kinds that may be shared between tools or are cluster config: never labelled. */
 const UNLABELLED_KINDS = new Set(['Namespace', 'Console']);
 
+const LABEL_VALUE = /^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$/;
+
+/**
+ * A valid label value for a tool id. Catalog ids already are; an external tool's
+ * name may not be (spaces, over 63 characters), and an invalid label would make
+ * every create fail. Such names are made valid ("My Tool!" → "My-Tool"); '' when
+ * nothing usable is left.
+ */
+export function extensionLabelValue(id: string): string {
+  if (LABEL_VALUE.test(id)) return id;
+  return id
+    .replace(/[^A-Za-z0-9_.-]+/g, '-')
+    .slice(0, 63)
+    .replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+}
+
 /** `doc` with the extension label added (a copy); unchanged for shared kinds or no id. */
 export function withExtensionLabel(doc: K8sResourceCommon, extensionId: string | undefined): K8sResourceCommon {
-  if (!extensionId || UNLABELLED_KINDS.has(doc.kind || '')) return doc;
+  const value = extensionId ? extensionLabelValue(extensionId) : '';
+  if (!value || UNLABELLED_KINDS.has(doc.kind || '')) return doc;
   return {
     ...doc,
-    metadata: { ...doc.metadata, labels: { ...(doc.metadata?.labels || {}), [EXTENSION_LABEL]: extensionId } },
+    metadata: { ...doc.metadata, labels: { ...(doc.metadata?.labels || {}), [EXTENSION_LABEL]: value } },
   };
 }
 
@@ -224,11 +241,15 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
     } catch (e) {
       if (alreadyExists(e)) {
         let updated = false;
-        if (kind === 'Deployment') updated = await patchDeploymentImages(doc);
-        else if (CONVERGE_KINDS.has(kind)) updated = await convergeToBundle(model, doc, log);
+        try {
+          if (kind === 'Deployment') updated = await patchDeploymentImages(doc);
+          else if (CONVERGE_KINDS.has(kind)) updated = await convergeToBundle(model, doc, log);
+        } catch (e2) {
+          throw await rolledBack(e2, `Updating the existing ${kind}/${name}`, created);
+        }
         log.push(`${updated ? 'updated' : 'exists'} ${kind}/${name}`);
       } else {
-        throw await rolledBack(e, `${kind}/${name}`, created);
+        throw await rolledBack(e, `Creating ${kind}/${name}`, created);
       }
     }
   }
@@ -273,7 +294,13 @@ async function rolledBack(
   if (created.length === 0) note = 'Nothing was created.';
   else if (left.length === 0) note = `The ${created.length} object(s) this install had created were removed again.`;
   else note = `Could not remove ${left.join(', ')}; delete them by hand before retrying.`;
-  const out = new Error(`Creating ${failed} failed: ${why} ${note}`);
+  const namespaces = created
+    .filter(({ obj }) => obj.kind === 'Namespace' && obj.metadata?.name && !left.includes(`Namespace/${obj.metadata.name}`))
+    .map(({ obj }) => obj.metadata!.name!);
+  if (namespaces.length) {
+    note += ` Namespace ${namespaces.join(', ')} takes a moment to finish deleting: retry once \`oc get namespace ${namespaces[0]}\` no longer finds it.`;
+  }
+  const out = new Error(`${failed} failed: ${why} ${note}`);
   (out as Error & { cause?: unknown }).cause = err;
   return out;
 }

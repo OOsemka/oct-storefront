@@ -14,8 +14,8 @@ vi.mock('@openshift-console/dynamic-plugin-sdk', () => ({
   k8sUpdate: vi.fn(),
 }));
 
-import { k8sCreate, k8sDelete, k8sGet } from '@openshift-console/dynamic-plugin-sdk';
-import { applyYaml, EXTENSION_LABEL, missingNamespaces, splitYamlDocs, unsupportedKinds } from '../apply-yaml';
+import { k8sCreate, k8sDelete, k8sGet, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
+import { applyYaml, EXTENSION_LABEL, extensionLabelValue, missingNamespaces, splitYamlDocs, unsupportedKinds } from '../apply-yaml';
 
 const GOOD = `
 apiVersion: v1
@@ -195,6 +195,47 @@ metadata: { name: never, namespace: oct-x }
     expect(deleted).toEqual(['Service']);
   });
 
+  it('tells the user to wait for a removed namespace before retrying', async () => {
+    const restore = deny('Route');
+    try {
+      await expect(applyYaml(BUNDLE)).rejects.toThrow(/Namespace oct-x takes a moment to finish deleting/);
+    } finally {
+      restore();
+    }
+  });
+
+  it('rolls back when updating an object that already exists fails', async () => {
+    const bundle = `
+apiVersion: v1
+kind: Namespace
+metadata: { name: oct-x }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: svc, namespace: oct-x }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: oct-x }
+rules: [{ apiGroups: [''], resources: [pods], verbs: [get] }]
+`;
+    const real = vi.mocked(k8sCreate).getMockImplementation();
+    vi.mocked(k8sCreate).mockImplementation((async (opts: { data: { kind: string; metadata: { name: string } } }) => {
+      if (opts.data.kind === 'ClusterRole') throw Object.assign(new Error('clusterroles "oct-x" already exists'), { json: { code: 409 } });
+      return real!(opts as never);
+    }) as never);
+    vi.mocked(k8sUpdate).mockImplementationOnce((async () => {
+      throw Object.assign(new Error('update denied by admission'), { json: { code: 403 } });
+    }) as never);
+    try {
+      await expect(applyYaml(bundle)).rejects.toThrow(/Updating the existing ClusterRole\/oct-x failed: update denied by admission The 1 object\(s\)/);
+    } finally {
+      vi.mocked(k8sCreate).mockImplementation(real as never);
+    }
+    // Kinds are applied in dependency order (ClusterRole before Service): only the Namespace existed yet.
+    expect(vi.mocked(k8sDelete).mock.calls).toHaveLength(1);
+  });
+
   it('reports objects it could not remove', async () => {
     const restore = deny('Route');
     vi.mocked(k8sDelete).mockImplementationOnce((async () => {
@@ -268,5 +309,14 @@ describe('generatePluginManifests hardening', () => {
     expect(dep.spec.template.spec.automountServiceAccountToken).toBe(false);
     const np = docs[3] as unknown as { spec: { ingress: { ports: { port: number }[] }[] } };
     expect(np.spec.ingress[0].ports[0].port).toBe(9443);
+  });
+});
+
+describe('extensionLabelValue', () => {
+  it('keeps valid ids and makes external names valid label values', () => {
+    expect(extensionLabelValue('oct-baremetal')).toBe('oct-baremetal');
+    expect(extensionLabelValue('My Tool!')).toBe('My-Tool');
+    expect(extensionLabelValue('x'.repeat(80))).toHaveLength(63);
+    expect(extensionLabelValue('  !!  ')).toBe('');
   });
 });
