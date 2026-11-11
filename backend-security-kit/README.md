@@ -56,7 +56,7 @@ Handlers call the API **as the caller** with `client.DoAsUser(ctx, method, path,
 
 **Which mode to ship:**
 
-- **New backends** ship `AUTH_MODE=enforce` (the kit's default).
+- **New backends** ship `AUTH_MODE=enforce`, set explicitly in the Deployment (see `manifests/backend-deployment-snippet.yaml`). When the variable is unset or invalid, the kit uses `audit` (and logs an invalid value), so a manifest that forgets it never turns a tool into 401s.
 - **Existing backends** adopting the kit ship `AUTH_MODE=audit` and **stay in audit until a cluster admin turns on enforce** for them in the cluster policy (below). Read the logs for "would be denied" and fix the table or the RBAC, so that switching to enforce is safe. Don't change an existing backend's shipped default to enforce yourself.
 
 ## Admin override at runtime

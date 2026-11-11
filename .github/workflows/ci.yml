@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: catalog-service/go.mod
-          cache: false  # no dependencies (no go.sum)
+          cache-dependency-path: catalog-service/go.sum
       - name: go vet
         run: go vet ./...
       - name: go test
@@ -62,7 +62,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend-security-kit/go.mod
-          cache: false  # standard library only (no go.sum)
+          cache-dependency-path: backend-security-kit/go.sum  # gopkg.in/yaml.v3
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - name: go vet

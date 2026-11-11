@@ -170,6 +170,26 @@ func TestCacheAvoidsRepeatReviews(t *testing.T) {
 	}
 }
 
+func TestRejectedTokenIsCached(t *testing.T) {
+	s := newSetup(t, auth.Enforce, nil)
+	for i := 0; i < 5; i++ {
+		if w := do(s.h, "GET", "/api/v1/nodes", "bogus"); w.Code != 401 {
+			t.Fatalf("rejected token: got %d", w.Code)
+		}
+		do(s.h, "GET", "/api/v1/hosts/team-a", "bogus") // other attributes, same token
+	}
+	if n := s.api.Reviews.Load(); n != 1 {
+		t.Fatalf("a rejected token should cost one review, got %d", n)
+	}
+}
+
+func TestModeIsLoggedAtStart(t *testing.T) {
+	s := newSetup(t, auth.Audit, nil)
+	if !strings.Contains(s.logs.String(), "permission checks active") || !strings.Contains(s.logs.String(), "audit") {
+		t.Fatalf("start log missing the mode: %s", s.logs.String())
+	}
+}
+
 func TestPolicyOverrideAtRuntime(t *testing.T) {
 	api, client := fakeapi.New(t)
 	policy := auth.NewPolicySource(client, 0, nil)
@@ -228,7 +248,7 @@ func TestNewRejectsBadTables(t *testing.T) {
 }
 
 func TestModeFromEnv(t *testing.T) {
-	for in, want := range map[string]auth.Mode{"": auth.Enforce, "audit": auth.Audit, "OFF": auth.Off, "nonsense": auth.Enforce} {
+	for in, want := range map[string]auth.Mode{"": auth.Audit, "audit": auth.Audit, "OFF": auth.Off, " Enforce ": auth.Enforce, "nonsense": auth.Audit} {
 		t.Setenv("AUTH_MODE", in)
 		if got := auth.ModeFromEnv(); got != want {
 			t.Errorf("%q: got %s want %s", in, got, want)

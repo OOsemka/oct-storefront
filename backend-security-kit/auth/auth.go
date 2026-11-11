@@ -13,7 +13,8 @@
 //   - audit: everything is allowed, and what enforce would have done is logged.
 //   - off: no checks (local development only; logged loudly at start).
 //
-// The mode comes from the AUTH_MODE environment variable (default enforce). A cluster
+// The mode comes from the AUTH_MODE environment variable (default audit; new
+// extensions set enforce in their Deployment). A cluster
 // admin can override it per extension at runtime in the cluster policy
 // (backends.<extension>.authMode: audit | enforce); see PolicySource.
 package auth
@@ -47,15 +48,21 @@ const (
 	Enforce Mode = "enforce"
 )
 
-// ModeFromEnv reads AUTH_MODE. Unset or invalid values mean enforce.
+// ModeFromEnv reads AUTH_MODE: enforce, audit or off. Unset or invalid values mean
+// audit, so a manifest that forgets the variable logs would-be denials instead of
+// answering every request with 401/403. New extensions set AUTH_MODE=enforce in their
+// Deployment (the template does); existing ones ship audit until an admin enables
+// enforce in the cluster policy. An invalid value is logged.
 func ModeFromEnv() Mode {
-	switch Mode(strings.ToLower(strings.TrimSpace(os.Getenv("AUTH_MODE")))) {
-	case Off:
-		return Off
-	case Audit:
+	raw := os.Getenv("AUTH_MODE")
+	switch m := Mode(strings.ToLower(strings.TrimSpace(raw))); m {
+	case Off, Audit, Enforce:
+		return m
+	case "":
 		return Audit
 	}
-	return Enforce
+	slog.Warn("AUTH_MODE has an unknown value; using audit (would-be denials are only logged)", "value", raw)
+	return Audit
 }
 
 // Extractor reads a value (namespace or name) from a request.
@@ -257,6 +264,8 @@ func New(opts Options, routes []Route) (a *Authorizer, err error) {
 	}
 	if opts.Mode == Off {
 		a.log.Warn("AUTH_MODE=off: requests are NOT checked. Use only for local development.", "extension", opts.Extension)
+	} else {
+		a.log.Info("permission checks active", "extension", opts.Extension, "mode", string(opts.Mode))
 	}
 	return a, nil
 }
@@ -408,11 +417,21 @@ func (a *Authorizer) decide(w http.ResponseWriter, r *http.Request, next http.Ha
 
 func (a *Authorizer) review(ctx context.Context, token string, ra kubeclient.ResourceAttributes) (bool, error) {
 	attrs, _ := json.Marshal([]string{ra.Verb, ra.Group, ra.Resource, ra.Subresource, ra.Namespace, ra.Name})
-	key := tokenHash(token) + "|" + tokenHash(string(attrs))
+	th := tokenHash(token)
+	key := th + "|" + tokenHash(string(attrs))
 	if v, ok := a.cache.get(key); ok {
 		return v, nil
 	}
+	// A token the API server rejected stays rejected for the cache TTL, so a client
+	// sending made-up tokens costs one access review per token, not one per request.
+	rejected := th + "|rejected"
+	if _, ok := a.cache.get(rejected); ok {
+		return false, &kubeclient.StatusError{Code: http.StatusUnauthorized}
+	}
 	allowed, _, err := a.opts.Client.SelfSubjectAccessReview(ctx, token, ra)
+	if kubeclient.IsStatus(err, http.StatusUnauthorized) {
+		a.cache.put(rejected, false)
+	}
 	if err != nil {
 		return false, err
 	}

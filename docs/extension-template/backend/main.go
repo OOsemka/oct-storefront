@@ -61,7 +61,7 @@ func main() {
 	// drift from the routes.
 	authz, err := auth.New(auth.Options{
 		Extension: extension,
-		Mode:      auth.ModeFromEnv(), // new extensions ship enforce (the default)
+		Mode:      auth.ModeFromEnv(), // set AUTH_MODE=enforce in the Deployment (unset means audit)
 		Client:    client,
 		Policy:    policy,
 		Logger:    log,

@@ -74,13 +74,19 @@ func policyTelemetry(ctx context.Context) (string, error) {
 		return "full", nil // local development
 	}
 	telemetryCache.Lock()
-	defer telemetryCache.Unlock()
 	if time.Since(telemetryCache.fetched) < policyCacheTTL {
-		return telemetryCache.value, telemetryCache.err
+		v, err := telemetryCache.value, telemetryCache.err
+		telemetryCache.Unlock()
+		return v, err
 	}
-	telemetryCache.value, telemetryCache.err = readTelemetry(ctx, policyClient)
-	telemetryCache.fetched = time.Now()
-	return telemetryCache.value, telemetryCache.err
+	telemetryCache.Unlock()
+	// Read without holding the lock, so a slow API server doesn't queue every stats
+	// request behind one call; concurrent misses may each read once.
+	v, err := readTelemetry(ctx, policyClient)
+	telemetryCache.Lock()
+	telemetryCache.value, telemetryCache.err, telemetryCache.fetched = v, err, time.Now()
+	telemetryCache.Unlock()
+	return v, err
 }
 
 func readTelemetry(ctx context.Context, kc *kubeclient.Client) (string, error) {

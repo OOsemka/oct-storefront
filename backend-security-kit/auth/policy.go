@@ -29,7 +29,9 @@ const (
 //
 // Only audit and enforce are accepted; an override can never turn checks off. Note
 // that audit lets every request through (it only logs), so who may edit the policy
-// ConfigMap matters: by default only cluster admins.
+// ConfigMap matters: cluster admins, and anyone bound to the admin or edit role in
+// the oct-storefront namespace. Keep those bindings to people who may change
+// security settings.
 // Every authenticated user may read the policy ConfigMap, so the backend's
 // ServiceAccount needs no extra RBAC.
 type PolicySource struct {

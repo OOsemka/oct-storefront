@@ -74,11 +74,12 @@ func main() {
 		addr := ":" + *httpsPort
 		log.Printf("catalog-service HTTPS on %s", addr)
 		srv := &http.Server{
-			Addr:         addr,
-			Handler:      handler,
-			TLSConfig:    &tls.Config{MinVersion: tls.VersionTLS12},
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 15 * time.Second,
+			Addr:              addr,
+			Handler:           handler,
+			TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       10 * time.Second,
+			WriteTimeout:      15 * time.Second,
 		}
 		log.Fatal(srv.ListenAndServeTLS(*tlsCert, *tlsKey))
 	}

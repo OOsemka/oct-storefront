@@ -31,7 +31,7 @@ func Example() {
 
 	authz, err := auth.New(auth.Options{
 		Extension: "oct-example",
-		Mode:      auth.ModeFromEnv(), // AUTH_MODE: enforce (default) | audit | off
+		Mode:      auth.ModeFromEnv(), // AUTH_MODE: enforce | audit (default) | off
 		Client:    client,
 		Policy:    policy,
 	}, []auth.Route{
