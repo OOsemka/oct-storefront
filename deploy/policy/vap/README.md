@@ -59,7 +59,7 @@ Edit with `oc -n oct-storefront edit configmap oct-admission-params`; changes ap
 
 - **Bare Metal** creates the `image-cache` Route: add `oct-baremetal` to `approvedRoutes` if you allow it.
 - **Shift-on-Shift** creates Routes at runtime when `externalAccess.hostRoutes` (or `publishAppRoutes`) is on: add `oct-shift-on-shift-virt` to `approvedRoutes` if you allow it.
-- **DHCP** creates the `oct-network-dhcp` SecurityContextConstraints from its page when you deploy a DHCP server: add `oct-network-dhcp` to `approvedSCCs` if you allow it.
+- **DHCP** creates the `oct-dhcp-netraw` SecurityContextConstraints from its page when you deploy a DHCP server, and deletes it with the last server: add `oct-network-dhcp` to `approvedSCCs` if you allow it.
 - With `allowedRegistries` set, add every registry your installed tools use (the review screen in the storefront lists their images).
 
 No catalog tool binds `cluster-admin`, `admin` or `edit`, or ships an SCC in its bundle.
