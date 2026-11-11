@@ -114,7 +114,7 @@ spec:
     spec:
       containers:
       - name: plugin
-        image: quay.io/openshift-community-tools/oct-storefront:1.5.27-ocp4.22
+        image: quay.io/openshift-community-tools/oct-storefront:1.6.0-ocp4.22
         ports:
         - containerPort: 9443
           protocol: TCP
@@ -183,7 +183,7 @@ spec:
       serviceAccountName: catalog-service
       containers:
       - name: catalog-service
-        image: quay.io/openshift-community-tools/oct-storefront-catalog:1.0.1-ocp4.22
+        image: quay.io/openshift-community-tools/oct-storefront-catalog:1.1.0-ocp4.22
         env:
         - name: AUTH_MODE
           value: audit

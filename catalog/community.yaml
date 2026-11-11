@@ -73,6 +73,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/openshift-community-tools/oct-baremetal:0.1.2-ocp4.22
       gitRef: v0.1.2
+    - version: "0.2.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/openshift-community-tools/oct-baremetal:0.2.0-ocp4.21
+      gitRef: v0.2.0
+    - version: "0.2.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/openshift-community-tools/oct-baremetal:0.2.0-ocp4.22
+      gitRef: v0.2.0
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -1155,6 +1165,18 @@ spec:
       image: quay.io/openshift-community-tools/oct-storefront:1.5.27-ocp4.22
       gitRef: v1.5.27
       deployURL: https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.6.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/openshift-community-tools/oct-storefront:1.6.0-ocp4.21
+      gitRef: v1.6.0
+      deployURL: https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.6.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/openshift-community-tools/oct-storefront:1.6.0-ocp4.22
+      gitRef: v1.6.0
+      deployURL: https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -1455,6 +1477,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/openshift-community-tools/oct-network-dhcp:1.0.6-ocp4.22
       gitRef: v1.0.6
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/openshift-community-tools/oct-network-dhcp:1.1.0-ocp4.21
+      gitRef: v1.1.0
+    - version: "1.1.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/openshift-community-tools/oct-network-dhcp:1.1.0-ocp4.22
+      gitRef: v1.1.0
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
@@ -1679,6 +1711,16 @@ spec:
       openshift: ["4.22"]
       image: quay.io/openshift-community-tools/oct-shift-on-shift-virt:0.5.4-ocp4.22
       gitRef: v0.5.4
+    - version: "0.6.0"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/openshift-community-tools/oct-shift-on-shift-virt:0.6.0-ocp4.21
+      gitRef: v0.6.0
+    - version: "0.6.0"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/openshift-community-tools/oct-shift-on-shift-virt:0.6.0-ocp4.22
+      gitRef: v0.6.0
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
