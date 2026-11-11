@@ -13,6 +13,7 @@ import {
   ToolVersion,
   openshiftList,
 } from './catalog-types';
+import { parseSecurity, securityToJson } from './security-spec';
 
 function asString(v: unknown): string {
   return v == null ? '' : String(v).trim();
@@ -58,7 +59,7 @@ function asChannels(v: unknown): Record<string, Record<string, unknown>> | undef
   return v as Record<string, Record<string, unknown>>;
 }
 
-function asVersions(v: unknown): ToolVersion[] {
+function asVersions(v: unknown, warnings?: string[]): ToolVersion[] {
   if (!Array.isArray(v)) return [];
   const out: ToolVersion[] = [];
   for (const item of v) {
@@ -80,6 +81,8 @@ function asVersions(v: unknown): ToolVersion[] {
       // the public API spells it deployUrl
       deployURL: asString(o.deployURL) || asString(o.deployUrl) || undefined,
       deployYAML: asString(o.deployYAML) || undefined,
+      minStorefront: asString(o.minStorefront) || undefined,
+      security: parseSecurity(o.security, warnings),
     });
   }
   return out;
@@ -88,7 +91,9 @@ function asVersions(v: unknown): ToolVersion[] {
 export function specFromUnknown(
   raw: Record<string, unknown>,
   fallbackSource: ToolSource,
+  warnings?: string[],
 ): CommunityToolSpec {
+  const versions = asVersions(raw.versions, warnings);
   return {
     displayName: asString(raw.displayName) || asString(raw.name) || 'Untitled',
     description: asString(raw.description),
@@ -109,11 +114,16 @@ export function specFromUnknown(
     defaultChannel: asString(raw.defaultChannel) || undefined,
     pinVersion: asString(raw.pinVersion) || asString(raw.version) || undefined,
     channels: asChannels(raw.channels),
-    versions: asVersions(raw.versions).length ? asVersions(raw.versions) : undefined,
+    versions: versions.length ? versions : undefined,
+    security: parseSecurity(raw.security, warnings),
   };
 }
 
-export function toolFromDoc(doc: unknown, fallbackSource: ToolSource): CommunityTool | null {
+export function toolFromDoc(
+  doc: unknown,
+  fallbackSource: ToolSource,
+  warnings?: string[],
+): CommunityTool | null {
   if (!doc || typeof doc !== 'object') return null;
   const obj = doc as Record<string, unknown>;
   const metadata =
@@ -124,7 +134,7 @@ export function toolFromDoc(doc: unknown, fallbackSource: ToolSource): Community
     obj.spec && typeof obj.spec === 'object' ? (obj.spec as Record<string, unknown>) : obj;
   const name = asString(metadata.name) || asString(specRaw.consolePlugin) || asString(specRaw.id);
   if (!name) return null;
-  const spec = specFromUnknown(specRaw, fallbackSource);
+  const spec = specFromUnknown(specRaw, fallbackSource, warnings);
   if (!spec.consolePlugin) spec.consolePlugin = name;
   if (fallbackSource === 'external') spec.source = 'external';
   return {
@@ -154,10 +164,19 @@ export function parseToolList(yamlText: string, fallbackSource: ToolSource): Com
   return tools;
 }
 
-export function parseSingleTool(yamlText: string): { tool?: CommunityTool; error?: string } {
+/**
+ * Parse a pasted external CommunityTool. `warnings` never block the install; they are
+ * shown next to the tool (for example a missing or malformed spec.security).
+ */
+export function parseSingleTool(yamlText: string): {
+  tool?: CommunityTool;
+  error?: string;
+  warnings?: string[];
+} {
   try {
     const doc = load(yamlText);
-    const tool = toolFromDoc(doc, 'external');
+    const warnings: string[] = [];
+    const tool = toolFromDoc(doc, 'external', warnings);
     if (!tool) return { error: 'YAML must be a CommunityTool document with metadata.name.' };
     tool.spec.source = 'external';
     if (!tool.spec.consolePlugin) {
@@ -180,7 +199,12 @@ export function parseSingleTool(yamlText: string): { tool?: CommunityTool; error
           'Provide spec.versions[].image (or spec.deployYAML, spec.deployURL, or spec.image) so the storefront can Add the plugin.',
       };
     }
-    return { tool };
+    if (!tool.spec.security) {
+      warnings.push(
+        'No spec.security declaration. The install review still shows what the manifests do; see docs/security-model.md to declare intent.',
+      );
+    }
+    return { tool, warnings };
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
@@ -210,17 +234,28 @@ export function mergePublicIntoTool(
   if (ext.validatedOn?.length) spec.validatedOn = ext.validatedOn;
   if (ext.minOpenShift) spec.minOpenShift = ext.minOpenShift;
   if (ext.maxOpenShift) spec.maxOpenShift = ext.maxOpenShift;
-      if (ext.defaultChannel) spec.defaultChannel = ext.defaultChannel;
-      if (ext.pinVersion) spec.pinVersion = ext.pinVersion;
-      if (ext.storageClassName) spec.storageClassName = ext.storageClassName;
+  if (ext.defaultChannel) spec.defaultChannel = ext.defaultChannel;
+  if (ext.pinVersion) spec.pinVersion = ext.pinVersion;
+  if (ext.storageClassName) spec.storageClassName = ext.storageClassName;
+  // A public declaration replaces the bundled one; without one, the bundled stays.
+  const publicSecurity = parseSecurity(ext.security);
+  if (publicSecurity) spec.security = publicSecurity;
   if (ext.versions?.length) {
-    // Public rows replace the bundled ones; keep a bundled deployURL when the
-    // public row for the same version has none.
+    // Public rows replace the bundled ones; keep a bundled deployURL, minStorefront
+    // and security when the public row for the same version has none.
     const bundled = tool.spec.versions || [];
     spec.versions = asVersions(ext.versions).map((v) => {
-      if (v.deployURL) return v;
-      const same = bundled.find((b) => b.version === v.version && b.deployURL);
-      return same ? { ...v, deployURL: same.deployURL } : v;
+      const same = bundled.filter((b) => b.version === v.version);
+      const pick = <K extends 'deployURL' | 'minStorefront' | 'security'>(k: K): ToolVersion[K] =>
+        v[k] || same.find((b) => b[k])?.[k];
+      const merged: ToolVersion = { ...v };
+      const deployURL = pick('deployURL');
+      const minStorefront = pick('minStorefront');
+      const security = pick('security');
+      if (deployURL) merged.deployURL = deployURL;
+      if (minStorefront) merged.minStorefront = minStorefront;
+      if (security) merged.security = security;
+      return merged;
     });
   }
   spec.source = 'community';
@@ -251,6 +286,7 @@ export function toolFromPublic(ext: PublicCatalogExtension): CommunityTool | nul
       pinVersion: ext.pinVersion,
       storageClassName: ext.storageClassName,
       versions: asVersions(ext.versions),
+      security: parseSecurity(ext.security),
     },
   };
 }
@@ -289,6 +325,7 @@ export function toCommunityYaml(tools: CommunityTool[]): string {
           lines.push(`    ${name}: {}`);
         }
       }
+      if (t.spec.security) lines.push(`  security: ${JSON.stringify(securityToJson(t.spec.security))}`);
       if (t.spec.versions?.length) {
         lines.push('  versions:');
         for (const ver of t.spec.versions) {
@@ -308,6 +345,8 @@ export function toCommunityYaml(tools: CommunityTool[]): string {
           if (ver.gitRef) lines.push(`      gitRef: ${ver.gitRef}`);
           if (ver.deployURL) lines.push(`      deployURL: ${ver.deployURL}`);
           if (ver.deployYAML) lines.push(`      deployYAML: ${JSON.stringify(ver.deployYAML)}`);
+          if (ver.minStorefront) lines.push(`      minStorefront: ${JSON.stringify(ver.minStorefront)}`);
+          if (ver.security) lines.push(`      security: ${JSON.stringify(securityToJson(ver.security))}`);
         }
       }
       return lines.join('\n');

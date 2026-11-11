@@ -1,6 +1,14 @@
 import { loadAll, dump } from 'js-yaml';
-import { k8sCreate, k8sGet, k8sPatch, k8sUpdate, K8sModel, K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
-import { DeploymentModel, modelForKind } from './k8s-models';
+import {
+  k8sCreate,
+  k8sDelete,
+  k8sGet,
+  k8sPatch,
+  k8sUpdate,
+  K8sModel,
+  K8sResourceCommon,
+} from '@openshift-console/dynamic-plugin-sdk';
+import { DeploymentModel, modelForKind, NamespaceModel } from './k8s-models';
 
 /** Optional PVC annotation: suggested StorageClass. Empty = cluster default. Add UI can override. Never a lab class name in YAML. */
 export const PVC_STORAGE_CLASS_ANNOTATION = 'communitytools.io/storage-class';
@@ -14,7 +22,40 @@ export type ApplyYamlOpts = {
    * `''` omits spec.storageClassName so the cluster default StorageClass is used.
    */
   storageClassName?: string;
+  /** Catalog id stamped on created objects as `communitytools.io/extension`. */
+  extensionId?: string;
 };
+
+/** Label naming the catalog tool that created an object. */
+export const EXTENSION_LABEL = 'communitytools.io/extension';
+/** Kinds that may be shared between tools or are cluster config: never labelled. */
+const UNLABELLED_KINDS = new Set(['Namespace', 'Console']);
+
+const LABEL_VALUE = /^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$/;
+
+/**
+ * A valid label value for a tool id. Catalog ids already are; an external tool's
+ * name may not be (spaces, over 63 characters), and an invalid label would make
+ * every create fail. Such names are made valid ("My Tool!" → "My-Tool"); '' when
+ * nothing usable is left.
+ */
+export function extensionLabelValue(id: string): string {
+  if (LABEL_VALUE.test(id)) return id;
+  return id
+    .replace(/[^A-Za-z0-9_.-]+/g, '-')
+    .slice(0, 63)
+    .replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+}
+
+/** `doc` with the extension label added (a copy); unchanged for shared kinds or no id. */
+export function withExtensionLabel(doc: K8sResourceCommon, extensionId: string | undefined): K8sResourceCommon {
+  const value = extensionId ? extensionLabelValue(extensionId) : '';
+  if (!value || UNLABELLED_KINDS.has(doc.kind || '')) return doc;
+  return {
+    ...doc,
+    metadata: { ...doc.metadata, labels: { ...(doc.metadata?.labels || {}), [EXTENSION_LABEL]: value } },
+  };
+}
 
 type PvcDoc = K8sResourceCommon & {
   spec?: {
@@ -38,6 +79,7 @@ const APPLY_KIND_ORDER: Record<string, number> = {
   PersistentVolumeClaim: 80,
   Service: 90,
   Route: 100,
+  NetworkPolicy: 105,
   Deployment: 110,
   ConsolePlugin: 120,
 };
@@ -97,6 +139,59 @@ function sortDocsForApply(docs: K8sResourceCommon[]): K8sResourceCommon[] {
   });
 }
 
+/**
+ * Kinds in `docs` that this storefront cannot apply (not in KIND_MODELS).
+ * Checked for the whole bundle before anything is created, so an install
+ * either applies completely or does not start: a newer catalog row with a kind
+ * this storefront doesn't know must not leave half the objects behind.
+ */
+export function unnamedDocs(docs: K8sResourceCommon[]): string[] {
+  return docs
+    .filter((d) => !d.metadata?.name || !String(d.metadata.name).trim())
+    .map((d) => `${d.kind || 'Unknown'}${d.metadata?.generateName ? ` (generateName ${d.metadata.generateName})` : ''}`);
+}
+
+export function unsupportedKinds(docs: K8sResourceCommon[]): string[] {
+  const missing = docs
+    .filter((d) => !modelForKind(d.kind || ''))
+    .map((d) => `${d.kind || 'Unknown'} (${d.metadata?.name || '(unnamed)'})`);
+  return Array.from(new Set(missing));
+}
+
+/**
+ * Namespaces that namespaced objects in `docs` need but that neither the bundle
+ * creates nor the cluster has (for example a Role in openshift-storage on a cluster
+ * without ODF). Checked before anything is applied, so a bundle that can't work on
+ * this cluster fails cleanly instead of leaving half its objects behind.
+ */
+export async function missingNamespaces(
+  docs: K8sResourceCommon[],
+  exists: (ns: string) => Promise<boolean> = namespaceExists,
+): Promise<string[]> {
+  const created = new Set(docs.filter((d) => d.kind === 'Namespace').map((d) => d.metadata?.name || ''));
+  const needed = new Set<string>();
+  for (const d of docs) {
+    const ns = d.metadata?.namespace;
+    if (ns && !created.has(ns) && modelForKind(d.kind || '')?.namespaced) needed.add(ns);
+  }
+  const missing: string[] = [];
+  for (const ns of Array.from(needed).sort()) {
+    if (!(await exists(ns))) missing.push(ns);
+  }
+  return missing;
+}
+
+async function namespaceExists(ns: string): Promise<boolean> {
+  try {
+    await k8sGet({ model: NamespaceModel, name: ns });
+    return true;
+  } catch (e) {
+    const err = e as { json?: { code?: number }; code?: number };
+    // Only "not found" means missing; forbidden or other errors let the apply try (and report) as before.
+    return !(err?.json?.code === 404 || err?.code === 404);
+  }
+}
+
 function alreadyExists(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   const obj = err as { json?: { reason?: string; code?: number }; message?: string };
@@ -112,30 +207,102 @@ export async function applyYaml(raw: string, opts: ApplyYamlOpts = {}): Promise<
   if (docs.length === 0) {
     throw new Error('No Kubernetes documents found in YAML.');
   }
-  docs = sortDocsForApply(docs.map((d) => withPvcStorageClass(d, opts.storageClassName)));
+  docs = sortDocsForApply(
+    docs.map((d) => withExtensionLabel(withPvcStorageClass(d, opts.storageClassName), opts.extensionId)),
+  );
+  const unsupported = unsupportedKinds(docs);
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Unsupported kind ${unsupported.join(', ')}. Nothing was applied. Include it in the storefront kind map or use a supported plugin manifest.`,
+    );
+  }
+  const unnamed = unnamedDocs(docs);
+  if (unnamed.length > 0) {
+    throw new Error(
+      `${unnamed.join(', ')} has no metadata.name (generateName is not supported). Every object needs a fixed name. Nothing was applied.`,
+    );
+  }
+  const missing = await missingNamespaces(docs);
+  if (missing.length > 0) {
+    throw new Error(
+      `Namespace ${missing.join(', ')} does not exist on this cluster, and this bundle puts objects there (it may need an operator, such as ODF, installed first). Nothing was applied.`,
+    );
+  }
   const log: string[] = [];
+  const created: { model: K8sModel; obj: K8sResourceCommon }[] = [];
   for (const doc of docs) {
     const kind = doc.kind || 'Unknown';
     const name = doc.metadata?.name || '(unnamed)';
-    const model = modelForKind(kind);
-    if (!model) {
-      throw new Error(`Unsupported kind ${kind} (${name}). Include it in the storefront kind map or use a supported plugin manifest.`);
-    }
+    const model = modelForKind(kind) as K8sModel;
     try {
-      await k8sCreate({ model, data: doc });
+      const obj = (await k8sCreate({ model, data: doc })) as K8sResourceCommon;
+      created.push({ model, obj: obj?.metadata?.name ? obj : doc });
       log.push(`created ${kind}/${name}`);
     } catch (e) {
       if (alreadyExists(e)) {
         let updated = false;
-        if (kind === 'Deployment') updated = await patchDeploymentImages(doc);
-        else if (CONVERGE_KINDS.has(kind)) updated = await convergeToBundle(model, doc, log);
+        try {
+          if (kind === 'Deployment') updated = await patchDeploymentImages(doc);
+          else if (CONVERGE_KINDS.has(kind)) updated = await convergeToBundle(model, doc, log);
+        } catch (e2) {
+          throw await rolledBack(e2, `Updating the existing ${kind}/${name}`, created);
+        }
         log.push(`${updated ? 'updated' : 'exists'} ${kind}/${name}`);
       } else {
-        throw e;
+        throw await rolledBack(e, `Creating ${kind}/${name}`, created);
       }
     }
   }
   return log;
+}
+
+/**
+ * A create failed part-way through a bundle (for example an admission policy
+ * denied it). Delete what THIS attempt created, newest first, so the install
+ * doesn't stay half-applied. Objects that already existed are never touched.
+ * Returns the error to throw, with what was undone (or left behind) appended.
+ */
+async function rolledBack(
+  err: unknown,
+  failed: string,
+  created: { model: K8sModel; obj: K8sResourceCommon }[],
+): Promise<Error> {
+  const why = err instanceof Error ? err.message : String(err);
+  const left: string[] = [];
+  for (const { model, obj } of [...created].reverse()) {
+    const label = `${obj.kind}/${obj.metadata?.name || '(unnamed)'}`;
+    // Never delete without a name: the SDK would build the collection URL and
+    // Kubernetes would delete every object of that kind (deletecollection).
+    if (!obj.metadata?.name) {
+      left.push(label);
+      continue;
+    }
+    const uid = obj.metadata.uid;
+    try {
+      await k8sDelete({
+        model,
+        resource: obj,
+        // Only the exact object this attempt created, never a same-named replacement.
+        json: uid ? { kind: 'DeleteOptions', apiVersion: 'v1', preconditions: { uid } } : undefined,
+      });
+    } catch (e) {
+      const gone = (e as { json?: { code?: number } })?.json?.code === 404;
+      if (!gone) left.push(label);
+    }
+  }
+  let note: string;
+  if (created.length === 0) note = 'Nothing was created.';
+  else if (left.length === 0) note = `The ${created.length} object(s) this install had created were removed again.`;
+  else note = `Could not remove ${left.join(', ')}; delete them by hand before retrying.`;
+  const namespaces = created
+    .filter(({ obj }) => obj.kind === 'Namespace' && obj.metadata?.name && !left.includes(`Namespace/${obj.metadata.name}`))
+    .map(({ obj }) => obj.metadata!.name!);
+  if (namespaces.length) {
+    note += ` Namespace ${namespaces.join(', ')} takes a moment to finish deleting: retry once \`oc get namespace ${namespaces[0]}\` no longer finds it.`;
+  }
+  const out = new Error(`${failed} failed: ${why} ${note}`);
+  (out as Error & { cause?: unknown }).cause = err;
+  return out;
 }
 
 /**
@@ -285,6 +452,11 @@ spec:
       labels:
         app: ${name}
     spec:
+      # A plugin image serves static files only; it never calls the API. The root
+      # filesystem stays writable: images of tools without their own manifests can
+      # write anywhere, so a read-only root could break them (bundles that know their
+      # image set readOnlyRootFilesystem themselves).
+      automountServiceAccountToken: false
       containers:
         - name: plugin
           image: ${opts.image}
@@ -334,6 +506,28 @@ spec:
       targetPort: 9443
   selector:
     app: ${name}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${name}
+  namespace: ${ns}
+  labels:
+    app.kubernetes.io/part-of: ${name}
+spec:
+  # Only the console loads the plugin's files.
+  podSelector:
+    matchLabels:
+      app: ${name}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - protocol: TCP
+          port: 9443
 ---
 apiVersion: console.openshift.io/v1
 kind: ConsolePlugin

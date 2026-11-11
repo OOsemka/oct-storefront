@@ -3,8 +3,8 @@
 
 upgrade.yaml is what installed storefronts apply when they update themselves
 (catalog rows for oct-storefront point deployURL at it). It is install.yaml
-without the one-time enable-plugin Job (not an appliable kind for older
-storefronts) and without the ConfigMaps (the cluster's catalog cache and
+without the one-time enable-plugin Job and the NetworkPolicies (not appliable
+kinds for older storefronts) and without the ConfigMaps (the cluster's catalog cache and
 external tools must never be overwritten).
 """
 import os
@@ -12,7 +12,9 @@ import sys
 
 import yaml
 
-EXCLUDE = ("Job", "ConfigMap")
+# NetworkPolicy: storefronts before 1.6 cannot apply it, and they apply this file to
+# update themselves (deploy/policy/storefront-networkpolicy.yaml covers updated clusters).
+EXCLUDE = ("Job", "ConfigMap", "NetworkPolicy")
 HEADER = """# Storefront self-update manifest: deploy/install.yaml without the one-time
 # enable-plugin Job and without the ConfigMaps (the cluster's catalog cache and
 # external tools must never be overwritten). Catalog rows for oct-storefront

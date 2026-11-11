@@ -1,0 +1,68 @@
+# Community Tools extensions may only create or change Routes (or Ingresses, which
+# the OpenShift router turns into Routes) when approved in params.yaml
+# (approvedRoutes). Updates that leave spec alone (labels, finalizers) are not
+# re-checked.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: oct-route-approval
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [route.openshift.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [routes]
+      - apiGroups: [networking.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [ingresses]
+  matchConditions:
+    - name: from-community-tools
+      # Objects the storefront installed (label) or requests from service
+      # accounts in oct-* namespaces (objects extensions create at runtime).
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ||
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
+  variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
+    - name: extId
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
+          'unknown'
+    - name: approved
+      expression: >-
+        has(params.data) && 'approvedRoutes' in params.data ?
+          params.data['approvedRoutes'].split(',').map(s, s.trim()).filter(s, s != '') : []
+  validations:
+    - expression: >-
+        (request.operation == 'UPDATE' && object.spec == oldObject.spec) ||
+        variables.approved.exists(a, a == '*' || a == variables.extId)
+      messageExpression: >-
+        'Community Tools extension ' + variables.extId + ' is not approved to create Routes (' + object.kind + ' ' +
+        object.metadata.namespace + '/' + object.metadata.name + '); add it to approvedRoutes in oct-admission-params'
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: oct-route-approval
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  policyName: oct-route-approval
+  validationActions: [Warn, Audit]
+  paramRef:
+    name: oct-admission-params
+    namespace: oct-storefront
+    parameterNotFoundAction: Allow

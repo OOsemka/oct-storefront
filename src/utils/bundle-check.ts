@@ -1,10 +1,16 @@
 import { loadAll } from 'js-yaml';
 import { compareSemver } from './catalog-types';
 
-/** `quay.io/org/oct-x:1.2.3-ocp4.22` -> `1.2.3`. */
+/**
+ * `quay.io/org/oct-x:1.2.3-ocp4.22` -> `1.2.3`.
+ * A digest-pinned reference keeps its tag for humans and tooling
+ * (`quay.io/org/oct-x:1.2.3-ocp4.22@sha256:...` -> `1.2.3`); a digest with no
+ * tag (`quay.io/org/oct-x@sha256:...`) has no version and returns undefined.
+ */
 export function semverFromImage(image: string): string | undefined {
-  if (image.includes('@') || image.lastIndexOf(':') <= image.lastIndexOf('/')) return undefined;
-  const tag = image.slice(image.lastIndexOf(':') + 1);
+  const ref = image.split('@')[0];
+  if (ref.lastIndexOf(':') <= ref.lastIndexOf('/')) return undefined;
+  const tag = ref.slice(ref.lastIndexOf(':') + 1);
   const m = tag.match(/^v?(\d+\.\d+\.\d+)(?:-ocp\d+\.\d+)?$/);
   return m ? m[1] : undefined;
 }
@@ -55,4 +61,15 @@ export function bundleBlocker(displayName: string, pluginName: string, bundled: 
   const have = bundleVersion(bundled, pluginName);
   if (!have || compareSemver(version, have) <= 0) return '';
   return `${displayName} ${version} needs a newer Community Tools Storefront: this one only has the ${have} manifests. Update the storefront first.`;
+}
+
+/**
+ * Why this storefront is too old for a catalog row that sets `minStorefront`, or ''.
+ * Rows use it when their manifest needs something only newer storefronts can apply
+ * (for example a NetworkPolicy). Older storefronts ignore the field entirely.
+ */
+export function storefrontBlocker(displayName: string, running: string, minStorefront?: string): string {
+  const min = (minStorefront || '').trim();
+  if (!min || compareSemver(running, min) >= 0) return '';
+  return `${displayName} needs storefront ${min} or newer (this is ${running}). Update the storefront first.`;
 }

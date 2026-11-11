@@ -1,6 +1,7 @@
 import {
   k8sCreate,
   k8sGet,
+  k8sListItems,
   k8sPatch,
   K8sResourceCommon,
 } from '@openshift-console/dynamic-plugin-sdk';
@@ -17,8 +18,15 @@ import dhcpDeployYaml from '../../catalog/deploy/oct-network-dhcp.yaml';
 import vlanDeployYaml from '../../catalog/deploy/oct-network-vlan.yaml';
 import shiftOnShiftVirtDeployYaml from '../../catalog/deploy/oct-shift-on-shift-virt.yaml';
 import mustGatherDeployYaml from '../../catalog/deploy/oct-must-gather.yaml';
-import { ConfigMapModel, ConsoleOperatorModel, DeploymentModel } from './k8s-models';
-import { bundleBlocker, semverFromImage } from './bundle-check';
+import {
+  ConfigMapModel,
+  ConsoleOperatorModel,
+  DeploymentModel,
+  modelForKind,
+  ValidatingAdmissionPolicyBindingModel,
+} from './k8s-models';
+import { ADMISSION_PARAMS_CONFIGMAP, AdmissionBinding, AdmissionParams, parseAdmissionParams } from './policy-view';
+import { bundleBlocker, semverFromImage, storefrontBlocker } from './bundle-check';
 import {
   CACHE_CONFIGMAP,
   CommunityTool,
@@ -28,12 +36,14 @@ import {
   ExtensionStats,
   InstalledMap,
   InstalledRecord,
+  PublicCatalogExtension,
   StatsMap,
   STOREFRONT_NS,
   STOREFRONT_VERSION,
   SyncStatus,
   ToolVersion,
   imageForRow,
+  openshiftList,
 } from './catalog-types';
 import {
   mergePublicIntoTool,
@@ -41,7 +51,19 @@ import {
   toCommunityYaml,
   toolFromPublic,
 } from './parse-tools';
-import { applyYaml, applyVersionImage, generatePluginManifests } from './apply-yaml';
+import { applyYaml, applyVersionImage, generatePluginManifests, missingNamespaces, splitYamlDocs } from './apply-yaml';
+import {
+  DEFAULT_POLICY,
+  Decision,
+  evaluate,
+  parsePolicy,
+  Policy,
+  POLICY_CONFIGMAP,
+  POLICY_KEY,
+  telemetryAllows,
+} from './policy';
+import { deriveProfile, parseBundle, rbacDiff, SecurityProfile } from './security-profile';
+import type { SecuritySpec } from './security-spec';
 import { fetchDeployYaml, fetchPublicCatalog, postPublicDownload, postPublicRating } from './public-catalog';
 import {
   ensureProvisioningWatchAllNamespaces,
@@ -139,6 +161,73 @@ async function getConfigMap(name: string): Promise<ConfigMapKind | null> {
   }
 }
 
+export type PolicyState = {
+  policy: Policy;
+  /** default: no policy ConfigMap; configmap: read it; error: couldn't read it (defaults apply). */
+  source: 'default' | 'configmap' | 'error';
+  /** Problems to show in a banner (unreadable policy, invalid values). */
+  warnings: string[];
+};
+
+/**
+ * Read the cluster policy. Fails open: any problem yields the defaults plus a
+ * warning, never an exception, so a broken policy can't take the catalog down.
+ */
+export async function loadPolicy(): Promise<PolicyState> {
+  try {
+    const cm = (await k8sGet({ model: ConfigMapModel, name: POLICY_CONFIGMAP, ns: STOREFRONT_NS })) as ConfigMapKind;
+    const warnings: string[] = [];
+    const policy = parsePolicy(cm?.data?.[POLICY_KEY], warnings);
+    return { policy, source: 'configmap', warnings };
+  } catch (err) {
+    const e = err as { json?: { code?: number; reason?: string }; code?: number; message?: string };
+    if (e?.json?.code === 404 || e?.json?.reason === 'NotFound' || e?.code === 404) {
+      return { policy: { ...DEFAULT_POLICY }, source: 'default', warnings: [] };
+    }
+    const why = e?.message || String(err);
+    return {
+      policy: { ...DEFAULT_POLICY },
+      source: 'error',
+      warnings: [`Could not read the cluster policy (${why}); using the defaults.`],
+    };
+  }
+}
+
+function httpCode(err: unknown): number | undefined {
+  const e = err as { json?: { code?: number }; code?: number; response?: { status?: number } };
+  return e?.json?.code ?? e?.response?.status ?? (typeof e?.code === 'number' ? e.code : undefined);
+}
+
+export type PolicyView = PolicyState & {
+  /** null when the user may not list ValidatingAdmissionPolicyBindings (cluster-scoped). */
+  admissionBindings: AdmissionBinding[] | null;
+  /** present: settings read; missing: no ConfigMap (rules that need it are skipped); hidden: no access. */
+  admissionParams: { state: 'present' | 'missing' | 'hidden'; params?: AdmissionParams };
+};
+
+/**
+ * Everything the read-only Cluster policy page shows. Like loadPolicy it never
+ * throws: what the user can't read is reported as unknown/hidden.
+ */
+export async function loadPolicyView(): Promise<PolicyView> {
+  const [policyState, bindings, params] = await Promise.all([
+    loadPolicy(),
+    k8sListItems<K8sResourceCommon & { spec?: { policyName?: string; validationActions?: string[] } }>({
+      model: ValidatingAdmissionPolicyBindingModel,
+      queryParams: {},
+    }).then(
+      (items) =>
+        items.map((b) => ({ policyName: b.spec?.policyName || '', validationActions: b.spec?.validationActions || [] })),
+      () => null,
+    ),
+    k8sGet({ model: ConfigMapModel, name: ADMISSION_PARAMS_CONFIGMAP, ns: STOREFRONT_NS }).then(
+      (cm) => ({ state: 'present' as const, params: parseAdmissionParams((cm as ConfigMapKind)?.data) }),
+      (err) => ({ state: httpCode(err) === 404 ? ('missing' as const) : ('hidden' as const) }),
+    ),
+  ]);
+  return { ...policyState, admissionBindings: bindings, admissionParams: params };
+}
+
 async function writeConfigMap(name: string, data: Record<string, string>): Promise<void> {
   const existing = await getConfigMap(name);
   if (!existing) {
@@ -208,6 +297,15 @@ const SYNC_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /** force skips the SYNC_TTL_MS wait (the hub's "Check for updates"). */
 export async function refreshPublicCatalogIntoCache(force = false): Promise<SyncStatus> {
+  const { policy } = await loadPolicy();
+  if (policy.publicCatalog === 'off') {
+    return {
+      ok: true,
+      source: 'cache',
+      checkedAt: new Date().toISOString(),
+      message: 'Public catalog sync is turned off by the cluster policy.',
+    };
+  }
   // Skip sync if the last successful check is younger than SYNC_TTL_MS
   try {
     if (force) throw new Error('forced');
@@ -241,7 +339,8 @@ export async function refreshPublicCatalogIntoCache(force = false): Promise<Sync
   }
 
   const byId = new Map(bundledCommunityTools().map((t) => [t.metadata.name, t]));
-  for (const ext of result.catalog.extensions || []) {
+  for (const raw of result.catalog.extensions || []) {
+    const ext = policy.publicCatalog === 'metadata-only' ? withoutRemoteManifests(raw) : raw;
     const id = ext.id || ext.consolePlugin;
     if (!id) continue;
     const existing = byId.get(id);
@@ -286,16 +385,24 @@ async function patchStats(mutator: (stats: StatsMap) => void): Promise<void> {
   await writeConfigMap(CACHE_CONFIGMAP, { 'stats.json': JSON.stringify(stats) });
 }
 
+/**
+ * Count an Add (never an Update). The public counter only gets community tools,
+ * and only when the cluster policy's telemetry setting allows it.
+ */
+/** Telemetry is off until the policy is known (a missing policy argument means unknown). */
+const NO_TELEMETRY: Policy = { ...DEFAULT_POLICY, telemetry: 'off' };
+
 export async function incrementDownloads(
   id: string,
   source: 'community' | 'external',
+  policy: Policy = NO_TELEMETRY,
 ): Promise<void> {
   await patchStats((stats) => {
     const cur = stats[id] || emptyStats();
     cur.downloads = (cur.downloads || 0) + 1;
     stats[id] = cur;
   });
-  if (source === 'community') {
+  if (source === 'community' && telemetryAllows(policy, 'download')) {
     void postPublicDownload(id);
   }
 }
@@ -305,6 +412,7 @@ export async function setClusterRating(
   rating: number,
   source: 'community' | 'external',
   clusterHash?: string,
+  policy: Policy = NO_TELEMETRY,
 ): Promise<void> {
   const stars = Math.min(5, Math.max(1, Math.round(rating)));
   await patchStats((stats) => {
@@ -318,7 +426,7 @@ export async function setClusterRating(
     cur.clusterRating = stars;
     stats[id] = cur;
   });
-  if (source === 'community' && clusterHash) {
+  if (source === 'community' && clusterHash && telemetryAllows(policy, 'rating')) {
     void postPublicRating(id, stars, clusterHash);
   }
 }
@@ -365,7 +473,10 @@ export async function setPluginEnabled(pluginName: string, enabled: boolean): Pr
  * and plugin-only tools are unaffected.
  */
 export function installBlocker(tool: CommunityTool, version?: ToolVersion): string {
-  if (!version || version.deployYAML?.trim() || version.deployURL) return '';
+  if (!version) return '';
+  const tooOld = storefrontBlocker(tool.spec.displayName, STOREFRONT_VERSION, version.minStorefront);
+  if (tooOld) return tooOld;
+  if (version.deployYAML?.trim() || version.deployURL) return '';
   const bundled = BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin];
   return bundled ? bundleBlocker(tool.spec.displayName, tool.spec.consolePlugin, bundled, version.version) : '';
 }
@@ -415,6 +526,209 @@ export function peekDeployYaml(tool: CommunityTool, version?: ToolVersion): stri
   return BUNDLED_DEPLOY[tool.metadata.name] || BUNDLED_DEPLOY[tool.spec.consolePlugin] || '';
 }
 
+/** Public catalog entry without remote install manifests (policy publicCatalog: metadata-only). */
+function withoutRemoteManifests(ext: PublicCatalogExtension): PublicCatalogExtension {
+  return {
+    ...ext,
+    versions: (ext.versions || []).map((v) => {
+      const row = { ...(v as ToolVersion & { deployUrl?: string }) };
+      delete row.deployURL;
+      delete row.deployYAML;
+      delete row.deployUrl;
+      return row;
+    }),
+  };
+}
+
+/** Everything the install review screen shows, and the YAML that will be applied. */
+export type PreparedInstall = {
+  tool: CommunityTool;
+  version?: ToolVersion;
+  action: 'add' | 'update';
+  /** Exactly what will be applied after review. */
+  yaml: string;
+  profile: SecurityProfile;
+  declared?: SecuritySpec;
+  decision: Decision;
+  policy: Policy;
+  /** Where the policy came from; telemetry stays off when it couldn't be read. */
+  policySource: PolicyState['source'];
+  policyWarnings: string[];
+  /** Rules added or removed compared with the Roles/ClusterRoles on the cluster (updates). */
+  rbacChanges: { role: string; added: string[]; removed: string[] }[];
+  /** Set when the cluster's current RBAC couldn't be read for the comparison. */
+  rbacCompareError?: string;
+  /** Why this can't be installed on this cluster at all (independent of policy). */
+  problems: string[];
+  publicOnly: boolean;
+};
+
+/**
+ * The Roles and ClusterRoles from `yaml` as they exist on the cluster now, as a
+ * YAML stream (JSON documents), so rbacDiff can compare them with the bundle.
+ * Roles that don't exist yet are left out, so all of their rules count as added.
+ */
+async function liveRbacYaml(yaml: string): Promise<string> {
+  const docs: string[] = [];
+  for (const d of parseBundle(yaml)) {
+    if (!['ClusterRole', 'Role', 'ClusterRoleBinding', 'RoleBinding'].includes(d.kind)) continue;
+    const model = modelForKind(d.kind);
+    if (!model || !d.metadata?.name) continue;
+    try {
+      const live = (await k8sGet({ model, name: d.metadata.name, ns: d.metadata.namespace })) as K8sResourceCommon;
+      docs.push(JSON.stringify(live));
+    } catch (e) {
+      const err = e as { json?: { code?: number }; code?: number };
+      if (err?.json?.code === 404 || err?.code === 404) continue;
+      throw e;
+    }
+  }
+  return docs.join('\n---\n');
+}
+
+/**
+ * Resolve the manifests an install would apply, derive their security profile and
+ * evaluate the cluster policy. Nothing is applied. Pass the result's `yaml` to
+ * addExtension as `reviewedYaml` so the user gets exactly what they reviewed.
+ */
+/**
+ * Whether what would be installed for this tool and version is exactly what this
+ * storefront's bundled catalog says (same image and manifest fields). The cache
+ * ConfigMap the catalog is read from can be written by non-admins with the optional
+ * storefront-user role, so anything else is treated as unverified.
+ */
+export function matchesBundledRow(tool: CommunityTool, version?: ToolVersion, clusterMinor = ''): boolean {
+  const bundled = bundledCommunityTools().find((t) => t.metadata.name === tool.metadata.name);
+  if (!bundled) return false;
+  const same = (a?: string, b?: string) => (a || '').trim() === (b || '').trim();
+  if (!same(tool.spec.deployYAML, bundled.spec.deployYAML) || !same(tool.spec.deployURL, bundled.spec.deployURL)) {
+    return false;
+  }
+  if (!version) return same(tool.spec.image, bundled.spec.image);
+  // Compare what would be installed on this cluster, not the row's shape: the synced
+  // cache keeps one row per version for several minors, the bundle one per minor.
+  const minor = clusterMinor || openshiftList(version)[0] || '';
+  const candidates = (bundled.spec.versions || []).filter((v) => v.version === version.version);
+  const row = candidates.find((v) => !minor || openshiftList(v).length === 0 || openshiftList(v).includes(minor)) || (minor ? undefined : candidates[0]);
+  if (!row) return false;
+  return (
+    imageForRow(row, minor, bundled.spec.image) === imageForRow(version, minor, tool.spec.image) &&
+    same(row.deployYAML, version.deployYAML) &&
+    same(row.deployURL, version.deployURL)
+  );
+}
+
+/** Only the storefront's own catalog entry (never an external tool of the same name) owns oct-storefront. */
+export function ownsStorefrontNamespace(tool: CommunityTool): boolean {
+  return tool.metadata.name === 'oct-storefront' && tool.spec.source !== 'external';
+}
+
+/**
+ * With publicCatalog other than full, a synced or public-only row has had its install
+ * manifests removed. Generating plugin manifests instead would install something
+ * other than the tool (for the storefront itself, a ConsolePlugin without its
+ * catalog-service proxy). True when that would happen: the row has no manifest of
+ * its own and no bundled one, and the tool normally ships manifests (its bundled rows
+ * have them) or is public-only (what was removed is unknown).
+ */
+export function manifestsWithheld(
+  tool: CommunityTool,
+  version: ToolVersion | undefined,
+  ctx: { publicOnly: boolean; unverifiedRow: boolean; publicCatalog: Policy['publicCatalog'] },
+): boolean {
+  if (ctx.publicCatalog === 'full' || (!ctx.publicOnly && !ctx.unverifiedRow)) return false;
+  const hasManifests = Boolean(
+    version?.deployYAML?.trim() ||
+      tool.spec.deployYAML?.trim() ||
+      version?.deployURL ||
+      tool.spec.deployURL ||
+      BUNDLED_DEPLOY[tool.metadata.name] ||
+      BUNDLED_DEPLOY[tool.spec.consolePlugin],
+  );
+  if (hasManifests) return false;
+  if (ctx.publicOnly) return true;
+  const bundledTool = bundledCommunityTools().find((t) => t.metadata.name === tool.metadata.name);
+  return Boolean(
+    bundledTool?.spec.deployYAML?.trim() ||
+      bundledTool?.spec.deployURL ||
+      bundledTool?.spec.versions?.some((v) => v.deployYAML?.trim() || v.deployURL),
+  );
+}
+
+export async function prepareInstall(
+  tool: CommunityTool,
+  version: ToolVersion | undefined,
+  clusterMinor: string,
+  action: 'add' | 'update',
+): Promise<PreparedInstall> {
+  const [{ policy, source: policySource, warnings: policyWarnings }, yaml] = await Promise.all([
+    loadPolicy(),
+    resolveDeployYaml(tool, version, clusterMinor),
+  ]);
+  const profile = deriveProfile(yaml, { ownsStorefrontNamespace: ownsStorefrontNamespace(tool) });
+  const declared = version?.security || tool.spec.security;
+  const ownManifest = Boolean(version?.deployYAML?.trim() || (!version?.deployYAML && tool.spec.deployYAML?.trim()));
+  const deployURL = ownManifest ? undefined : version?.deployURL || tool.spec.deployURL;
+  const bundledIds = new Set(bundledCommunityTools().map((t) => t.metadata.name));
+  const publicOnly = tool.spec.source === 'community' && !bundledIds.has(tool.metadata.name);
+  const unverifiedRow = tool.spec.source === 'community' && !publicOnly && !matchesBundledRow(tool, version, clusterMinor);
+
+  let rbacChanges: PreparedInstall['rbacChanges'] = [];
+  let rbacCompareError: string | undefined;
+  if (action === 'update') {
+    try {
+      rbacChanges = rbacDiff(await liveRbacYaml(yaml), yaml);
+    } catch (e) {
+      rbacCompareError = e instanceof Error ? e.message : String(e);
+    }
+  }
+  const problems: string[] = [];
+  if (manifestsWithheld(tool, version, { publicOnly, unverifiedRow, publicCatalog: policy.publicCatalog })) {
+    problems.push(
+      `The cluster policy (publicCatalog: ${policy.publicCatalog}) removed this version's install manifests, and the storefront doesn't generate replacements. Install a version from the storefront's bundled catalog, or ask a cluster admin to set publicCatalog: full.`,
+    );
+  }
+  const missing = await missingNamespaces(splitYamlDocs(yaml));
+  if (missing.length) {
+    problems.push(
+      `Namespace ${missing.join(', ')} does not exist on this cluster, and this tool puts objects there. It may need an operator (for example ODF) installed first.`,
+    );
+  }
+  const decision = evaluate(policy, {
+    toolId: tool.metadata.name,
+    source: tool.spec.source,
+    publicOnly,
+    action,
+    profile,
+    declared,
+    deployURL,
+    unverifiedRow,
+    rbacAdded: rbacChanges.map((r) => ({ role: r.role, added: r.added })),
+    rbacCompareError,
+  });
+  return {
+    tool,
+    version,
+    action,
+    yaml,
+    profile,
+    declared,
+    decision,
+    policy,
+    policySource,
+    policyWarnings,
+    rbacChanges,
+    rbacCompareError,
+    problems,
+    publicOnly,
+  };
+}
+
+/** The policy to pass for telemetry: none (nothing sent) when it couldn't be read. */
+export function telemetryPolicy(prep: Pick<PreparedInstall, 'policy' | 'policySource'>): Policy | undefined {
+  return prep.policySource === 'error' ? undefined : prep.policy;
+}
+
 export type AddExtensionOpts = {
   storageClassName?: string;
   /**
@@ -423,6 +737,12 @@ export type AddExtensionOpts = {
    * When false, still install the plugin and return a warning.
    */
   enableWatchAllNamespaces?: boolean;
+  /** Apply exactly this YAML (what the user reviewed) instead of resolving it again. */
+  reviewedYaml?: string;
+  /** add counts a download; update doesn't. Default add. */
+  action?: 'add' | 'update';
+  /** Cluster policy, for the telemetry setting. */
+  policy?: Policy;
 };
 
 export type AddExtensionResult = {
@@ -449,12 +769,14 @@ export async function addExtension(
     }
   }
   const image = imageForRow(version, clusterMinor, tool.spec.image);
-  const yaml = await resolveDeployYaml(tool, version, clusterMinor);
+  const yaml = opts.reviewedYaml || (await resolveDeployYaml(tool, version, clusterMinor));
   const storageClassName =
     opts.storageClassName !== undefined ? opts.storageClassName : tool.spec.storageClassName;
-  const log = await applyYaml(yaml, { storageClassName });
+  const log = await applyYaml(yaml, { storageClassName, extensionId: tool.metadata.name });
   await setPluginEnabled(tool.spec.consolePlugin, true);
-  await incrementDownloads(tool.metadata.name, tool.spec.source);
+  if ((opts.action || 'add') === 'add') {
+    await incrementDownloads(tool.metadata.name, tool.spec.source, opts.policy);
+  }
   await recordInstalled(tool.metadata.name, {
     version: version?.version || '',
     channel: version?.channel || tool.spec.defaultChannel || DEFAULT_CHANNEL,

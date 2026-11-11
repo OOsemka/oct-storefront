@@ -1,0 +1,55 @@
+{
+  "comment": "Known security findings per bundle (scripts/security-check.ts). CI tolerates these and flags new ones. Remove entries as tools are fixed; an empty file is the goal.",
+  "tools": {
+    "oct-banner": [],
+    "oct-baremetal": [
+      "rbac-cluster-secrets-read ClusterRole/discovery-service-image-cache",
+      "route-exposed-plain-http Route/image-cache",
+      "workload-hardening Deployment/discovery-service",
+      "workload-hardening Deployment/oct-baremetal"
+    ],
+    "oct-hello-world": [],
+    "oct-must-gather": [
+      "backend-no-networkpolicy bundle",
+      "workload-hardening Deployment/must-gather-runner",
+      "workload-hardening Deployment/oct-must-gather"
+    ],
+    "oct-network-bond": [],
+    "oct-network-bridge": [],
+    "oct-network-dhcp": [
+      "workload-hardening Deployment/oct-network-dhcp"
+    ],
+    "oct-network-vlan": [],
+    "oct-odf-macvlans": [],
+    "oct-shift-on-shift-virt": [
+      "rbac-cluster-namespaces-delete ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-pods-exec ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-rbac-write ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-secrets-read ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "rbac-cluster-workload-create ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "scc-use ClusterRole/oct-shift-on-shift-virt-orchestrator",
+      "workload-hardening Deployment/oct-shift-on-shift-virt",
+      "workload-hardening Deployment/sos-orchestrator"
+    ],
+    "oct-storage-bench": [
+      "backend-no-networkpolicy bundle",
+      "object-in-platform-namespace Role/oct-storage-bench-rados@openshift-storage",
+      "object-in-platform-namespace RoleBinding/oct-storage-bench-rados@openshift-storage",
+      "rbac-cluster-secrets-read ClusterRole/oct-storage-bench",
+      "rbac-cluster-workload-create ClusterRole/oct-storage-bench",
+      "rbac-cluster-workload-create Role/oct-storage-bench-rados",
+      "workload-hardening Deployment/benchmark-runner",
+      "workload-hardening Deployment/oct-storage-bench"
+    ],
+    "oct-storefront deploy/upgrade.yaml": [
+      "backend-no-networkpolicy bundle",
+      "workload-hardening Deployment/catalog-service",
+      "workload-hardening Deployment/oct-storefront"
+    ],
+    "oct-windows-builder": [
+      "backend-no-networkpolicy bundle",
+      "workload-hardening Deployment/oct-windows-builder",
+      "workload-hardening Deployment/windows-builder"
+    ]
+  }
+}

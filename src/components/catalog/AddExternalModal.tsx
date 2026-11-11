@@ -25,6 +25,7 @@ export const AddExternalModal: FC<{
   const [text, setText] = useState('');
   const [filename, setFilename] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
   const handleFile = (_e: unknown, file: File) => {
@@ -35,6 +36,7 @@ export const AddExternalModal: FC<{
   const submit = async () => {
     setError(null);
     const parsed = parseSingleTool(text);
+    setWarnings(parsed.warnings || []);
     if (parsed.error || !parsed.tool) {
       setError(parsed.error || t('Could not parse CommunityTool YAML.'));
       return;
@@ -87,6 +89,15 @@ export const AddExternalModal: FC<{
           {error ? (
             <HelperText>
               <HelperTextItem variant="error">{error}</HelperTextItem>
+            </HelperText>
+          ) : null}
+          {warnings.length ? (
+            <HelperText>
+              {warnings.map((w) => (
+                <HelperTextItem key={w} variant="warning">
+                  {w}
+                </HelperTextItem>
+              ))}
             </HelperText>
           ) : null}
         </Form>

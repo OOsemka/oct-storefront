@@ -280,6 +280,7 @@ spec:
       basePath: /
   proxy:
     - alias: windows-builder
+      authorization: UserToken
       endpoint:
         type: Service
         service:

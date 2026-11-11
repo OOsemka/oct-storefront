@@ -8,12 +8,14 @@
     "clean": "rm -rf dist",
     "build": "yarn clean && NODE_ENV=production yarn webpack",
     "build-dev": "yarn clean && yarn webpack",
-    "start": "yarn webpack serve",
+    "start": "webpack serve --config webpack.config.js",
     "ts-check": "tsc --noEmit",
     "webpack": "webpack --config webpack.config.js",
     "check-i18n": "node scripts/check-i18n.mjs",
     "check-repo": "bash scripts/check-repo.sh",
-    "verify": "yarn ts-check && yarn check-i18n && yarn check-repo && yarn build"
+    "verify": "yarn ts-check && yarn check-i18n && yarn check-repo && yarn test && yarn build",
+    "test": "vitest run",
+    "security-check": "tsx scripts/security-check.ts"
   },
   "devDependencies": {
     "@openshift-console/dynamic-plugin-sdk": "4.21.0",
@@ -34,7 +36,9 @@
     "react-router-dom-v5-compat": "^6.30.0",
     "style-loader": "^3.3.4",
     "ts-loader": "^9.5.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.3.3",
+    "vitest": "^3.2.4",
     "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.0.4"
@@ -49,7 +53,8 @@
       "StoragePage": "./pages/StoragePage",
       "NetworkPage": "./pages/NetworkPage",
       "ManagementPage": "./pages/ManagementPage",
-      "StorefrontAboutPage": "./components/StorefrontAboutPage"
+      "StorefrontAboutPage": "./components/StorefrontAboutPage",
+      "PolicyPage": "./components/PolicyPage"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

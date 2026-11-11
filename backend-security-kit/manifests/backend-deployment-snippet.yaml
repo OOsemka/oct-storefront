@@ -1,0 +1,66 @@
+# The security-relevant parts of a backend Deployment and Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: oct-example-backend
+  namespace: oct-example
+  annotations:
+    # OpenShift issues and rotates the TLS certificate the kit's server requires.
+    service.beta.openshift.io/serving-cert-secret-name: oct-example-backend-cert
+spec:
+  selector:
+    app: oct-example-backend
+  ports:
+    - name: https
+      port: 9443
+      targetPort: 9443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oct-example-backend
+  namespace: oct-example
+spec:
+  selector:
+    matchLabels:
+      app: oct-example-backend
+  template:
+    metadata:
+      labels:
+        app: oct-example-backend
+    spec:
+      serviceAccountName: oct-example-backend
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: quay.io/example/oct-example-backend:1.0.0-ocp4.22
+          env:
+            - name: AUTH_MODE # enforce for new backends; audit for an existing backend adopting the kit. Unset means audit.
+              value: enforce
+          ports:
+            - containerPort: 9443
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: serving-cert
+              mountPath: /var/serving-cert
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: serving-cert
+          secret:
+            secretName: oct-example-backend-cert
+        - name: tmp
+          emptyDir: {}

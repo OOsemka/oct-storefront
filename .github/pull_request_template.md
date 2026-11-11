@@ -16,5 +16,8 @@
 - [ ] UI strings go through `t('...')` and are in `locales/en/` (`yarn check-i18n --fix` adds them)
 - [ ] PatternFly 6 components only, no PatternFly CSS imports
 - [ ] No environment-specific values (hostnames, IPs, VLAN IDs, NIC or bond names, tokens)
+- [ ] Security: no new RBAC, Routes, SCCs or host access, **or** they are declared in `spec.security` with a reason (see `docs/security-model.md`)
+- [ ] Backends check every caller (`backend-security-kit`), and caller input is validated
+- [ ] No credentials in manifests, images, logs or catalog entries
 - [ ] README / AGENTS.md updated if behavior changed
 - [ ] Version, image tags and catalog rows **not** changed (maintainers do that at release time)

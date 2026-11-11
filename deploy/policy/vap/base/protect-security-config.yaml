@@ -1,0 +1,54 @@
+# Community Tools extensions (service accounts in oct-* namespaces) may not change
+# or delete the security configuration that governs them: the storefront policy,
+# these admission settings, and the pack's own policies and bindings. Needs no
+# settings, so it stays active when oct-admission-params is missing. (Without it,
+# an extension with broad ConfigMap RBAC could delete oct-admission-params and so
+# switch off the image, Route and SCC rules.)
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: oct-protect-security-config
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+        resourceNames: [community-tools-policy, oct-admission-params]
+      - apiGroups: [admissionregistration.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [validatingadmissionpolicies, validatingadmissionpolicybindings]
+        resourceNames:
+          - oct-no-broad-role-bindings
+          - oct-scc-role-bindings
+          - oct-image-rules
+          - oct-route-approval
+          - oct-scc-changes
+          - oct-protect-security-config
+  matchConditions:
+    - name: from-community-tools-serviceaccount
+      expression: "request.userInfo.username.startsWith('system:serviceaccount:oct-')"
+    - name: storefront-namespace-or-cluster-scoped
+      expression: "request.namespace == '' || request.namespace == 'oct-storefront'"
+  validations:
+    - expression: "false"
+      messageExpression: >-
+        'Community Tools extension ' + request.userInfo.username.split(':')[2] + ' may not ' +
+        request.operation.lowerAscii() + ' ' + request.resource.resource + '/' + request.name +
+        ' (the security configuration that governs Community Tools)'
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: oct-protect-security-config
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  policyName: oct-protect-security-config
+  validationActions: [Warn, Audit]

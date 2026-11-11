@@ -1,0 +1,28 @@
+# Settings for the Community Tools admission policies (see README.md).
+# Create once; it is not part of the kustomizations, so switching between warn
+# and enforce never overwrites it:   oc create -f deploy/policy/vap/params.yaml
+# If this ConfigMap is missing, the image, Route and SCC rules are skipped (they
+# fail open, so a missing ConfigMap can never block workloads cluster-wide).
+# All lists are comma-separated. Empty values keep the rule permissive.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oct-admission-params
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+data:
+  # Image registry prefixes OCT workloads may pull from, for example
+  # "quay.io/openshift-community-tools,registry.redhat.io". Empty: any registry.
+  allowedRegistries: ""
+  # "true": every OCT workload image must be pinned by digest (@sha256:...).
+  requireDigest: "false"
+  # Extensions allowed to create or change Routes, for example "oct-baremetal".
+  # "*" approves all.
+  approvedRoutes: ""
+  # Extensions allowed to create, change or delete SecurityContextConstraints.
+  approvedSCCs: ""
+  # Extensions allowed to bind SCC roles (system:openshift:scc:<scc>), as
+  # "<extension>:<scc>" (one SCC) or "<extension>" (any SCC); "*" approves all.
+  # Shift-on-Shift needs "oct-shift-on-shift-virt:anyuid" for its nested clusters.
+  approvedSCCBindings: ""

@@ -47,6 +47,14 @@ Navigation uses `useNavigate` from `react-router-dom-v5-compat` (React Router v6
 
 **Add can succeed while the plugin never becomes Ready** (Open then 404s). Confirm the plugin Deployment is Running. Canonical checklist: [docs/extension-standard.md](docs/extension-standard.md).
 
+## Security
+
+Extensions are installed with a cluster admin's credentials, so the storefront shows what each one will create before you install it (the **review screen**: privilege level, permissions with the author's reasons, Routes, images, findings) and applies exactly what you reviewed. Everything else is opt-in:
+
+- **For cluster admins:** [docs/security-guide.md](docs/security-guide.md): reading the review screen, the **Cluster policy** page (Community Tools → any hub → View the cluster policy), policy examples, turning on backend permission checks per extension, rolling out the admission policy pack (warn → watch → enforce), and troubleshooting.
+- **For extension authors:** [docs/extension-standard.md](docs/extension-standard.md#security), including a migration checklist for existing extensions, and [`backend-security-kit`](backend-security-kit/README.md) for backends.
+- **How it works:** [docs/security-model.md](docs/security-model.md). **Reporting a vulnerability:** [SECURITY.md](SECURITY.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md): setup, `yarn verify`, testing on your own cluster, the project rules and what maintainers do at release.

@@ -137,3 +137,24 @@
 .ct-add-console-restart {
   margin-top: var(--pf-t--global--spacer--md, 16px);
 }
+
+/* Security labels on tiles and the install review screen */
+.ct-tile__labels {
+  margin-top: calc(-1 * var(--pf-t--global--spacer--xs, 4px));
+}
+.ct-review-list {
+  margin-top: var(--pf-t--global--spacer--xs);
+}
+.ct-review-muted {
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: var(--pf-t--global--font--size--sm);
+}
+.ct-review-why {
+  font-size: var(--pf-t--global--font--size--sm);
+  margin-left: var(--pf-t--global--spacer--md);
+}
+.ct-review-yaml {
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre;
+}

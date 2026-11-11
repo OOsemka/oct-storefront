@@ -1,0 +1,18 @@
+{
+  "comment": "Fingerprint of each bundle (catalog/deploy, ignoring image tags, digests and version labels) when its spec.security declaration was last checked. Update with `yarn security-check --mark-reviewed <tool>` after checking the declaration still describes the bundle (scripts/security-check.ts).",
+  "tools": {
+    "oct-baremetal": "sha256:b55ac85bd7ab83ab4beda6f95a06b573430944cee7a83b5cad6aa2b03884ed2b",
+    "oct-network-bond": "sha256:dffd93bf771a0fd9babd085ccfb9b6e9e667ba8e6854ce42b102881bd5bb7127",
+    "oct-banner": "sha256:d662497837888bbe7fe5818b6ba0cef95e35db9de153f00ead84b23060b7e5be",
+    "oct-windows-builder": "sha256:6863933f3ad7637639eba61ec1e32059c1935fe332c8717384ef3896f56a917a",
+    "oct-storage-bench": "sha256:205ac35e13a303a3995529406ea49eb9fc45c6da64f0a54a4df024a3a464a546",
+    "oct-odf-macvlans": "sha256:8f7e0cbcb1242be02e3f0fbc34c61a5359bb83ac31edc738b1be27e8a87f0482",
+    "oct-hello-world": "sha256:7f9f2ae137a0f8dce54e5353ffe73c7f780625581fa3abebea254ff8bf6ae1cc",
+    "oct-storefront deploy/upgrade.yaml": "sha256:4fd690858a06dcaafaa0b737edbe8924f96ae7ed016628c0f3dabf7e3e03e219",
+    "oct-network-bridge": "sha256:7eae9315c820c24d9763f29612cdd1a851359cf88f1a129a3cab1e11ccd46ad5",
+    "oct-network-vlan": "sha256:4008b930f7a0cb41bba0b7d2ff1e91135be1ab64bc1f85ce0ff084984c1b48fe",
+    "oct-network-dhcp": "sha256:de817f43bea63a09d6bd2c406e6eedddbbf5001c1249219e5eb0d5caa7ced957",
+    "oct-shift-on-shift-virt": "sha256:9170736bcff3136b0c1072c7678000d3554a6dbee117d5247464ea4dd3d35049",
+    "oct-must-gather": "sha256:c8fe7303109156936d4ed75514930dbea72bd46e94dcd06de56257989e0bd7e2"
+  }
+}

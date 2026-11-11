@@ -1,0 +1,74 @@
+# Community Tools cluster policy (optional). See docs/security-model.md.
+#
+# Without this ConfigMap the storefront uses the defaults shown below, which keep
+# today's behaviour except that elevated installs show a review screen first.
+# Apply as a cluster admin:   oc apply -f community-tools-policy.yaml
+# Remove to return to the defaults:   oc -n oct-storefront delete configmap community-tools-policy
+#
+# Every authenticated user can READ this ConfigMap (the storefront UI and extension
+# backends need it). Do not put secrets in it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-tools-policy
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+data:
+  policy.yaml: |
+    # off:     never warn or block (review still follows `review`)
+    # warn:    show reasons on the review screen, never block (default)
+    # enforce: block installs that break a rule
+    mode: warn
+
+    # When to show the install review screen:
+    # never | elevated (default: anything beyond a plain plugin, Routes, external
+    # and public-only tools, updates that add RBAC) | always
+    review: elevated
+
+    # Highest derived privilege level allowed:
+    # plugin < namespaced < cluster-read < cluster-write < privileged. Unset: no limit.
+    # maxLevel: cluster-write
+
+    # Tools pasted in by users with "Add external": allow | review | block
+    external: allow
+    # externalMaxLevel: namespaced
+
+    # Public catalog sync from api.octools.net:
+    # full | metadata-only (tiles and versions, no remote install manifests) | off
+    publicCatalog: full
+
+    # Updates that add RBAC permissions: allow | warn | review | block
+    rbacWidening: warn
+
+    # Bundles that create a Route (exposing a service outside the cluster)
+    allowRoutes: true
+    # Backends behind the console proxy must ship a NetworkPolicy
+    requireNetworkPolicy: false
+
+    # Image registries allowed (prefix match, e.g. quay.io/openshift-community-tools). Empty: any.
+    allowedRegistries: []
+    # none | community (catalog tools must pin images by digest) | all
+    requireDigest: none
+    # Hosts a deployURL may point at. Empty: any.
+    allowedDeployHosts: []
+
+    # Usage data sent to api.octools.net: full | ratings-only | off
+    # (an anonymous cluster hash with ratings; download counts on Add)
+    telemetry: full
+
+    # Per-extension backend auth mode (audit | enforce), read by
+    # backend-security-kit within about a minute. Existing extensions ship in
+    # audit (requests allowed, would-be denials logged): set enforce to turn
+    # checking on. New extensions ship in enforce; audit for one of them is a
+    # temporary workaround while a permission problem is fixed.
+    backends: {}
+    #   oct-baremetal:
+    #     authMode: enforce
+
+    # Per-tool exceptions. Keys: maxLevel, allowRoutes, requireNetworkPolicy,
+    # allowedRegistries, requireDigest, review.
+    perTool: {}
+    #   oct-baremetal:
+    #     maxLevel: privileged
+    #     allowRoutes: true

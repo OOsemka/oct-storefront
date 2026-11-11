@@ -1,0 +1,55 @@
+# No Community Tools object may bind the cluster-admin, admin or edit ClusterRole.
+# Needs no settings, so it stays active when oct-admission-params is missing. SCC
+# roles (system:openshift:scc:*) are handled by oct-scc-role-bindings, which has an
+# approval list. Updates that keep the same subjects are not re-checked (roleRef
+# can't change).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: oct-no-broad-role-bindings
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [rbac.authorization.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [rolebindings, clusterrolebindings]
+  matchConditions:
+    - name: from-community-tools
+      # Objects the storefront installed (label) or requests from service
+      # accounts in oct-* namespaces (objects extensions create at runtime).
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ||
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
+  variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
+    - name: extId
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
+          'unknown'
+  validations:
+    - expression: >-
+        (request.operation == 'UPDATE' &&
+          (has(object.subjects) ? object.subjects : []) == (has(oldObject.subjects) ? oldObject.subjects : [])) ||
+        !(object.roleRef.kind == 'ClusterRole' && object.roleRef.name in ['cluster-admin', 'admin', 'edit'])
+      messageExpression: >-
+        'Community Tools extension ' + variables.extId + ' may not bind the ' + object.roleRef.name +
+        ' ClusterRole (' + object.kind + ' ' + object.metadata.name + ')'
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: oct-no-broad-role-bindings
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  policyName: oct-no-broad-role-bindings
+  validationActions: [Warn, Audit]

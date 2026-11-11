@@ -26,6 +26,10 @@ jobs:
         run: yarn check-i18n
       - name: Repository rules (PatternFly 6, no private data)
         run: yarn check-repo
+      - name: Unit tests
+        run: yarn test
+      - name: Security ratchet (new findings, stale baseline entries, declaration mismatches; see docs/security-model.md)
+        run: yarn security-check --strict
       - name: Build
         run: yarn build
 
@@ -40,11 +44,39 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: catalog-service/go.mod
-          cache: false  # no dependencies (no go.sum)
+          cache-dependency-path: catalog-service/go.sum
       - name: go vet
         run: go vet ./...
       - name: go test
         run: go test ./...
+
+  kit:
+    name: backend-security-kit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend-security-kit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend-security-kit/go.mod
+          cache-dependency-path: backend-security-kit/go.sum  # gopkg.in/yaml.v3
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: go vet
+        run: go vet ./...
+      - name: go test (race)
+        run: go test -race ./...
+      - name: build the extension-template backend starter
+        working-directory: docs/extension-template/backend
+        run: go vet ./... && go build ./...
+      - name: fuzz (short)
+        run: |
+          go test -run=XXX -fuzz=FuzzParseBackendOverrides -fuzztime=20s ./auth
+          go test -run=XXX -fuzz=FuzzSafeJoin -fuzztime=10s ./validate
+          go test -run=XXX -fuzz=FuzzDNS1123Label -fuzztime=10s ./validate
 
   catalog:
     runs-on: ubuntu-latest

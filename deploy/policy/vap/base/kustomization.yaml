@@ -1,0 +1,11 @@
+# The Community Tools admission policies, in Warn + Audit mode. Apply through
+# deploy/policy/vap (warn) or deploy/policy/vap/enforce (block), not directly.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - no-broad-role-bindings.yaml
+  - scc-role-bindings.yaml
+  - image-rules.yaml
+  - route-approval.yaml
+  - scc-changes.yaml
+  - protect-security-config.yaml

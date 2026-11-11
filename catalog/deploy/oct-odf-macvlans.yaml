@@ -22,6 +22,8 @@ spec:
       labels:
         app: oct-odf-macvlans
     spec:
+      # Serves static files only; never calls the API.
+      automountServiceAccountToken: false
       containers:
         - name: plugin
           image: quay.io/openshift-community-tools/oct-odf-macvlans:0.1.1-ocp4.22
@@ -32,6 +34,10 @@ spec:
             - name: plugin-serving-cert
               readOnly: true
               mountPath: /var/serving-cert
+            - name: tmp
+              mountPath: /tmp
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
           resources:
             requests:
               cpu: 10m
@@ -41,6 +47,7 @@ spec:
               memory: 128Mi
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
@@ -51,6 +58,11 @@ spec:
           secret:
             secretName: plugin-serving-cert
             defaultMode: 420
+        # nginx writes its PID file and temp directories here (read-only root filesystem).
+        - name: tmp
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -83,3 +95,24 @@ spec:
       namespace: oct-odf-macvlans
       port: 9443
       basePath: /
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oct-odf-macvlans
+  namespace: oct-odf-macvlans
+  labels:
+    app.kubernetes.io/part-of: oct-odf-macvlans
+spec:
+  # The console plugin's static files: only the console loads them.
+  podSelector:
+    matchLabels:
+      app: oct-odf-macvlans
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - { protocol: TCP, port: 9443 }

@@ -35,6 +35,10 @@ Catalog `spec.versions[].image` and any discovery/sidecar images must be **publi
 
 Two axes in the catalog: **semver** (`v1.2.0`) and **OpenShift minor** (`ocp-4.22` when PF/API differ). Image tags always encode both (`1.2.0-ocp4.22`, not `ocp4.22-1.2.0`). **Always publish both** `-ocp4.21` and `-ocp4.22`. Storefront Add picks the newest stable semver compatible with the cluster; it never auto-upgrades an existing install.
 
+## Security
+
+Declare what the tool needs in `spec.security` (see `catalog-tool.yaml`), keep RBAC minimal, and copy `.cursor/rules/oct-security.mdc` and `SECURITY.md`. If the tool needs a backend, start from [`backend/`](backend/), which checks every caller's permissions with `backend-security-kit`. Details: `../../docs/extension-standard.md#security`.
+
 ## Checklist
 
 See `../../docs/extension-standard.md` and keep AGENTS.md + README in the new repo.

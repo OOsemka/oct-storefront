@@ -92,5 +92,13 @@
       "path": "/community-tools/management/storefront",
       "component": { "$codeRef": "StorefrontAboutPage" }
     }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/community-tools/management/policy",
+      "component": { "$codeRef": "PolicyPage" }
+    }
   }
 ]

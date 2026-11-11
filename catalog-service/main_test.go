@@ -14,7 +14,7 @@ func TestCheckFetchURL(t *testing.T) {
 	t.Setenv("FETCH_YAML_ALLOWED_HOSTS", "git.example.com, Mirror.Example.org")
 	allowed := allowedFetchHosts()
 	ok := []string{
-		"https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml",
+		"https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml",
 		"https://gitlab.com/x/y/-/raw/main/deploy.yaml",
 		"https://api.octools.net/v1/whatever",
 		"https://git.example.com/a.yaml",
@@ -64,5 +64,17 @@ func TestFetchAllowedBlocksRedirectOffList(t *testing.T) {
 	_, err := fetchWith(context.Background(), client, redirector.URL, 5*time.Second)
 	if err == nil || !strings.Contains(err.Error(), "only https") {
 		t.Fatalf("redirect to %s should be refused, got %v", internal.URL, err)
+	}
+}
+
+func TestParseTelemetry(t *testing.T) {
+	cases := map[string]string{"": "full", "mode: warn\n": "full", "telemetry: off\n": "off", "telemetry: ratings-only\n": "ratings-only", "telemetry: sometimes\n": "off"}
+	for in, want := range cases {
+		if got, err := parseTelemetry(in); err != nil || got != want {
+			t.Errorf("%q: got %q (%v), want %q", in, got, err, want)
+		}
+	}
+	if _, err := parseTelemetry("telemetry: [unclosed"); err == nil {
+		t.Error("invalid YAML must be an error (sends nothing)")
 	}
 }

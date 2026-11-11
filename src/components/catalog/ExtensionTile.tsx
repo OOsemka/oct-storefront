@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom-v5-compat';
-import { Label, Button } from '@patternfly/react-core';
+import { Label, LabelGroup, Button } from '@patternfly/react-core';
 import {
   CatalogItem,
   downloadCount,
@@ -9,6 +9,7 @@ import {
   openshiftMinors,
 } from '../../utils/catalog-types';
 import { resolveTileIcon } from '../../utils/tile-icons';
+import { LEVEL_COLOR } from './InstallReviewModal';
 import './catalog.css';
 
 const Star: FC<{ filled: boolean; onClick?: () => void; disabled?: boolean }> = ({
@@ -68,6 +69,23 @@ export const ExtensionTile: FC<{
         </div>
         <Label color={tool.spec.source === 'external' ? 'orange' : 'blue'}>{badge}</Label>
       </header>
+      <LabelGroup className="ct-tile__labels" numLabels={3} aria-label={t('Security')}>
+        {item.securityLevel ? (
+          <Label isCompact color={LEVEL_COLOR[item.securityLevel]} title={t('Access level derived from the install manifests')}>
+            {item.securityLevel}
+          </Label>
+        ) : null}
+        {!tool.spec.security ? (
+          <Label isCompact variant="outline" title={t('The tool does not declare what it needs (spec.security).')}>
+            {t('Not declared')}
+          </Label>
+        ) : null}
+        {item.publicOnly ? (
+          <Label isCompact color="purple" title={t('From the public catalog; not in this storefront release.')}>
+            {t('Public-only')}
+          </Label>
+        ) : null}
+      </LabelGroup>
       <p className="ct-tile__desc">{tool.spec.description}</p>
       <p className="ct-tile__meta">{t('Validated on OpenShift {{versions}}', { versions })}</p>
       {item.installedVersion ? (

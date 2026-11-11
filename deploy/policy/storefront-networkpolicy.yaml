@@ -1,0 +1,48 @@
+# NetworkPolicies for the storefront itself (the plugin and catalog-service: only the
+# console may connect). New installs get them from deploy/install.yaml. Storefronts
+# before 1.6 can't apply NetworkPolicies during a self-update, so deploy/upgrade.yaml
+# leaves them out: on a cluster that was updated from an older storefront, apply
+# them once as a cluster admin:
+#   oc apply -f deploy/policy/storefront-networkpolicy.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oct-storefront
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  # The storefront plugin's static files: only the console loads them.
+  podSelector:
+    matchLabels:
+      app: oct-storefront
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - { protocol: TCP, port: 9443 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: catalog-service
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  # The catalog API, only through the console proxy (the HTTP port serves /healthz for the kubelet, which NetworkPolicy doesn't affect).
+  podSelector:
+    matchLabels:
+      app: catalog-service
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - { protocol: TCP, port: 8443 }

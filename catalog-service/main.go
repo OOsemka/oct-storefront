@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ func main() {
 	httpsPort := flag.String("https-port", "8443", "HTTPS port")
 	tlsCert := flag.String("tls-cert", "/var/run/secrets/tls/tls.crt", "TLS certificate")
 	tlsKey := flag.String("tls-key", "/var/run/secrets/tls/tls.key", "TLS key")
+	httpAPI := flag.Bool("http-api", false, "Also serve the API on the HTTP port, unchecked (local development only)")
 	flag.Parse()
 
 	mux := http.NewServeMux()
@@ -34,12 +36,35 @@ func main() {
 	mux.HandleFunc("POST /api/v1/stats/download", handlePublicStat("download"))
 	mux.HandleFunc("POST /api/v1/stats/rating", handlePublicStat("rating"))
 
-	handler := withCORS(mux)
+	// The HTTP port serves only /healthz (kubelet probes); the API is on the HTTPS
+	// port, reached through the console proxy with the user's token and checked
+	// per route (backend-security-kit).
+	health := http.NewServeMux()
+	health.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	httpHandler := http.Handler(health)
+	handler := noCORS(mux)
+	if *httpAPI {
+		log.Println("--http-api: serving the API unchecked on the HTTP port (local development only)")
+		httpHandler = handler
+	} else if kc, err := kubeclient.InCluster(); err != nil {
+		log.Printf("not in a cluster (%v): the API is only served with --http-api", err)
+		handler = health
+	} else {
+		policyClient = kc
+		authz, err := newAuthorizer(kc)
+		if err != nil {
+			log.Fatalf("permission table: %v", err)
+		}
+		handler = noCORS(authz.Middleware(mux))
+	}
 
 	go func() {
 		addr := ":" + *httpPort
 		log.Printf("catalog-service HTTP on %s", addr)
-		srv := &http.Server{Addr: addr, Handler: handler, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second}
+		srv := &http.Server{Addr: addr, Handler: httpHandler, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second}
 		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("HTTP server: %v", err)
 		}
@@ -49,11 +74,12 @@ func main() {
 		addr := ":" + *httpsPort
 		log.Printf("catalog-service HTTPS on %s", addr)
 		srv := &http.Server{
-			Addr:         addr,
-			Handler:      handler,
-			TLSConfig:    &tls.Config{MinVersion: tls.VersionTLS12},
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 15 * time.Second,
+			Addr:              addr,
+			Handler:           handler,
+			TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       10 * time.Second,
+			WriteTimeout:      15 * time.Second,
 		}
 		log.Fatal(srv.ListenAndServeTLS(*tlsCert, *tlsKey))
 	}
@@ -156,6 +182,10 @@ func handlePublicStat(kind string) http.HandlerFunc {
 			writeJSON(w, map[string]any{"ok": false, "reason": "COMMUNITY_TOOLS_CATALOG_URL is unset"})
 			return
 		}
+		if ok, why := telemetryAllows(r.Context(), kind); !ok {
+			writeJSON(w, map[string]any{"ok": false, "reason": why})
+			return
+		}
 		payload, _ := io.ReadAll(io.LimitReader(r.Body, 64<<10))
 		endpoint := strings.TrimRight(base, "/") + "/v1/stats/" + kind
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
@@ -220,13 +250,12 @@ func writeJSON(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func withCORS(next http.Handler) http.Handler {
+// noCORS refuses browser preflights. The storefront reaches catalog-service only
+// through the console's plugin proxy (same origin), so no CORS headers are needed.
+func noCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			http.Error(w, "CORS is not supported", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -18,6 +18,7 @@ import {
   ToolbarItem,
 } from '@patternfly/react-core';
 import { PlusCircleIcon } from '@patternfly/react-icons';
+import { Link } from 'react-router-dom-v5-compat';
 import CommunityDisclaimer from '../CommunityDisclaimer';
 import {
   CatalogItem,
@@ -41,9 +42,11 @@ import { useCatalog } from './useCatalog';
 import ExtensionTile from './ExtensionTile';
 import { AddExternalModal } from './AddExternalModal';
 import { AddExtensionModal, AddExtensionModalState } from './AddExtensionModal';
+import { InstallReviewModal } from './InstallReviewModal';
 import './catalog.css';
 
 const I18N = 'plugin__oct-storefront';
+const POLICY_PAGE = '/community-tools/management/policy';
 
 const HUB_COPY: Record<ToolCategory, { title: string; description: string }> = {
   compute: {
@@ -191,12 +194,21 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
             <Button variant="link" isInline onClick={catalog.checkNow} isLoading={catalog.checking} isDisabled={catalog.checking}>
               {t('Check for updates')}
             </Button>
+            {' · '}
+            <Link to={POLICY_PAGE}>{t('Cluster policy')}</Link>
           </StackItem>
           {!catalog.sync.ok ? (
             <StackItem>
               <Alert isInline variant="info" title={t('Catalog stats are local — public catalog unreachable.')}>
                 {catalog.sync.message ||
                   t('Browsing and Add/Remove still work from the on-cluster cache and bundled catalog.')}
+              </Alert>
+            </StackItem>
+          ) : null}
+          {catalog.policyState?.warnings.length ? (
+            <StackItem>
+              <Alert isInline variant="warning" title={t('Cluster policy')}>
+                {catalog.policyState.warnings.join(' ')} <Link to={POLICY_PAGE}>{t('View the cluster policy')}</Link>
               </Alert>
             </StackItem>
           ) : null}
@@ -319,6 +331,11 @@ export const CategoryHubPage: FC<{ category: ToolCategory }> = ({ category }) =>
         }
         onClose={() => setAddConfirm(null)}
         onConfirm={confirmAdd}
+      />
+      <InstallReviewModal
+        prep={catalog.review?.prep || null}
+        onConfirm={() => catalog.review?.confirm()}
+        onCancel={catalog.cancelReview}
       />
     </>
   );

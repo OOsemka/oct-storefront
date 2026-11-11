@@ -23,7 +23,14 @@ import {
 import {
   addExtension,
   AddExtensionOpts,
+  AddExtensionResult,
   bundledCommunityTools,
+  loadPolicy,
+  peekDeployYaml,
+  PolicyState,
+  prepareInstall,
+  telemetryPolicy,
+  PreparedInstall,
   detectInstalledVersion,
   enableExtension,
   installBlocker,
@@ -39,7 +46,9 @@ import {
   statsFromCache,
   syncFromCache,
   toolsFromCache,
+  ownsStorefrontNamespace,
 } from '../../utils/catalog-actions';
+import { deriveProfile, SecurityLevel } from '../../utils/security-profile';
 
 type ConfigMapKind = K8sResourceCommon & { data?: Record<string, string> };
 type ConsoleKind = K8sResourceCommon & { spec?: { plugins?: string[] } };
@@ -55,6 +64,29 @@ function clusterVersionString(cv?: ClusterVersionKind): string {
   const m = raw.match(/^(\d+\.\d+)/);
   return m ? m[1] : '';
 }
+
+// Tile labels derive a profile per tool; bundles rarely change, so cache by YAML text.
+const levelCache = new Map<string, SecurityLevel | undefined>();
+function levelOf(yaml: string, ownsStorefrontNs = false): SecurityLevel | undefined {
+  if (!yaml) return undefined;
+  const key = `${ownsStorefrontNs ? 'own:' : ''}${yaml}`;
+  if (!levelCache.has(key)) {
+    let level: SecurityLevel | undefined;
+    try {
+      level = deriveProfile(yaml, { ownsStorefrontNamespace: ownsStorefrontNs }).level;
+    } catch {
+      level = undefined;
+    }
+    levelCache.set(key, level);
+  }
+  return levelCache.get(key);
+}
+
+/** An install waiting for the user to confirm the review screen. */
+export type PendingReview = {
+  prep: PreparedInstall;
+  confirm: () => void;
+};
 
 async function sha256(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
@@ -96,6 +128,17 @@ export function useCatalog(category: ToolCategory) {
   const [notice, setNotice] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [review, setReview] = useState<PendingReview | null>(null);
+  const [policyState, setPolicyState] = useState<PolicyState | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadPolicy().then((p) => {
+      if (!cancelled) setPolicyState(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Cluster hash for public rating dedup (SHA-256 of ClusterVersion UID)
   const clusterHashRef = useRef<string>('');
@@ -166,8 +209,12 @@ export function useCatalog(category: ToolCategory) {
   const items = useMemo(() => {
     const community = cacheCm ? toolsFromCache(cacheCm) : bundledCommunityTools();
     const external = externalToolsFromCache(externalCm);
+    const bundledIds = new Set(bundledCommunityTools().map((t) => t.metadata.name));
     const merged = new Map<string, CommunityTool>();
-    for (const t of community) merged.set(t.metadata.name, t);
+    // publicCatalog: off hides tools that came only from the public catalog, even if
+    // an earlier sync left them in the cache.
+    const publicOff = policyState?.policy.publicCatalog === 'off';
+    for (const t of community) if (!(publicOff && !bundledIds.has(t.metadata.name))) merged.set(t.metadata.name, t);
     for (const t of external) merged.set(t.metadata.name, t);
 
     const q = query.trim().toLowerCase();
@@ -192,6 +239,7 @@ export function useCatalog(category: ToolCategory) {
           (enabled || pluginNames.has(plugin) ? detected[t.metadata.name] : undefined);
         const newer = pickAvailableUpdate(t.spec, installedVersion, clusterVersion);
         const blocked = newer ? installBlocker(t, newer) : '';
+        const picked = pickToolVersion(t.spec, clusterVersion);
         return {
           id: t.metadata.name,
           tool: t,
@@ -202,6 +250,8 @@ export function useCatalog(category: ToolCategory) {
           updateAvailable: blocked ? undefined : newer,
           updateBlocked: blocked && newer?.version ? { version: newer.version, reason: blocked } : undefined,
           compatibleSemvers: compatibleSemvers(t.spec, clusterVersion),
+          securityLevel: levelOf(peekDeployYaml(t, picked.version), ownsStorefrontNamespace(t)),
+          publicOnly: t.spec.source === 'community' && !bundledIds.has(t.metadata.name),
         };
       });
 
@@ -229,6 +279,7 @@ export function useCatalog(category: ToolCategory) {
     installedMap,
     detected,
     clusterVersion,
+    policyState,
   ]);
 
   const run = useCallback(async (id: string, fn: () => Promise<unknown>, okMessage: string) => {
@@ -250,14 +301,72 @@ export function useCatalog(category: ToolCategory) {
     }
   }, []);
 
+  /**
+   * Every install goes through here: resolve and evaluate first, then either apply
+   * straight away (plugin-only tools under the default policy: today's one click)
+   * or open the review screen and apply only after the user confirms.
+   */
+  const gated = useCallback(
+    async (
+      id: string,
+      tool: CommunityTool,
+      version: ToolVersion | undefined,
+      action: 'add' | 'update',
+      apply: (prep: PreparedInstall) => Promise<AddExtensionResult>,
+      okMessage: string,
+    ) => {
+      setBusyId(id);
+      setError(null);
+      setNotice(null);
+      setWarning(null);
+      let prep: PreparedInstall;
+      try {
+        prep = await prepareInstall(tool, version, clusterVersion, action);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        setBusyId(null);
+        return;
+      }
+      const go = () =>
+        run(
+          id,
+          async () => {
+            const result = await apply(prep);
+            // Reasons that didn't need a review are still worth showing afterwards.
+            const notes = prep.decision.reasons.map((r) => r.message);
+            return { ...result, warnings: [...prep.policyWarnings, ...notes, ...result.warnings] };
+          },
+          okMessage,
+        );
+      if (!prep.decision.review && prep.decision.outcome !== 'block' && prep.problems.length === 0) {
+        await go();
+        return;
+      }
+      setBusyId(null);
+      setReview({
+        prep,
+        confirm: () => {
+          setReview(null);
+          void go();
+        },
+      });
+    },
+    [run, clusterVersion],
+  );
+
+  const cancelReview = useCallback(() => setReview(null), []);
+
   const add = useCallback(
     (item: CatalogItem, version?: ToolVersion, opts?: AddExtensionOpts) =>
-      run(
+      gated(
         item.id,
-        () => addExtension(item.tool, version, clusterVersion, opts),
+        item.tool,
+        version,
+        'add',
+        (prep) => addExtension(item.tool, version, clusterVersion, { ...opts, reviewedYaml: prep.yaml, action: 'add', policy: telemetryPolicy(prep) }),
         `Added ${item.tool.spec.displayName}${version?.version ? ` ${version.version}` : ''}. Refresh the console to load the plugin.`,
       ),
-    [run, clusterVersion],
+    [gated, clusterVersion],
   );
 
   const enable = useCallback(
@@ -269,13 +378,16 @@ export function useCatalog(category: ToolCategory) {
   const update = useCallback(
     (item: CatalogItem, version?: ToolVersion) => {
       const next = version || item.updateAvailable;
-      return run(
+      return gated(
         item.id,
-        () => addExtension(item.tool, next, clusterVersion),
+        item.tool,
+        next,
+        'update',
+        (prep) => addExtension(item.tool, next, clusterVersion, { reviewedYaml: prep.yaml, action: 'update', policy: telemetryPolicy(prep) }),
         `Updated ${item.tool.spec.displayName} to ${next?.version || 'the latest compatible release'}. Refresh the console.`,
       );
     },
-    [run, clusterVersion],
+    [gated, clusterVersion],
   );
 
   const remove = useCallback(
@@ -300,15 +412,16 @@ export function useCatalog(category: ToolCategory) {
 
   const rate = useCallback(async (item: CatalogItem, stars: number) => {
     try {
-      await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current);
+      // Nothing is sent until the policy is loaded, or when it couldn't be read.
+      const known = policyState && policyState.source !== 'error' ? policyState.policy : undefined;
+      await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current, known);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, []);
+  }, [policyState]);
 
   const addExternal = useCallback(
     async (tool: CommunityTool) => {
-      setBusyId(tool.metadata.name);
       setError(null);
       try {
         const picked = pickToolVersion(tool.spec, clusterVersion);
@@ -322,20 +435,28 @@ export function useCatalog(category: ToolCategory) {
             'Cluster OpenShift version is unknown. Provide a single spec.versions entry (or pinVersion) matching this cluster.',
           );
         }
-        await saveExternalTool(tool);
-        setWarning(null);
-        const result = await addExtension(tool, picked.version, clusterVersion, {
-          storageClassName: tool.spec.storageClassName,
-        });
-        setNotice(`Added external extension ${tool.spec.displayName}.`);
-        if (result.warnings.length) setWarning(result.warnings.join(' '));
+        // Saved to the external catalog only once the user confirms the install.
+        await gated(
+          tool.metadata.name,
+          tool,
+          picked.version,
+          'add',
+          async (prep) => {
+            await saveExternalTool(tool);
+            return addExtension(tool, picked.version, clusterVersion, {
+              storageClassName: tool.spec.storageClassName,
+              reviewedYaml: prep.yaml,
+              action: 'add',
+              policy: telemetryPolicy(prep),
+            });
+          },
+          `Added external extension ${tool.spec.displayName}.`,
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setBusyId(null);
       }
     },
-    [clusterVersion],
+    [clusterVersion, gated],
   );
 
   /** Check the public catalog now instead of waiting for the hourly sync. */
@@ -376,5 +497,8 @@ export function useCatalog(category: ToolCategory) {
     removeFromCatalog,
     rate,
     addExternal,
+    review,
+    cancelReview,
+    policyState,
   };
 }

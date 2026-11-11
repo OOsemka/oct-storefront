@@ -1,0 +1,99 @@
+# Registry and digest rules for Community Tools workloads (see params.yaml),
+# including ephemeral debug containers. Updates that don't change any image
+# (scaling, labels, finalizers) are not re-checked.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: oct-image-rules
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods, pods/ephemeralcontainers]
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments, daemonsets, statefulsets, replicasets]
+      - apiGroups: [batch]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [jobs, cronjobs]
+  matchConditions:
+    - name: from-community-tools
+      # Objects the storefront installed (label) or requests from service
+      # accounts in oct-* namespaces (objects extensions create at runtime).
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ||
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
+  variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
+    - name: extId
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
+          'unknown'
+    - name: podSpec
+      expression: >-
+        object.kind == 'Pod' ? object.spec :
+        object.kind == 'CronJob' ? object.spec.jobTemplate.spec.template.spec :
+        object.spec.template.spec
+    - name: images
+      expression: >-
+        variables.podSpec.containers.map(c, c.image) +
+        (has(variables.podSpec.initContainers) ? variables.podSpec.initContainers.map(c, c.image) : []) +
+        (has(variables.podSpec.ephemeralContainers) ? variables.podSpec.ephemeralContainers.map(c, c.image) : [])
+    - name: oldImages
+      expression: >-
+        oldObject == null ? [] : (
+          (oldObject.kind == 'Pod' ? oldObject.spec :
+           oldObject.kind == 'CronJob' ? oldObject.spec.jobTemplate.spec.template.spec :
+           oldObject.spec.template.spec).containers.map(c, c.image) +
+          (has((oldObject.kind == 'Pod' ? oldObject.spec : oldObject.kind == 'CronJob' ? oldObject.spec.jobTemplate.spec.template.spec : oldObject.spec.template.spec).initContainers) ?
+            (oldObject.kind == 'Pod' ? oldObject.spec : oldObject.kind == 'CronJob' ? oldObject.spec.jobTemplate.spec.template.spec : oldObject.spec.template.spec).initContainers.map(c, c.image) : []) +
+          (oldObject.kind == 'Pod' && has(oldObject.spec.ephemeralContainers) ? oldObject.spec.ephemeralContainers.map(c, c.image) : []))
+    - name: unchanged
+      expression: "request.operation == 'UPDATE' && variables.images == variables.oldImages"
+    - name: registries
+      expression: >-
+        has(params.data) && 'allowedRegistries' in params.data ?
+          params.data['allowedRegistries'].split(',').map(s, s.trim()).filter(s, s != '') : []
+    - name: requireDigest
+      expression: "has(params.data) && 'requireDigest' in params.data && params.data.requireDigest == 'true'"
+  validations:
+    - expression: >-
+        variables.unchanged || variables.registries.size() == 0 ||
+        variables.images.all(i, variables.registries.exists(r, i.startsWith(r.endsWith('/') ? r : r + '/')))
+      messageExpression: >-
+        'Community Tools extension ' + variables.extId + ' uses images outside allowedRegistries: ' +
+        variables.images.filter(i, !variables.registries.exists(r, i.startsWith(r.endsWith('/') ? r : r + '/'))).join(', ')
+      reason: Forbidden
+    - expression: "variables.unchanged || !variables.requireDigest || variables.images.all(i, i.contains('@sha256:'))"
+      messageExpression: >-
+        'Community Tools extension ' + variables.extId + ' must pin images by digest: ' +
+        variables.images.filter(i, !i.contains('@sha256:')).join(', ')
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: oct-image-rules
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  policyName: oct-image-rules
+  validationActions: [Warn, Audit]
+  paramRef:
+    name: oct-admission-params
+    namespace: oct-storefront
+    parameterNotFoundAction: Allow

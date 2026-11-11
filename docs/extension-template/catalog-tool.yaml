@@ -14,6 +14,40 @@ spec:
   # Bundled storefront SVG: add src/assets/tiles/oct-<name>.svg, register in
   # src/utils/tile-icons.ts, and copy the same spec.icon into deploy/install.yaml.
   icon: tiles/oct-example-tool.svg
+  # Security declaration (optional, recommended). Say what the tool needs and WHY;
+  # the install review shows each reason next to the permission. CI and the
+  # storefront derive what the manifests really do and warn when this understates
+  # it. See docs/security-model.md and docs/extension-standard.md#security.
+  security:
+    schema: 1
+    level: namespaced            # plugin | namespaced | cluster-read | cluster-write | privileged
+    summary: Reads NodeNetworkConfigurationPolicies and creates them in its own namespace.
+    contact: https://github.com/example/oct-example-tool/security/advisories
+    backend:
+      services: [oct-example-tool-backend]
+      auth: ssar                 # backend-security-kit checks every caller
+      authModeDefault: enforce
+      publicPaths: []
+    network:
+      ingress: console-only      # console-only | route | node
+      networkPolicy: true
+      routes: []                 # [{ name: image-cache, paths: [/images], why: "..." }]
+      egress: []                 # [{ host: quay.io, why: "pull images" }]
+    rbac:
+      rules:
+        - apiGroups: [nmstate.io]
+          resources: [nodenetworkconfigurationpolicies]
+          verbs: [get, list, watch]
+          why: Show the current network policies on the page.
+    privileged:
+      scc: []
+      hostAccess: []
+      runtimeCreates: []         # [{ kind: SecurityContextConstraints, name: ..., cleanup: "...", why: "..." }]
+    secrets:
+      access: none               # none | namespaced | cluster
+    supplyChain:
+      digestPinned: false
+      signed: none
   defaultChannel: stable
   channels:
     stable: {}
@@ -38,4 +72,7 @@ spec:
       openshift: ["4.22"]
       image: quay.io/example/oct-example-tool:1.1.0-ocp4.22
       gitRef: v1.1.0
+      # Set when this release's manifest needs a newer storefront, e.g. it ships a
+      # NetworkPolicy (storefront 1.6.0+). Older storefronts then refuse it cleanly.
+      minStorefront: "1.6.0"
   minOpenShift: "4.21"

@@ -1,0 +1,14 @@
+# Same policies, but violations are rejected (Deny + Audit).
+#   oc apply -k deploy/policy/vap/enforce
+# Back to warn-only: oc apply -k deploy/policy/vap
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+patches:
+  - target:
+      kind: ValidatingAdmissionPolicyBinding
+    patch: |-
+      - op: replace
+        path: /spec/validationActions
+        value: [Deny, Audit]

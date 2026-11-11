@@ -1,0 +1,60 @@
+# Community Tools extensions may not create, change or delete
+# SecurityContextConstraints unless approved in params.yaml (approvedSCCs).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: oct-scc-changes
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [security.openshift.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [securitycontextconstraints]
+  matchConditions:
+    - name: from-community-tools
+      # Objects the storefront installed (label) or requests from service
+      # accounts in oct-* namespaces (objects extensions create at runtime).
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ||
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ||
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels)
+  variables:
+    # A request from an oct-* ServiceAccount is that extension, whatever its labels say
+    # (a label must not borrow another extension's approval). Otherwise the label.
+    - name: extId
+      expression: >-
+        request.userInfo.username.startsWith('system:serviceaccount:oct-') ? request.userInfo.username.split(':')[2] :
+          (object != null && has(object.metadata.labels) && 'communitytools.io/extension' in object.metadata.labels) ? object.metadata.labels['communitytools.io/extension'] :
+          (oldObject != null && has(oldObject.metadata.labels) && 'communitytools.io/extension' in oldObject.metadata.labels) ? oldObject.metadata.labels['communitytools.io/extension'] :
+          'unknown'
+    - name: approved
+      expression: >-
+        has(params.data) && 'approvedSCCs' in params.data ?
+          params.data['approvedSCCs'].split(',').map(s, s.trim()).filter(s, s != '') : []
+  validations:
+    - expression: "variables.approved.exists(a, a == '*' || a == variables.extId)"
+      messageExpression: >-
+        'Community Tools extension ' + variables.extId + ' is not approved to ' + request.operation.lowerAscii() +
+        ' SecurityContextConstraints (' + request.name + '); add it to approvedSCCs in oct-admission-params'
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: oct-scc-changes
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+spec:
+  policyName: oct-scc-changes
+  validationActions: [Warn, Audit]
+  paramRef:
+    name: oct-admission-params
+    namespace: oct-storefront
+    parameterNotFoundAction: Allow

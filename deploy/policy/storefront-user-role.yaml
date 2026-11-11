@@ -1,0 +1,28 @@
+# Optional: lets non-admin users use the storefront without being able to edit
+# the cluster policy. Bind it to a group, for example:
+#   oc -n oct-storefront create rolebinding oct-storefront-users \
+#     --role=oct-storefront-user --group=<your-group>
+# Installing a tool still needs the permissions of the tool's own manifests;
+# most bundles need a cluster admin.
+# These users can write the catalog cache. A catalog row that differs from the
+# storefront's bundled catalog therefore always gets the review screen before an
+# admin installs it (see docs/security-model.md, "Synced rows are reviewed").
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: oct-storefront-user
+  namespace: oct-storefront
+  labels:
+    app.kubernetes.io/part-of: oct-storefront
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - community-tools-cache
+      - community-tools-external
+    verbs:
+      - get
+      - update
+      - patch
