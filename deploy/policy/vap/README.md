@@ -32,7 +32,8 @@ Everything else on the cluster is ignored. If unrelated software on your cluster
 
 | Policy | Rule | Settings |
 |---|---|---|
-| `oct-no-broad-role-bindings` | No RoleBinding or ClusterRoleBinding to the `cluster-admin`, `admin` or `edit` ClusterRole, or to an SCC role (`system:openshift:scc:*`). | none, always active |
+| `oct-no-broad-role-bindings` | No RoleBinding or ClusterRoleBinding to the `cluster-admin`, `admin` or `edit` ClusterRole. | none, always active |
+| `oct-scc-role-bindings` | RoleBindings and ClusterRoleBindings to an SCC role (`system:openshift:scc:<scc>`, which grants use of that SCC) only for extensions listed in `approvedSCCBindings`. | `approvedSCCBindings` |
 | `oct-image-rules` | Pods (including ephemeral debug containers), Deployments, DaemonSets, StatefulSets, ReplicaSets, Jobs and CronJobs: images (including init containers) must come from `allowedRegistries`, and be pinned by digest when `requireDigest` is `"true"`. | `allowedRegistries`, `requireDigest` |
 | `oct-route-approval` | Only extensions listed in `approvedRoutes` may create or change Routes, or Ingresses (the OpenShift router turns them into Routes). | `approvedRoutes` |
 | `oct-scc-changes` | Only extensions listed in `approvedSCCs` may create, change or delete SecurityContextConstraints. | `approvedSCCs` |
@@ -50,14 +51,16 @@ The extension id in messages and approval lists is, for a request from an `oct-*
 | `requireDigest` | `"true"` | Every image must contain `@sha256:`. |
 | `approvedRoutes` | `oct-baremetal` | Extensions allowed to manage Routes. `*` approves all. Empty: none. |
 | `approvedSCCs` | `oct-network-dhcp` | Extensions allowed to manage SCCs. `*` approves all. Empty: none. |
+| `approvedSCCBindings` | `oct-shift-on-shift-virt:anyuid` | Extensions allowed to bind SCC roles: `<extension>:<scc>` approves one SCC, `<extension>` any SCC (including `privileged`, so prefer the scoped form), `*` everyone. Empty: none. |
 
 Edit with `oc -n oct-storefront edit configmap oct-admission-params`; changes apply within seconds.
 
-**If the ConfigMap is missing,** the image, Route and SCC rules are skipped (they fail open). This is deliberate: Kubernetes evaluates a binding's missing parameters before the policy's match conditions, so failing closed would block every Pod and Deployment on the cluster, not just Community Tools. The role-binding rule needs no settings and stays active.
+**If the ConfigMap is missing,** the image, Route, SCC and SCC-binding rules are skipped (they fail open). This is deliberate: Kubernetes evaluates a binding's missing parameters before the policy's match conditions, so failing closed would block every Pod and Deployment on the cluster, not just Community Tools. The cluster-admin/admin/edit binding rule needs no settings and stays active.
 
 ## Expected warnings with today's catalog
 
 - **Bare Metal** creates the `image-cache` Route: add `oct-baremetal` to `approvedRoutes` if you allow it.
+- **Shift-on-Shift** binds the `anyuid` SCC role for each nested cluster's helper pods (three ClusterRoleBindings): add `oct-shift-on-shift-virt:anyuid` to `approvedSCCBindings`, or **every Shift-on-Shift install fails in enforce**.
 - **Shift-on-Shift** creates Routes at runtime when `externalAccess.hostRoutes` (or `publishAppRoutes`) is on: add `oct-shift-on-shift-virt` to `approvedRoutes` if you allow it.
 - **DHCP** creates the `oct-dhcp-netraw` SecurityContextConstraints from its page when you deploy a DHCP server, and deletes it with the last server: add `oct-network-dhcp` to `approvedSCCs` if you allow it.
 - With `allowedRegistries` set, add every registry your installed tools use (the review screen in the storefront lists their images).
@@ -70,6 +73,6 @@ It is a guard rail for the common paths, not a sandbox. Known gaps, so you can d
 
 - **Identity laundering.** An extension that may exec into pods or create workloads in other namespaces (several do, see their review screens) can act as a service account outside `oct-*`, whose requests the pack doesn't check. Keep such permissions out of extensions, or bind them only where needed.
 - **Other image carriers.** VirtualMachine container disks, DeploymentConfigs and BuildConfigs aren't checked.
-- **SCC use through RBAC.** Bindings to `system:openshift:scc:*` roles are refused, but a custom or aggregated role with `use` on an SCC is not. The storefront's review screen flags those (`scc-use`, `rbac-aggregation-rule`).
-- **Settings fail open.** If `oct-admission-params` is deleted by an admin, the image, Route and SCC rules are skipped (see above). Extensions themselves can't delete it (`oct-protect-security-config`).
+- **SCC use through RBAC.** Bindings to `system:openshift:scc:*` roles need approval, but a custom or aggregated role with `use` on an SCC is not. The storefront's review screen flags those (`scc-use`, `rbac-aggregation-rule`).
+- **Settings fail open.** If `oct-admission-params` is deleted by an admin, the image, Route, SCC and SCC-binding rules are skipped (see above). Extensions themselves can't delete it (`oct-protect-security-config`).
 

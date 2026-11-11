@@ -49,7 +49,7 @@ oc -n oct-storefront edit configmap community-tools-policy     # later changes
 oc -n oct-storefront delete configmap community-tools-policy   # back to the defaults
 ```
 
-Every authenticated user can read this ConfigMap (the storefront and the backends need it). Don't put secrets in it.
+Every authenticated user can read this ConfigMap (the storefront and the backends need it). Don't put secrets in it. Besides cluster admins, anyone bound to the `admin` or `edit` role in the `oct-storefront` namespace can change it (and `oct-admission-params`), so keep those bindings to people who may change security settings: `oc -n oct-storefront get rolebindings -o wide`.
 
 `mode` decides what a broken rule does: `warn` (default) shows the reason on the review screen and adds "(policy would block this in enforce mode)"; `enforce` blocks the install; `off` ignores the rules. **Run in `warn` first**: install and update a few tools and read the reasons, then switch to `enforce`.
 
@@ -144,7 +144,7 @@ New extensions ship in enforce. Setting one of them to `audit` is a temporary wo
 
 ## 5. Rolling out the admission policy pack (warn → watch → enforce)
 
-The pack in [`deploy/policy/vap/`](../deploy/policy/vap/README.md) makes the API server itself check objects created by Community Tools (labelled `communitytools.io/extension`, or created by a service account in an `oct-*` namespace). It refuses bindings to `cluster-admin`/`admin`/`edit`, images from registries you didn't allow, Routes and SCC changes by extensions you didn't approve, and extensions changing the security configuration itself. It applies to YAML applied by hand too, which the storefront policy can't stop.
+The pack in [`deploy/policy/vap/`](../deploy/policy/vap/README.md) makes the API server itself check objects created by Community Tools (labelled `communitytools.io/extension`, or created by a service account in an `oct-*` namespace). It refuses bindings to `cluster-admin`/`admin`/`edit`, images from registries you didn't allow, Routes, SCC changes and SCC role bindings by extensions you didn't approve, and extensions changing the security configuration itself. It applies to YAML applied by hand too, which the storefront policy can't stop.
 
 **Step 1: settings and warn mode.** From a checkout of this repository:
 
@@ -161,9 +161,10 @@ data:
   requireDigest: "false"
   approvedRoutes: "oct-baremetal"              # extensions allowed to create Routes
   approvedSCCs: "oct-network-dhcp"             # extensions allowed to manage SCCs
+  approvedSCCBindings: "oct-shift-on-shift-virt:anyuid"   # extension:SCC role bindings
 ```
 
-With today's catalog, expect: Bare Metal's `image-cache` Route (approve `oct-baremetal`), Shift-on-Shift's host Routes when external access is on (approve `oct-shift-on-shift-virt`), and DHCP's SCC (approve `oct-network-dhcp`).
+With today's catalog, expect: Shift-on-Shift's `anyuid` SCC role bindings for every nested cluster (approve `oct-shift-on-shift-virt:anyuid` in `approvedSCCBindings`, or **every Shift-on-Shift install fails in enforce**), Bare Metal's `image-cache` Route (approve `oct-baremetal`), Shift-on-Shift's host Routes when external access is on (approve `oct-shift-on-shift-virt` in `approvedRoutes`), and DHCP's SCC (approve `oct-network-dhcp` in `approvedSCCs`).
 
 **Step 2: watch.** Install, update and use your tools for a while. Violations show up as warnings in `oc` output and in the storefront's install errors, and as audit annotations in the API audit log. The Cluster policy page shows the pack in **Warn**.
 
@@ -175,7 +176,7 @@ oc apply -k deploy/policy/vap                # back to warn
 oc delete -k deploy/policy/vap               # remove the policies (the settings ConfigMap stays)
 ```
 
-Switching modes never touches your settings. If the settings ConfigMap is deleted, the image, Route and SCC rules are skipped rather than blocking the cluster; the role-binding rule stays active. Known gaps are listed in the pack's README.
+Switching modes never touches your settings. If the settings ConfigMap is deleted, the image, Route, SCC and SCC-binding rules are skipped rather than blocking the cluster; the cluster-admin/admin/edit binding rule stays active. Known gaps are listed in the pack's README.
 
 When an install through the storefront is rejected half-way, the storefront removes the objects that attempt had created and says so in the error. Objects that already existed are never touched.
 
@@ -223,7 +224,8 @@ Installing a tool still needs the permissions of the tool's own manifests, which
 | Community Tools extension _X_ is not approved to create Routes (…); add it to approvedRoutes in oct-admission-params | `oc` or install error | Admission pack. Add the extension to `approvedRoutes` if you allow it. |
 | Community Tools extension _X_ uses images outside allowedRegistries: … | `oc` or install error | Admission pack. Add the registry to `allowedRegistries` in `oct-admission-params`. |
 | Community Tools extension _X_ must pin images by digest: … | `oc` or install error | Admission pack with `requireDigest: "true"`. |
-| Community Tools extension _X_ may not bind the _role_ ClusterRole (…) | `oc` or install error | Admission pack: bindings to cluster-admin/admin/edit or SCC roles are never allowed for extensions. Report it to the maintainer. |
+| Community Tools extension _X_ may not bind the _role_ ClusterRole (…) | `oc` or install error | Admission pack: bindings to cluster-admin/admin/edit are never allowed for extensions. Report it to the maintainer. |
+| Community Tools extension _X_ is not approved to bind the system:openshift:scc:_scc_ ClusterRole (…) | `oc`, install error or extension log | Admission pack: add `X:scc` to `approvedSCCBindings` if you allow it (Shift-on-Shift needs `oct-shift-on-shift-virt:anyuid`). |
 | Community Tools extension _X_ is not approved to … SecurityContextConstraints (…) | `oc` or install error | Admission pack. Add the extension to `approvedSCCs` if you allow it. |
 | Community Tools extension _X_ may not … (the security configuration that governs Community Tools) | `oc` or extension log | An extension tried to change the policy, the admission settings or the pack. Always refused; investigate the extension. |
 | Creating _Kind/name_ failed: … The _n_ object(s) this install had created were removed again. | Install error | Something (often the admission pack) rejected an object half-way; the storefront rolled the install back. Fix the cause and retry. |

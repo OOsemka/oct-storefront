@@ -1,6 +1,8 @@
-# No Community Tools object may bind the cluster-admin, admin or edit ClusterRole, or
-# an SCC role (system:openshift:scc:*). Updates that keep the same subjects are not
-# re-checked (roleRef can't change).
+# No Community Tools object may bind the cluster-admin, admin or edit ClusterRole.
+# Needs no settings, so it stays active when oct-admission-params is missing. SCC
+# roles (system:openshift:scc:*) are handled by oct-scc-role-bindings, which has an
+# approval list. Updates that keep the same subjects are not re-checked (roleRef
+# can't change).
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -36,8 +38,7 @@ spec:
     - expression: >-
         (request.operation == 'UPDATE' &&
           (has(object.subjects) ? object.subjects : []) == (has(oldObject.subjects) ? oldObject.subjects : [])) ||
-        !(object.roleRef.kind == 'ClusterRole' &&
-          (object.roleRef.name in ['cluster-admin', 'admin', 'edit'] || object.roleRef.name.startsWith('system:openshift:scc:')))
+        !(object.roleRef.kind == 'ClusterRole' && object.roleRef.name in ['cluster-admin', 'admin', 'edit'])
       messageExpression: >-
         'Community Tools extension ' + variables.extId + ' may not bind the ' + object.roleRef.name +
         ' ClusterRole (' + object.kind + ' ' + object.metadata.name + ')'

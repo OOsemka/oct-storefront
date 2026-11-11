@@ -343,6 +343,14 @@ const PolicyPage: FC = () => {
                             <code>{params.params.approvedSCCs.join(', ') || t('none')}</code>
                           </DescriptionListDescription>
                         </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>
+                            <code>approvedSCCBindings</code>
+                          </DescriptionListTerm>
+                          <DescriptionListDescription>
+                            <code>{params.params.approvedSCCBindings.join(', ') || t('none')}</code>
+                          </DescriptionListDescription>
+                        </DescriptionListGroup>
                       </DescriptionList>
                     </StackItem>
                   ) : null}

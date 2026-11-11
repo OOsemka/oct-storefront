@@ -22,3 +22,7 @@ data:
   approvedRoutes: ""
   # Extensions allowed to create, change or delete SecurityContextConstraints.
   approvedSCCs: ""
+  # Extensions allowed to bind SCC roles (system:openshift:scc:<scc>), as
+  # "<extension>:<scc>" (one SCC) or "<extension>" (any SCC); "*" approves all.
+  # Shift-on-Shift needs "oct-shift-on-shift-virt:anyuid" for its nested clusters.
+  approvedSCCBindings: ""

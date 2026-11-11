@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POLICY, parsePolicy } from '../policy';
 import {
+  ADMISSION_POLICIES,
   admissionStatus,
   backendRows,
   bindingMode,
@@ -58,7 +59,7 @@ backends:
 
 describe('admission pack status', () => {
   const all = (actions: string[]) =>
-    ['oct-no-broad-role-bindings', 'oct-image-rules', 'oct-route-approval', 'oct-scc-changes'].map((policyName) => ({
+    ADMISSION_POLICIES.map((policyName) => ({
       policyName,
       validationActions: actions,
     }));
@@ -85,6 +86,13 @@ describe('admission pack status', () => {
     expect(s.state).toBe('mixed');
     expect(s.policies[0]).toEqual({ name: 'oct-no-broad-role-bindings', mode: 'enforce' });
   });
+
+  it('reports a pack from before oct-scc-role-bindings as partial', () => {
+    const old = ['oct-no-broad-role-bindings', 'oct-image-rules', 'oct-route-approval', 'oct-scc-changes', 'oct-protect-security-config'];
+    const s = admissionStatus(old.map((policyName) => ({ policyName, validationActions: ['Deny', 'Audit'] })));
+    expect(s.state).toBe('partial');
+    expect(s.policies.find((p) => p.name === 'oct-scc-role-bindings')?.mode).toBe('missing');
+  });
 });
 
 describe('parseAdmissionParams', () => {
@@ -95,17 +103,19 @@ describe('parseAdmissionParams', () => {
         requireDigest: 'true',
         approvedRoutes: 'oct-baremetal',
         approvedSCCs: '',
+        approvedSCCBindings: 'oct-shift-on-shift-virt:anyuid',
       }),
     ).toEqual({
       allowedRegistries: ['quay.io/openshift-community-tools', 'registry.redhat.io'],
       requireDigest: true,
       approvedRoutes: ['oct-baremetal'],
       approvedSCCs: [],
+      approvedSCCBindings: ['oct-shift-on-shift-virt:anyuid'],
     });
   });
 
   it('treats missing data as empty and requireDigest as false unless exactly "true"', () => {
-    expect(parseAdmissionParams(undefined)).toEqual({ allowedRegistries: [], requireDigest: false, approvedRoutes: [], approvedSCCs: [] });
+    expect(parseAdmissionParams(undefined)).toEqual({ allowedRegistries: [], requireDigest: false, approvedRoutes: [], approvedSCCs: [], approvedSCCBindings: [] });
     expect(parseAdmissionParams({ requireDigest: 'yes' }).requireDigest).toBe(false);
   });
 });

@@ -95,7 +95,7 @@ Cluster admins can tune what the storefront offers with the optional ConfigMap `
 
 How it behaves:
 
-- **Everyone can read it, only admins can change it.** A Role in `install.yaml` lets `system:authenticated` `get` this one ConfigMap, because the storefront UI and extension backends need it. Don't put secrets in it. To let non-admins use the storefront without editing the policy, see `deploy/policy/storefront-user-role.yaml`.
+- **Everyone can read it; cluster admins, and anyone bound to the `admin` or `edit` role in `oct-storefront`, can change it.** Keep those namespace bindings to people who may change security settings (the policy can, for example, set a backend back to audit). A Role in `install.yaml` lets `system:authenticated` `get` this one ConfigMap, because the storefront UI and extension backends need it. Don't put secrets in it. To let non-admins use the storefront without editing the policy, see `deploy/policy/storefront-user-role.yaml`.
 - **Fails open.** An unreadable policy or an invalid value falls back to the default for that setting, and the storefront shows a banner explaining why.
 - **The declaration never relaxes a rule.** Rules are checked against the derived profile. A declared level lower than the derived one adds an "exceeds declaration" warning.
 - The code is `src/utils/policy.ts` (pure, unit-tested); the storefront reads the ConfigMap with `loadPolicy()`.
@@ -108,7 +108,8 @@ How it behaves:
   - no RoleBinding or ClusterRoleBinding to `cluster-admin`, `admin` or `edit`;
   - images only from `allowedRegistries`, pinned by digest if `requireDigest` is on;
   - Routes only for extensions listed in `approvedRoutes`;
-  - SCC changes only for extensions listed in `approvedSCCs`.
+  - SCC changes only for extensions listed in `approvedSCCs`;
+  - SCC role bindings (`system:openshift:scc:*`) only for extensions listed in `approvedSCCBindings` (Shift-on-Shift needs `oct-shift-on-shift-virt:anyuid`).
 
   Its settings live in their own ConfigMap (`oct-admission-params`), separate from the storefront policy, because admission policies can't parse the YAML inside `community-tools-policy`. If that ConfigMap is missing, the settings-based rules are skipped rather than blocking the cluster.
 - **Backend modes:** new extensions ship in `enforce`. Existing extensions, when they adopt the kit, ship in `audit` and **stay there until a cluster admin switches them to `enforce`** in the policy (`backends.<extension>.authMode`). Audit lets every request through and logs what enforce would refuse, so adopting the kit never breaks a working tool.

@@ -25,6 +25,7 @@ spec:
         resources: [validatingadmissionpolicies, validatingadmissionpolicybindings]
         resourceNames:
           - oct-no-broad-role-bindings
+          - oct-scc-role-bindings
           - oct-image-rules
           - oct-route-approval
           - oct-scc-changes

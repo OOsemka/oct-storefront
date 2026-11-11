@@ -79,9 +79,11 @@ export function backendRows(policy: Policy): BackendRow[] {
 
 export const ADMISSION_POLICIES = [
   'oct-no-broad-role-bindings',
+  'oct-scc-role-bindings',
   'oct-image-rules',
   'oct-route-approval',
   'oct-scc-changes',
+  'oct-protect-security-config',
 ] as const;
 export const ADMISSION_PARAMS_CONFIGMAP = 'oct-admission-params';
 
@@ -126,6 +128,7 @@ export type AdmissionParams = {
   requireDigest: boolean;
   approvedRoutes: string[];
   approvedSCCs: string[];
+  approvedSCCBindings: string[];
 };
 
 /** Same parsing as the CEL in deploy/policy/vap/base: comma-separated, trimmed, empty entries dropped. */
@@ -140,5 +143,6 @@ export function parseAdmissionParams(data: Record<string, string> | undefined): 
     requireDigest: data?.requireDigest === 'true',
     approvedRoutes: list('approvedRoutes'),
     approvedSCCs: list('approvedSCCs'),
+    approvedSCCBindings: list('approvedSCCBindings'),
   };
 }
