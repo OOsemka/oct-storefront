@@ -46,7 +46,7 @@ The extension id in messages and approval lists is, for a request from an `oct-*
 
 | Key | Example | Meaning |
 |---|---|---|
-| `allowedRegistries` | `quay.io/cjanisze,registry.redhat.io` | Comma-separated prefixes. An entry matches at a path boundary: `registry.redhat.io` allows `registry.redhat.io/ubi9/...`, not `registry.redhat.io.example.com/...`. Empty: any registry. |
+| `allowedRegistries` | `quay.io/openshift-community-tools,registry.redhat.io` | Comma-separated prefixes. An entry matches at a path boundary: `registry.redhat.io` allows `registry.redhat.io/ubi9/...`, not `registry.redhat.io.example.com/...`. Empty: any registry. |
 | `requireDigest` | `"true"` | Every image must contain `@sha256:`. |
 | `approvedRoutes` | `oct-baremetal` | Extensions allowed to manage Routes. `*` approves all. Empty: none. |
 | `approvedSCCs` | `oct-network-dhcp` | Extensions allowed to manage SCCs. `*` approves all. Empty: none. |

@@ -10,4 +10,4 @@ Maintainers aim to acknowledge reports within a few working days and to coordina
 
 ## Scope
 
-The storefront, `backend-security-kit`, the catalog, and the extensions under the OOsemka GitHub account. How OCT handles permissions, backends and installs is described in [docs/security-model.md](docs/security-model.md).
+The storefront, `backend-security-kit`, the catalog, and the extensions in the openshift-community-tools GitHub organization. How OCT handles permissions, backends and installs is described in [docs/security-model.md](docs/security-model.md).

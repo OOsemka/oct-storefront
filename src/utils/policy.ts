@@ -53,7 +53,7 @@ export type Policy = {
   rbacWidening: Gate;
   allowRoutes: boolean;
   requireNetworkPolicy: boolean;
-  /** Registries images may come from (prefix match on host, e.g. quay.io/cjanisze). Empty: any. */
+  /** Registries images may come from (prefix match on host, e.g. quay.io/openshift-community-tools). Empty: any. */
   allowedRegistries: string[];
   requireDigest: DigestRule;
   /** Hosts deployURL may point at. Empty: any. */

@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/part-of: oct-storefront
 data:
   # Image registry prefixes OCT workloads may pull from, for example
-  # "quay.io/cjanisze,registry.redhat.io". Empty: any registry.
+  # "quay.io/openshift-community-tools,registry.redhat.io". Empty: any registry.
   allowedRegistries: ""
   # "true": every OCT workload image must be pinned by digest (@sha256:...).
   requireDigest: "false"

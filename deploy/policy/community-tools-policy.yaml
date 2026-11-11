@@ -46,7 +46,7 @@ data:
     # Backends behind the console proxy must ship a NetworkPolicy
     requireNetworkPolicy: false
 
-    # Image registries allowed (prefix match, e.g. quay.io/cjanisze). Empty: any.
+    # Image registries allowed (prefix match, e.g. quay.io/openshift-community-tools). Empty: any.
     allowedRegistries: []
     # none | community (catalog tools must pin images by digest) | all
     requireDigest: none

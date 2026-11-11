@@ -86,7 +86,7 @@ Cluster admins can tune what the storefront offers with the optional ConfigMap `
 | `rbacWidening` | `warn`, `allow`, `review`, `block` | Updates that add RBAC permissions. |
 | `allowRoutes` | `true`, `false` | Bundles that create Routes. |
 | `requireNetworkPolicy` | `false`, `true` | Backends must ship a NetworkPolicy. |
-| `allowedRegistries` | `[]` (any) | Image registry prefixes allowed, e.g. `quay.io/cjanisze`. |
+| `allowedRegistries` | `[]` (any) | Image registry prefixes allowed, e.g. `quay.io/openshift-community-tools`. |
 | `requireDigest` | `none`, `community`, `all` | Images must be pinned by digest. |
 | `allowedDeployHosts` | `[]` (any) | Hosts a `deployURL` may point at. |
 | `telemetry` | `full`, `ratings-only`, `off` | What is sent to api.octools.net. |

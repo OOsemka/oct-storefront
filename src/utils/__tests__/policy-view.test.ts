@@ -20,11 +20,11 @@ describe('settingRows', () => {
   });
 
   it('marks changed values and joins lists', () => {
-    const p = parsePolicy('mode: enforce\nmaxLevel: cluster-write\nallowedRegistries: [quay.io/cjanisze, registry.redhat.io]\nallowRoutes: false\n');
+    const p = parsePolicy('mode: enforce\nmaxLevel: cluster-write\nallowedRegistries: [quay.io/openshift-community-tools, registry.redhat.io]\nallowRoutes: false\n');
     const rows = Object.fromEntries(settingRows(p).map((r) => [r.key, r]));
     expect(rows.mode).toMatchObject({ value: 'enforce', defaultValue: 'warn', changed: true });
     expect(rows.maxLevel).toMatchObject({ value: 'cluster-write', defaultValue: '', changed: true });
-    expect(rows.allowedRegistries).toMatchObject({ value: 'quay.io/cjanisze, registry.redhat.io', changed: true });
+    expect(rows.allowedRegistries).toMatchObject({ value: 'quay.io/openshift-community-tools, registry.redhat.io', changed: true });
     expect(rows.allowRoutes).toMatchObject({ value: 'false', defaultValue: 'true', changed: true });
     expect(rows.review.changed).toBe(false);
   });
@@ -91,13 +91,13 @@ describe('parseAdmissionParams', () => {
   it('matches the CEL parsing (comma-separated, trimmed, empty dropped)', () => {
     expect(
       parseAdmissionParams({
-        allowedRegistries: ' quay.io/cjanisze, ,registry.redhat.io ',
+        allowedRegistries: ' quay.io/openshift-community-tools, ,registry.redhat.io ',
         requireDigest: 'true',
         approvedRoutes: 'oct-baremetal',
         approvedSCCs: '',
       }),
     ).toEqual({
-      allowedRegistries: ['quay.io/cjanisze', 'registry.redhat.io'],
+      allowedRegistries: ['quay.io/openshift-community-tools', 'registry.redhat.io'],
       requireDigest: true,
       approvedRoutes: ['oct-baremetal'],
       approvedSCCs: [],
