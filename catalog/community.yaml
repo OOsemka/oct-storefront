@@ -1508,10 +1508,10 @@ spec:
     - version: "0.1.1"
       channel: stable
       openshift: ["4.21"]
-      image: quay.io/dwaiting/oct-must-gather:0.1.1-ocp4.21
+      image: quay.io/openshift-community-tools/oct-must-gather:0.1.1-ocp4.21
       gitRef: v0.1.1
     - version: "0.1.1"
       channel: stable
       openshift: ["4.22"]
-      image: quay.io/dwaiting/oct-must-gather:0.1.1-ocp4.22
+      image: quay.io/openshift-community-tools/oct-must-gather:0.1.1-ocp4.22
       gitRef: v0.1.1

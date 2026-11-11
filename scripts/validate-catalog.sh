@@ -133,8 +133,8 @@ for r in rows:
 # From deploy YAMLs
 DEPLOY_IMAGES=""
 if [[ -d "$DEPLOY_DIR" ]]; then
-  DEPLOY_IMAGES=$(grep -rh '^\s*image:' "$DEPLOY_DIR"/*.yaml 2>/dev/null \
-    | sed 's/.*image:\s*//' | tr -d '"' | tr -d "'" | sort -u)
+  DEPLOY_IMAGES=$(grep -rh '^[[:space:]]*image:' "$DEPLOY_DIR"/*.yaml 2>/dev/null \
+    | sed 's/.*image:[[:space:]]*//' | tr -d '"' | tr -d "'" | sort -u)
 fi
 
 ALL_IMAGES=$(echo -e "$CATALOG_IMAGES\n$DEPLOY_IMAGES" | sort -u | grep -v '^$')
@@ -197,8 +197,8 @@ if tool_rows:
 " 2>/dev/null || echo "")
 
     # Get the plugin image from the deploy YAML (first image matching the tool name)
-    DEPLOY_PLUGIN_IMAGE=$(grep -h '^\s*image:' "$deploy_file" 2>/dev/null \
-      | sed 's/.*image:\s*//' | tr -d '"' | tr -d "'" \
+    DEPLOY_PLUGIN_IMAGE=$(grep -h '^[[:space:]]*image:' "$deploy_file" 2>/dev/null \
+      | sed 's/.*image:[[:space:]]*//' | tr -d '"' | tr -d "'" \
       | grep "$tool_name:" | head -1)
 
     if [[ -n "$CATALOG_IMAGE" && -n "$DEPLOY_PLUGIN_IMAGE" ]]; then
