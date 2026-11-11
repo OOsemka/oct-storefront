@@ -1143,6 +1143,18 @@ spec:
       image: quay.io/openshift-community-tools/oct-storefront:1.5.26-ocp4.22
       gitRef: v1.5.26
       deployURL: https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.27"
+      channel: stable
+      openshift: ["4.21"]
+      image: quay.io/openshift-community-tools/oct-storefront:1.5.27-ocp4.21
+      gitRef: v1.5.27
+      deployURL: https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml
+    - version: "1.5.27"
+      channel: stable
+      openshift: ["4.22"]
+      image: quay.io/openshift-community-tools/oct-storefront:1.5.27-ocp4.22
+      gitRef: v1.5.27
+      deployURL: https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml
 ---
 apiVersion: communitytools.io/v1alpha1
 kind: CommunityTool
