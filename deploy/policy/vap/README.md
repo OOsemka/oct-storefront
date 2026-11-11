@@ -67,6 +67,10 @@ Edit with `oc -n oct-storefront edit configmap oct-admission-params`; changes ap
 
 No catalog tool binds `cluster-admin`, `admin` or `edit`, or ships an SCC in its bundle.
 
+## Testing the pack
+
+`scripts/vap-test.sh --test-cluster` runs 42 end-to-end cases (warn, settings, enforce, missing settings, and the bypasses fixed in review) as a cluster admin, with server-side dry runs and impersonated ServiceAccounts. **Test clusters only:** it switches the pack between warn and enforce and recreates `oct-admission-params`. It restores the mode and the settings it found at the start when it finishes, also on failure or Ctrl-C.
+
 ## What the pack does not cover
 
 It is a guard rail for the common paths, not a sandbox. Known gaps, so you can decide what else you need:

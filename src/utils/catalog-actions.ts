@@ -629,7 +629,9 @@ export function ownsStorefrontNamespace(tool: CommunityTool): boolean {
  * other than the tool (for the storefront itself, a ConsolePlugin without its
  * catalog-service proxy). True when that would happen: the row has no manifest of
  * its own and no bundled one, and the tool normally ships manifests (its bundled rows
- * have them) or is public-only (what was removed is unknown).
+ * have them). A public-only tool can't be told apart from a plain plugin image that
+ * never had manifests, so it keeps the earlier behaviour: generated plugin manifests,
+ * with the public-catalog reason on the review screen (blocked in enforce).
  */
 export function manifestsWithheld(
   tool: CommunityTool,
@@ -646,7 +648,6 @@ export function manifestsWithheld(
       BUNDLED_DEPLOY[tool.spec.consolePlugin],
   );
   if (hasManifests) return false;
-  if (ctx.publicOnly) return true;
   const bundledTool = bundledCommunityTools().find((t) => t.metadata.name === tool.metadata.name);
   return Boolean(
     bundledTool?.spec.deployYAML?.trim() ||

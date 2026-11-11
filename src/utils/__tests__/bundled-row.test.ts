@@ -77,6 +77,7 @@ describe('manifestsWithheld (publicCatalog other than full)', () => {
     expect(manifestsWithheld(sf, newer, { ...ctx('metadata-only'), unverifiedRow: false })).toBe(false);
     const plain = { ...sf, metadata: { name: 'oct-plain-plugin' }, spec: { ...sf.spec, consolePlugin: 'oct-plain-plugin', versions: [], deployURL: undefined, deployYAML: undefined } };
     expect(manifestsWithheld(plain, newer, ctx('metadata-only'))).toBe(false);
-    expect(manifestsWithheld(plain, newer, { ...ctx('metadata-only'), publicOnly: true })).toBe(true);
+    // Public-only: can't tell a stripped manifest from a plain plugin image, so not refused (review/enforce handle it).
+    expect(manifestsWithheld(plain, newer, { ...ctx('metadata-only'), publicOnly: true, unverifiedRow: false })).toBe(false);
   });
 });

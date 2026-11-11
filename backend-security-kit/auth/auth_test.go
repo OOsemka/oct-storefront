@@ -3,6 +3,7 @@ package auth_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -180,6 +181,33 @@ func TestRejectedTokenIsCached(t *testing.T) {
 	}
 	if n := s.api.Reviews.Load(); n != 1 {
 		t.Fatalf("a rejected token should cost one review, got %d", n)
+	}
+}
+
+func TestInvalidAuthModeIsLoggedWithOptionsLogger(t *testing.T) {
+	t.Setenv("AUTH_MODE", "enfroce")
+	s := newSetup(t, auth.ModeFromEnv(), nil)
+	if !strings.Contains(s.logs.String(), "AUTH_MODE has an unknown value") || !strings.Contains(s.logs.String(), "enfroce") {
+		t.Fatalf("invalid AUTH_MODE not in the extension's log: %s", s.logs.String())
+	}
+}
+
+func TestRejectedTokenDoesNotEvictAnswers(t *testing.T) {
+	s := newSetup(t, auth.Enforce, nil)
+	s.api.Allow["admin"] = []string{"*"}
+	do(s.h, "GET", "/api/v1/nodes", "admin") // cached answer
+	// More made-up tokens than the answer cache holds (10,000): before rejected tokens
+	// had their own cache, they pushed real answers out.
+	if testing.Short() {
+		t.Skip("sends 10,100 requests")
+	}
+	for i := 0; i < 10100; i++ {
+		do(s.h, "GET", "/api/v1/nodes", fmt.Sprintf("bogus-%d", i))
+	}
+	before := s.api.Reviews.Load()
+	do(s.h, "GET", "/api/v1/nodes", "admin")
+	if s.api.Reviews.Load() != before {
+		t.Fatal("made-up tokens evicted a real user's cached answer")
 	}
 }
 
