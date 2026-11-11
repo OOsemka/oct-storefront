@@ -1,5 +1,5 @@
-github.com/dsorrentino/oct-storefront/backend-security-kit v0.2.0-dev.1 h1:EfOGEJZ+SqavmSvb3BW1oSAGckBY8sLQkqrg+a58uMU=
-github.com/dsorrentino/oct-storefront/backend-security-kit v0.2.0-dev.1/go.mod h1:hmiLJipO5+J4jheIeBOZ4VXB+kiXTfRAOx8sV4agWWE=
+github.com/dsorrentino/oct-storefront/backend-security-kit v0.2.0-dev.2 h1:+eXZcXPesnmww+pHZgL1eaBWCniIat7kLKwwRwzN86A=
+github.com/dsorrentino/oct-storefront/backend-security-kit v0.2.0-dev.2/go.mod h1:ybGMKDlc/38HZJDl0jzNV6k1uBtIV03KCwv84aCY1kA=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
 	"io"
 	"log"
 	"net/http"
