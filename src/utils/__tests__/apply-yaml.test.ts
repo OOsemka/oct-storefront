@@ -258,3 +258,15 @@ metadata: { name: r, namespace: oct-x }
     expect(call.json.preconditions.uid).toBe('uid-ConfigMap-cm');
   });
 });
+
+describe('generatePluginManifests hardening', () => {
+  it('adds a console-only NetworkPolicy and no ServiceAccount token', async () => {
+    const { generatePluginManifests } = await import('../apply-yaml');
+    const docs = splitYamlDocs(generatePluginManifests({ consolePlugin: 'oct-x', image: 'quay.io/org/oct-x:1.0.0-ocp4.22', displayName: 'X' }));
+    expect(docs.map((d) => d.kind)).toEqual(['Namespace', 'Deployment', 'Service', 'NetworkPolicy', 'ConsolePlugin']);
+    const dep = docs[1] as unknown as { spec: { template: { spec: { automountServiceAccountToken: boolean } } } };
+    expect(dep.spec.template.spec.automountServiceAccountToken).toBe(false);
+    const np = docs[3] as unknown as { spec: { ingress: { ports: { port: number }[] }[] } };
+    expect(np.spec.ingress[0].ports[0].port).toBe(9443);
+  });
+});

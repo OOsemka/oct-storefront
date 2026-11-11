@@ -425,6 +425,11 @@ spec:
       labels:
         app: ${name}
     spec:
+      # A plugin image serves static files only; it never calls the API. The root
+      # filesystem stays writable: images of tools without their own manifests can
+      # write anywhere, so a read-only root could break them (bundles that know their
+      # image set readOnlyRootFilesystem themselves).
+      automountServiceAccountToken: false
       containers:
         - name: plugin
           image: ${opts.image}
@@ -474,6 +479,28 @@ spec:
       targetPort: 9443
   selector:
     app: ${name}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${name}
+  namespace: ${ns}
+  labels:
+    app.kubernetes.io/part-of: ${name}
+spec:
+  # Only the console loads the plugin's files.
+  podSelector:
+    matchLabels:
+      app: ${name}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-console
+      ports:
+        - protocol: TCP
+          port: 9443
 ---
 apiVersion: console.openshift.io/v1
 kind: ConsolePlugin
