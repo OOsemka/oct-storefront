@@ -14,7 +14,7 @@ func TestCheckFetchURL(t *testing.T) {
 	t.Setenv("FETCH_YAML_ALLOWED_HOSTS", "git.example.com, Mirror.Example.org")
 	allowed := allowedFetchHosts()
 	ok := []string{
-		"https://raw.githubusercontent.com/OOsemka/oct-storefront/main/deploy/upgrade.yaml",
+		"https://raw.githubusercontent.com/openshift-community-tools/oct-storefront/main/deploy/upgrade.yaml",
 		"https://gitlab.com/x/y/-/raw/main/deploy.yaml",
 		"https://api.octools.net/v1/whatever",
 		"https://git.example.com/a.yaml",

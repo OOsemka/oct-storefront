@@ -1,4 +1,4 @@
-module github.com/OOsemka/oct-storefront/backend-security-kit
+module github.com/openshift-community-tools/oct-storefront/backend-security-kit
 
 go 1.22
 

@@ -11,10 +11,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/auth"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/server"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/validate"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/auth"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/server"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/validate"
 )
 
 const extension = "oct-example-tool"

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/auth"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/internal/fakeapi"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/auth"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/internal/fakeapi"
 )
 
 // Review finding A2: a Public subtree pattern must be explicit.

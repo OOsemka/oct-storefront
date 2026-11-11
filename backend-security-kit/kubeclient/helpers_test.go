@@ -4,7 +4,7 @@ import (
 	"encoding/pem"
 	"testing"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/internal/fakeapi"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/internal/fakeapi"
 )
 
 func pemOf(t *testing.T, s *fakeapi.Server) []byte {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/server"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/server"
 )
 
 func TestRunRefusesPlaintext(t *testing.T) {

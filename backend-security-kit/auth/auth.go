@@ -35,7 +35,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
 )
 
 // Mode is how strictly requests are checked.

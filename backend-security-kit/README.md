@@ -88,4 +88,4 @@ Tests run against a fake API server (`internal/fakeapi`); no cluster is needed.
 
 ## Versioning
 
-Module `github.com/OOsemka/oct-storefront/backend-security-kit`, tagged `backend-security-kit/vX.Y.Z` in the oct-storefront repository. Extensions pin a version in their `go.mod`.
+Module `github.com/openshift-community-tools/oct-storefront/backend-security-kit`, tagged `backend-security-kit/vX.Y.Z` in the oct-storefront repository. Extensions pin a version in their `go.mod`.

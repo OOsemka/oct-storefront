@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
 )
 
 // Server answers SelfSubjectAccessReviews from Allow, TokenReviews from Users, and

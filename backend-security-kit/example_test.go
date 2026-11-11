@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/auth"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/server"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/auth"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/server"
 )
 
 // A backend adopting the kit: one permission rule per route, next to the handlers.

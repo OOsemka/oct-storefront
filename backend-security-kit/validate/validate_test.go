@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/validate"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/validate"
 )
 
 func TestNames(t *testing.T) {

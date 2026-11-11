@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/OOsemka/oct-storefront/backend-security-kit/internal/fakeapi"
-	"github.com/OOsemka/oct-storefront/backend-security-kit/kubeclient"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/internal/fakeapi"
+	"github.com/openshift-community-tools/oct-storefront/backend-security-kit/kubeclient"
 )
 
 func TestRefusesPlainHTTPAndEmptyCA(t *testing.T) {
