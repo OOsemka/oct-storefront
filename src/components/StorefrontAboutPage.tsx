@@ -71,7 +71,7 @@ const StorefrontAboutPage: FC = () => {
                       variant="link"
                       isInline
                       component="a"
-                      href="https://github.com/OOsemka/oct-storefront"
+                      href="https://github.com/openshift-community-tools/oct-storefront"
                       target="_blank"
                       rel="noopener noreferrer"
                       icon={<ExternalLinkAltIcon />}

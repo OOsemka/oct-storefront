@@ -9,7 +9,7 @@
       "description": "Inventory Metal3 BareMetalHost nodes, register from BMC Redfish, and deploy golden images.",
       "category": "compute",
       "source": "community",
-      "git": "https://github.com/cjanisze/oct-baremetal",
+      "git": "https://github.com/openshift-community-tools/oct-baremetal",
       "consolePlugin": "oct-baremetal",
       "href": "/baremetal/nodes",
       "icon": "tiles/oct-baremetal.svg",
@@ -19,21 +19,21 @@
           "version": "1.0.0",
           "channel": "stable",
           "openshift": ["4.21"],
-          "image": "quay.io/cjanisze/oct-baremetal:1.0.0-ocp4.21",
+          "image": "quay.io/openshift-community-tools/oct-baremetal:1.0.0-ocp4.21",
           "gitRef": "v1.0.0"
         },
         {
           "version": "1.0.0",
           "channel": "stable",
           "openshift": ["4.22"],
-          "image": "quay.io/cjanisze/oct-baremetal:1.0.0-ocp4.22",
+          "image": "quay.io/openshift-community-tools/oct-baremetal:1.0.0-ocp4.22",
           "gitRef": "v1.0.0"
         },
         {
           "version": "1.1.0",
           "channel": "stable",
           "openshift": ["4.22"],
-          "image": "quay.io/cjanisze/oct-baremetal:1.1.0-ocp4.22",
+          "image": "quay.io/openshift-community-tools/oct-baremetal:1.1.0-ocp4.22",
           "gitRef": "v1.1.0"
         }
       ],
@@ -48,7 +48,7 @@
       "description": "Bond physical NICs by MachineConfigPool. Creates NodeNetworkConfigurationPolicy resources.",
       "category": "network",
       "source": "community",
-      "git": "https://github.com/OOsemka/oct-network-bond",
+      "git": "https://github.com/openshift-community-tools/oct-network-bond",
       "consolePlugin": "oct-network-bond",
       "href": "/community-tools/network/bond",
       "icon": "tiles/oct-network-bond.svg",
@@ -58,21 +58,21 @@
           "version": "1.0.0",
           "channel": "stable",
           "openshift": ["4.21"],
-          "image": "quay.io/cjanisze/oct-network-bond:1.0.0-ocp4.21",
+          "image": "quay.io/openshift-community-tools/oct-network-bond:1.0.0-ocp4.21",
           "gitRef": "v1.0.0"
         },
         {
           "version": "1.0.0",
           "channel": "stable",
           "openshift": ["4.22"],
-          "image": "quay.io/cjanisze/oct-network-bond:1.0.0-ocp4.22",
+          "image": "quay.io/openshift-community-tools/oct-network-bond:1.0.0-ocp4.22",
           "gitRef": "v1.0.0"
         },
         {
           "version": "1.1.0",
           "channel": "stable",
           "openshift": ["4.22"],
-          "image": "quay.io/cjanisze/oct-network-bond:1.1.0-ocp4.22",
+          "image": "quay.io/openshift-community-tools/oct-network-bond:1.1.0-ocp4.22",
           "gitRef": "v1.1.0"
         }
       ],
