@@ -9,6 +9,11 @@
       "workload-hardening Deployment/oct-baremetal"
     ],
     "oct-hello-world": [],
+    "oct-must-gather": [
+      "backend-no-networkpolicy bundle",
+      "workload-hardening Deployment/must-gather-runner",
+      "workload-hardening Deployment/oct-must-gather"
+    ],
     "oct-network-bond": [],
     "oct-network-bridge": [],
     "oct-network-dhcp": [

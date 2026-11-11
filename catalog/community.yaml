@@ -1691,6 +1691,21 @@ spec:
   # Service and ServiceAccount (no RBAC), and the ConsolePlugin proxy with
   # UserToken authorization. The runner image is built per OCP minor; the
   # bundle uses the -ocp4.22 runner (oc 4.22 supports 4.21 clusters).
+  security:
+    schema: 1
+    level: namespaced
+    summary: Runs oc adm must-gather with your own credentials (cluster-admin needed for a full gather) and lets you download the archive. The runner's ServiceAccount has no RBAC; jobs and archives are visible only to the user who started them and expire after 4 hours.
+    backend:
+      services: [must-gather-runner]
+      auth: tokenreview
+      publicPaths: []
+    network: { ingress: console-only, networkPolicy: false, routes: [], egress: [] }
+    privileged:
+      scc: []
+      hostAccess: []
+      runtimeCreates:
+        - { kind: Namespace, name: "openshift-must-gather-* (temporary)", cleanup: Removed by oc adm must-gather when the gather ends., why: "oc adm must-gather runs its gather pod (privileged, on a node) in a temporary namespace; created with your permissions, not the runner's." }
+    secrets: { access: none }
   defaultChannel: stable
   channels:
     stable: {}

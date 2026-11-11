@@ -5,6 +5,7 @@ exports[`catalog deploy bundles > derives a profile for every bundle (levels sna
   "oct-banner.yaml": "plugin",
   "oct-baremetal.yaml": "privileged",
   "oct-hello-world.yaml": "plugin",
+  "oct-must-gather.yaml": "namespaced",
   "oct-network-bond.yaml": "plugin",
   "oct-network-bridge.yaml": "plugin",
   "oct-network-dhcp.yaml": "plugin",

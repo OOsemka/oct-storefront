@@ -67,8 +67,12 @@ function loadBaseline(): Baseline {
   return JSON.parse(readFileSync(BASELINE, 'utf8')) as Baseline;
 }
 
-/** deployURLs into this repository, any ref: checked against the local file. */
-const REPO_RAW = /^https:\/\/raw\.githubusercontent\.com\/OOsemka\/oct-storefront\/[^/]+\/(.+)$/;
+/**
+ * deployURLs into this repository, any ref: checked against the local file. The
+ * repository moved from OOsemka to openshift-community-tools; GitHub redirects the
+ * old URLs, so both owners count as this repository.
+ */
+const REPO_RAW = /^https:\/\/raw\.githubusercontent\.com\/(?:openshift-community-tools|OOsemka)\/oct-storefront\/[^/]+\/(.+)$/;
 const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 
 // Every bundle the storefront could install, keyed by an id: "<tool>" for
