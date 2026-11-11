@@ -52,17 +52,22 @@ const (
 // audit, so a manifest that forgets the variable logs would-be denials instead of
 // answering every request with 401/403. New extensions set AUTH_MODE=enforce in their
 // Deployment (the template does); existing ones ship audit until an admin enables
-// enforce in the cluster policy. An invalid value is logged.
+// enforce in the cluster policy. New logs an invalid value with Options.Logger.
 func ModeFromEnv() Mode {
+	m, _ := modeFromEnv()
+	return m
+}
+
+// modeFromEnv also reports whether AUTH_MODE is set to something unknown.
+func modeFromEnv() (mode Mode, invalid bool) {
 	raw := os.Getenv("AUTH_MODE")
 	switch m := Mode(strings.ToLower(strings.TrimSpace(raw))); m {
 	case Off, Audit, Enforce:
-		return m
+		return m, false
 	case "":
-		return Audit
+		return Audit, false
 	}
-	slog.Warn("AUTH_MODE has an unknown value; using audit (would-be denials are only logged)", "value", raw)
-	return Audit
+	return Audit, true
 }
 
 // Extractor reads a value (namespace or name) from a request.
@@ -200,7 +205,10 @@ type Authorizer struct {
 	routes []Route
 	mux    *http.ServeMux
 	cache  *cache
-	log    *slog.Logger
+	// rejected remembers tokens the API server refused, briefly and apart from the
+	// answer cache, so a flood of made-up tokens can't evict real users' answers.
+	rejected *cache
+	log      *slog.Logger
 }
 
 type ctxKey int
@@ -237,7 +245,7 @@ func New(opts Options, routes []Route) (a *Authorizer, err error) {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
-	a = &Authorizer{opts: opts, routes: routes, mux: http.NewServeMux(), cache: newCache(opts.CacheTTL, 10000), log: opts.Logger}
+	a = &Authorizer{opts: opts, routes: routes, mux: http.NewServeMux(), cache: newCache(opts.CacheTTL, 10000), rejected: newCache(rejectedTTL, 1000), log: opts.Logger}
 	withHandler := 0
 	for i := range routes {
 		rt := routes[i]
@@ -266,6 +274,10 @@ func New(opts Options, routes []Route) (a *Authorizer, err error) {
 		a.log.Warn("AUTH_MODE=off: requests are NOT checked. Use only for local development.", "extension", opts.Extension)
 	} else {
 		a.log.Info("permission checks active", "extension", opts.Extension, "mode", string(opts.Mode))
+	}
+	if _, invalid := modeFromEnv(); invalid {
+		a.log.Warn("AUTH_MODE has an unknown value; ModeFromEnv uses audit (would-be denials are only logged)",
+			"extension", opts.Extension, "value", os.Getenv("AUTH_MODE"))
 	}
 	return a, nil
 }
@@ -351,7 +363,7 @@ func (a *Authorizer) check(w http.ResponseWriter, r *http.Request, next http.Han
 		a.decide(w, r, next, mode, http.StatusUnauthorized, "no user token (the ConsolePlugin proxy needs authorization: UserToken)", nil)
 		return
 	}
-	if a.opts.IdentifyUsers {
+	if _, known := a.rejected.get(tokenHash(token)); a.opts.IdentifyUsers && !known {
 		if u := a.username(r.Context(), token); u != "" {
 			r = r.WithContext(context.WithValue(r.Context(), userKey, u))
 		}
@@ -422,15 +434,15 @@ func (a *Authorizer) review(ctx context.Context, token string, ra kubeclient.Res
 	if v, ok := a.cache.get(key); ok {
 		return v, nil
 	}
-	// A token the API server rejected stays rejected for the cache TTL, so a client
-	// sending made-up tokens costs one access review per token, not one per request.
-	rejected := th + "|rejected"
-	if _, ok := a.cache.get(rejected); ok {
+	// A token the API server rejected stays rejected for a few seconds (rejectedTTL),
+	// so a client sending made-up tokens costs about one access review per token, and a
+	// transient 401 doesn't lock a real user out for long.
+	if _, ok := a.rejected.get(th); ok {
 		return false, &kubeclient.StatusError{Code: http.StatusUnauthorized}
 	}
 	allowed, _, err := a.opts.Client.SelfSubjectAccessReview(ctx, token, ra)
 	if kubeclient.IsStatus(err, http.StatusUnauthorized) {
-		a.cache.put(rejected, false)
+		a.rejected.put(th, false)
 	}
 	if err != nil {
 		return false, err
@@ -485,6 +497,9 @@ type cacheEntry struct {
 	text    string
 	expires time.Time
 }
+
+// rejectedTTL is how long a token the API server refused is answered 401 without asking again.
+const rejectedTTL = 5 * time.Second
 
 func newCache(ttl time.Duration, max int) *cache {
 	return &cache{ttl: ttl, max: max, data: map[string]cacheEntry{}}
