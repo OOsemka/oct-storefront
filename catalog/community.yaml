@@ -92,7 +92,7 @@ spec:
     schema: 1
     level: plugin
     summary: Browser-only. Creates NodeNetworkConfigurationPolicies (node bonds) with your own permissions; can install the NMState operator if it is missing.
-    network: { ingress: console-only }
+    network: { ingress: console-only, networkPolicy: true }
     privileged:
       scc: []
       hostAccess: []
@@ -181,7 +181,7 @@ spec:
     schema: 1
     level: plugin
     summary: Browser-only. Shows a cluster banner by creating a ConsoleNotification with your own permissions.
-    network: { ingress: console-only }
+    network: { ingress: console-only, networkPolicy: true }
     privileged:
       scc: []
       hostAccess: []
@@ -562,7 +562,7 @@ spec:
     schema: 1
     level: plugin
     summary: Browser-only. Moves ODF traffic to dedicated networks with your own permissions; patches the StorageCluster network settings and creates NodeNetworkConfigurationPolicies and a validation Job.
-    network: { ingress: console-only }
+    network: { ingress: console-only, networkPolicy: true }
     privileged:
       scc: []
       hostAccess: []
@@ -619,7 +619,7 @@ spec:
     schema: 1
     level: plugin
     summary: Example console page. No backend, no API access, no RBAC.
-    network: { ingress: console-only }
+    network: { ingress: console-only, networkPolicy: true }
     secrets: { access: none }
   versions:
     - version: "1.0.0"
@@ -1148,7 +1148,7 @@ spec:
     schema: 1
     level: plugin
     summary: Browser-only. Creates NodeNetworkConfigurationPolicies (Linux and OVS bridges) with your own permissions; can install the NMState operator if it is missing.
-    network: { ingress: console-only }
+    network: { ingress: console-only, networkPolicy: true }
     privileged:
       scc: []
       hostAccess: []
@@ -1244,7 +1244,7 @@ spec:
     schema: 1
     level: plugin
     summary: Browser-only. Creates VLAN networks (ClusterUserDefinedNetworks, NetworkAttachmentDefinitions and their namespaces) with your own permissions; can install the NMState operator if it is missing.
-    network: { ingress: console-only }
+    network: { ingress: console-only, networkPolicy: true }
     privileged:
       scc: []
       hostAccess: []
