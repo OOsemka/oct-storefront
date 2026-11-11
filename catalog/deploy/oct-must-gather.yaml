@@ -5,9 +5,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: oct-must-gather
 ---
-# The runner calls the API server only with the signed-in console user's token
-# (ConsolePlugin proxy authorization: UserToken). Its own ServiceAccount gets
-# no RBAC and no mounted token.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -106,11 +103,10 @@ spec:
     spec:
       serviceAccountName: must-gather-runner
       automountServiceAccountToken: false
-      # Time for oc to delete its temporary must-gather namespace on shutdown.
       terminationGracePeriodSeconds: 120
       containers:
         - name: runner
-          image: quay.io/dwaiting/oct-must-gather-runner:0.1.1-ocp4.22
+          image: quay.io/dwaiting/oct-must-gather-runner@sha256:47f0036b6034a61b8cd08487e9372d47f3e308e4a6c020c424bee7850ecdd57d
           ports:
             - containerPort: 8443
               protocol: TCP
@@ -163,9 +159,6 @@ spec:
         - name: kube-root-ca
           configMap:
             name: kube-root-ca.crt
-        # Gathered data and archives (deleted after download TTL). A full
-        # must-gather is usually a few hundred MB to a few GB; uses node
-        # ephemeral storage.
         - name: work
           emptyDir: {}
 ---
