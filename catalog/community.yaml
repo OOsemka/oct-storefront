@@ -48,7 +48,7 @@ spec:
         - { apiGroups: [snapshot.storage.k8s.io], resources: [volumesnapshots, volumesnapshotclasses], verbs: [get, list], why: Find the snapshot behind a golden image. }
         - { apiGroups: [storage.k8s.io], resources: [storageclasses], verbs: [get, list], why: Pick a StorageClass for exports. }
         - { apiGroups: [export.kubevirt.io], resources: [virtualmachineexports], verbs: [get, list, create, delete], why: Export golden images into the image cache. }
-        - { apiGroups: [""], resources: [secrets], verbs: [get], why: "Read the token of the VM export it created. Cluster-wide today; exports are limited to IMAGE_NAMESPACES (default openshift-virtualization-os-images) in code, the Role is to follow." }
+        - { apiGroups: [""], resources: [secrets], verbs: [get], why: "Read the token of the VM export it created (get only). Cluster-wide because the image namespace exists only with OpenShift Virtualization, and a Role there would block installing Bare Metal without it; exports are limited to IMAGE_NAMESPACES (default openshift-virtualization-os-images) in code." }
         - { apiGroups: [""], resources: [persistentvolumeclaims], verbs: [get, list, create, delete], why: Volumes for exported images. }
         - { apiGroups: [route.openshift.io], resources: [routes], verbs: [get, list], why: Find the image-cache URL to give Ironic. }
     secrets: { access: cluster, why: "VM export tokens (get only). BMC credentials are created by the signed-in user, not by this tool." }
