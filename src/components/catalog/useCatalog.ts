@@ -363,7 +363,7 @@ export function useCatalog(category: ToolCategory) {
         item.tool,
         version,
         'add',
-        (prep) => addExtension(item.tool, version, clusterVersion, { ...opts, reviewedYaml: prep.yaml, action: 'add', policy: telemetryPolicy(prep) }),
+        (prep) => addExtension(item.tool, version, clusterVersion, { ...opts, reviewedYaml: prep.yaml, action: 'add', policy: telemetryPolicy(prep), clusterHash: clusterHashRef.current }),
         `Added ${item.tool.spec.displayName}${version?.version ? ` ${version.version}` : ''}. Refresh the console to load the plugin.`,
       ),
     [gated, clusterVersion],
@@ -415,6 +415,8 @@ export function useCatalog(category: ToolCategory) {
       // Nothing is sent until the policy is loaded, or when it couldn't be read.
       const known = policyState && policyState.source !== 'error' ? policyState.policy : undefined;
       await setClusterRating(item.id, stars, item.tool.spec.source, clusterHashRef.current, known);
+      // Show the new public average now instead of after the hourly sync.
+      if (known && item.tool.spec.source === 'community') void refreshPublicCatalogIntoCache(true).catch(() => undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

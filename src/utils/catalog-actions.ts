@@ -396,6 +396,7 @@ export async function incrementDownloads(
   id: string,
   source: 'community' | 'external',
   policy: Policy = NO_TELEMETRY,
+  clusterHash?: string,
 ): Promise<void> {
   await patchStats((stats) => {
     const cur = stats[id] || emptyStats();
@@ -403,7 +404,7 @@ export async function incrementDownloads(
     stats[id] = cur;
   });
   if (source === 'community' && telemetryAllows(policy, 'download')) {
-    void postPublicDownload(id);
+    void postPublicDownload(id, clusterHash);
   }
 }
 
@@ -427,7 +428,9 @@ export async function setClusterRating(
     stats[id] = cur;
   });
   if (source === 'community' && clusterHash && telemetryAllows(policy, 'rating')) {
-    void postPublicRating(id, stars, clusterHash);
+    // Awaited (bounded by its timeout, errors ignored) so the caller can refresh the
+    // public average right after.
+    await postPublicRating(id, stars, clusterHash);
   }
 }
 
@@ -744,6 +747,8 @@ export type AddExtensionOpts = {
   action?: 'add' | 'update';
   /** Cluster policy, for the telemetry setting. */
   policy?: Policy;
+  /** Anonymous cluster hash: the public API counts each cluster once per tool. */
+  clusterHash?: string;
 };
 
 export type AddExtensionResult = {
@@ -776,7 +781,7 @@ export async function addExtension(
   const log = await applyYaml(yaml, { storageClassName, extensionId: tool.metadata.name });
   await setPluginEnabled(tool.spec.consolePlugin, true);
   if ((opts.action || 'add') === 'add') {
-    await incrementDownloads(tool.metadata.name, tool.spec.source, opts.policy);
+    await incrementDownloads(tool.metadata.name, tool.spec.source, opts.policy, opts.clusterHash);
   }
   await recordInstalled(tool.metadata.name, {
     version: version?.version || '',

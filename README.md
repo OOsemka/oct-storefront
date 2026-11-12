@@ -6,7 +6,7 @@ This repository is the **storefront**: left-nav **Community Tools** and category
 
 - **Plugin ID:** `oct-storefront`
 - **OpenShift:** 4.22 (PatternFly 6)
-- **Images:** `quay.io/openshift-community-tools/oct-storefront:1.6.0-ocp4.22` (plugin UI; also publish `:1.6.0-ocp4.21`) and `quay.io/openshift-community-tools/oct-storefront-catalog:1.1.0-ocp4.22` / `-ocp4.21` (catalog-service; no webpack UI)
+- **Images:** `quay.io/openshift-community-tools/oct-storefront:1.6.1-ocp4.22` (plugin UI; also publish `:1.6.1-ocp4.21`) and `quay.io/openshift-community-tools/oct-storefront-catalog:1.1.0-ocp4.22` / `-ocp4.21` (catalog-service; no webpack UI)
 
 ## Install (one command)
 

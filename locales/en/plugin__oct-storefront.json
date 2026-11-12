@@ -188,5 +188,8 @@
   "How to change these settings": "How to change these settings",
   "As a cluster admin. The policy file, with every setting explained, is deploy/policy/community-tools-policy.yaml in the oct-storefront repository; the admission pack is in deploy/policy/vap.": "As a cluster admin. The policy file, with every setting explained, is deploy/policy/community-tools-policy.yaml in the oct-storefront repository; the admission pack is in deploy/policy/vap.",
   "View the cluster policy": "View the cluster policy",
-  "Security guide: install review, policy examples, turning on enforcement": "Security guide: install review, policy examples, turning on enforcement"
+  "Security guide: install review, policy examples, turning on enforcement": "Security guide: install review, policy examples, turning on enforcement",
+  "Average of all clusters that rated this tool": "Average of all clusters that rated this tool",
+  "Your rating {{stars}} · ": "Your rating {{stars}} · ",
+  "avg {{avg}} ({{count}})": "avg {{avg}} ({{count}})"
 }

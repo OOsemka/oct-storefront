@@ -45,7 +45,9 @@ export const ExtensionTile: FC<{
   const { tool, stats, enabled, installed } = item;
   const avg = ratingAverage(stats, preferPublic);
   const downloads = downloadCount(stats, preferPublic);
-  const shown = Math.round(avg);
+  // Your own vote when you've rated, else the (rounded) average.
+  const mine = stats.clusterRating || 0;
+  const shown = mine || Math.round(avg);
   const versions = openshiftMinors(tool.spec).join(', ') || t('Unknown');
   const badge = tool.spec.source === 'external' ? t('External') : t('Community');
   const updateVer = item.updateAvailable?.version;
@@ -104,8 +106,12 @@ export const ExtensionTile: FC<{
           {[1, 2, 3, 4, 5].map((n) => (
             <Star key={n} filled={n <= shown} onClick={() => onRate(n)} disabled={busy} />
           ))}
-          <span className="ct-tile__stat-text">
-            {avg ? avg.toFixed(1) : '—'} ({stats.ratingCount || stats.publicRatingCount || 0})
+          <span className="ct-tile__stat-text" title={t('Average of all clusters that rated this tool')}>
+            {mine ? t('Your rating {{stars}} · ', { stars: mine }) : ''}
+            {t('avg {{avg}} ({{count}})', {
+              avg: avg ? avg.toFixed(1) : '—',
+              count: (preferPublic ? stats.publicRatingCount : stats.ratingCount) || stats.ratingCount || 0,
+            })}
           </span>
         </div>
         <span className="ct-tile__stat-text">{t('{{count}} downloads', { count: downloads })}</span>
