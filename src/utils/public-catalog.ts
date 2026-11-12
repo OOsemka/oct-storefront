@@ -60,10 +60,14 @@ export async function fetchDeployYaml(url: string): Promise<{ ok: boolean; yaml?
 }
 
 /** Best-effort. Ignore all errors. */
-export async function postPublicDownload(id: string): Promise<void> {
+export async function postPublicDownload(id: string, clusterHash?: string): Promise<void> {
   try {
     await withTimeout(
-      consoleFetchJSON.post(`${CATALOG_PROXY}/api/v1/stats/download`, { toolId: id }),
+      // With the cluster hash the public API counts each cluster once per tool.
+      consoleFetchJSON.post(`${CATALOG_PROXY}/api/v1/stats/download`, {
+        toolId: id,
+        ...(clusterHash ? { clusterHash } : {}),
+      }),
       TIMEOUT_MS,
     );
   } catch {
